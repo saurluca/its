@@ -21,9 +21,11 @@ llm = ChatGoogleGenerativeAI(temperature=0, model="gemini-2.0-flash")
 
 llm_transformer = LLMGraphTransformer(llm=llm, node_properties=True)
 
+
 def read_text_from_file(text_path):
     with open(text_path, "r") as file:
         return file.read()
+
 
 text = read_text_from_file(text_path)
 
@@ -31,7 +33,7 @@ text = read_text_from_file(text_path)
 print(f"Length of text: {len(text)}")
 
 
-# %% 
+# %%
 documents = [Document(page_content=text)]
 graph_documents = llm_transformer.convert_to_graph_documents(documents)
 print(f"Nodes:{graph_documents[0].nodes}")

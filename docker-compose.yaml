@@ -13,10 +13,9 @@ services:
       - ./neo4j/config:/config  # Persist config
       - ./neo4j/import:/var/lib/neo4j/import # For bulk import of CSVs
     environment:
-      # Set your desired password for the 'neo4j' user
-      # IMPORTANT: Change 'your_strong_password' to something secure!
       - NEO4J_AUTH=neo4j/password
-      # - NEO4J_apoc_export_file_enabled=true  # Enable APOC procedures for import/export
-      # - NEO4J_apoc_import_file_enabled=true
-      # - NEO4J_apoc_import_file_use_neo4j_config=true
+      - NEO4J_apoc_export_file_enabled=true  # Enable APOC procedures for import/export
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use_neo4j_config=true
+      - NEO4J_PLUGINS=["apoc"]
     restart: always # Ensure Neo4j restarts if it crashes(main) ✗ docker logs neo4j_local 

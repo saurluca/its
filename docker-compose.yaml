@@ -1,0 +1,22 @@
+
+services:
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j_local
+    ports:
+      - "7474:7474"  # Neo4j Browser (HTTP)
+      - "7687:7687"  # Bolt protocol (for drivers like Python)
+    volumes:
+      - ./neo4j/data:/data  # Persist database data
+      - ./neo4j/logs:/logs  # Persist logs
+      - ./neo4j/plugins:/plugins  # Persist plugins
+      - ./neo4j/config:/config  # Persist config
+      - ./neo4j/import:/var/lib/neo4j/import # For bulk import of CSVs
+    environment:
+      # Set your desired password for the 'neo4j' user
+      # IMPORTANT: Change 'your_strong_password' to something secure!
+      - NEO4J_AUTH=neo4j/password
+      # - NEO4J_apoc_export_file_enabled=true  # Enable APOC procedures for import/export
+      # - NEO4J_apoc_import_file_enabled=true
+      # - NEO4J_apoc_import_file_use_neo4j_config=true
+    restart: always # Ensure Neo4j restarts if it crashes(main) ✗ docker logs neo4j_local 

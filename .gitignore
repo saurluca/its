@@ -8,3 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
+
+# data
+data/*
+data/documents/*
+# include documents folder
+!data/documents/
+
+# env
+.env
+
+# neo4j
+neo4j/*

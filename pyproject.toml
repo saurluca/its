@@ -4,4 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "dotenv>=0.9.9",
+    "kg-gen>=0.2.0",
+    "neo4j>=5.28.1",
+    "pypdf2>=3.0.1",
+    "pytesseract>=0.3.13",
+]

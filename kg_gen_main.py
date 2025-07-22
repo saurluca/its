@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from kg_gen import KGGen
 import os
 from neo4j import GraphDatabase
+from kg_gen.models import Graph
 
 load_dotenv()
 
@@ -24,6 +25,23 @@ def save_text_to_file(text, text_path):
 def read_text_from_file(text_path):
     with open(text_path, "r") as file:
         return file.read()
+
+
+def extract_graph_from_text(kg, text, context="", block_size=6000, cluster=False):
+    print(
+        f"Splitting text into blocks {len(text) // block_size} of {block_size} characters"
+    )
+    for i in range(0, len(text), block_size):
+        print(f"Processing block {i // block_size + 1} of {len(text) // block_size}")
+        block = text[i : i + block_size]
+        graph = kg.generate(
+            input_data=block,
+            context=context,
+            chunk_size=block_size,
+            cluster=cluster,
+        )
+        print(f"Saving graph {i // block_size + 1} of {len(text) // block_size}")
+        save_graph_to_neo4j(graph)
 
 
 def save_graph_to_neo4j(
@@ -65,6 +83,45 @@ def save_graph_to_neo4j(
     driver.close()
 
 
+def read_and_cluster_graph_from_neo4j(
+    kg,
+    context="Optional context for clustering",
+    uri="bolt://localhost:7687",
+    user="neo4j",
+    password="password",
+):
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    with driver.session() as session:
+        # Get all entities
+        entity_result = session.run("MATCH (n:Entity) RETURN n.name AS name")
+        entities = set(record["name"] for record in entity_result)
+
+        # Get all relations (subject, predicate, object)
+        relation_result = session.run(
+            """
+            MATCH (a:Entity)-[r:RELATION]->(b:Entity)
+            RETURN a.name AS subj, r.type AS pred, b.name AS obj
+            """
+        )
+        relations = set(
+            (record["subj"], record["pred"], record["obj"])
+            for record in relation_result
+        )
+
+    driver.close()
+
+    print("Starting to build graph...")
+    # Build the Graph object
+    combined_graph = Graph(
+        entities=entities, relations=relations, edges={r[1] for r in relations}
+    )
+
+    print("Starting to cluster graph...")
+    # Cluster the graph using KGGen
+    clustered_graph = kg.cluster(combined_graph, context=context)
+    return clustered_graph
+
+
 def main():
     print("Starting...")
     pdf_path = "data/documents/neuroscience.pdf"
@@ -85,16 +142,22 @@ def main():
         api_key=os.getenv("GOOGLE_API_KEY"),
     )
 
-    print("Generating graph 1...")
-    graph_1 = kg.generate(
-        input_data=text_input,
-        context="Lecture for introduction to a neuroscience university course.",
-        chunk_size=5000,
-        # cluster=True,
+    print("Generating and saving initial graph...")
+    # extract_graph_from_text(
+    #     kg,
+    #     text_input,
+    #     context="Lecture for introduction to a neuroscience university course.",
+    #     block_size=6000,
+    #     cluster=False,
+    # )
+
+    print("Reading graph from Neo4j and clustering...")
+    clustered_graph = read_and_cluster_graph_from_neo4j(
+        kg, context="Lecture for introduction to a neuroscience university course."
     )
 
-    print("Saving graph to Neo4j...")
-    save_graph_to_neo4j(graph_1)
+    print("Saving clustered graph back to Neo4j...")
+    save_graph_to_neo4j(clustered_graph)
 
 
 if __name__ == "__main__":

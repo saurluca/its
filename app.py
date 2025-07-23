@@ -12,6 +12,7 @@ from teacher import evaluate_student_answer
 from dotenv import load_dotenv
 import dspy
 from summariser import summarise_document
+from question_generator import generate_questions
 
 app = FastAPI()
 
@@ -68,6 +69,15 @@ def summarise_document_endpoint(doc_id: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
+
+@app.get("/generate_questions/{doc_id}", response_class=JSONResponse)
+def generate_questions_endpoint(doc_id: str):
+    try:
+        qg_response = generate_questions(doc_id)
+        return {"questions": qg_response.questions, "answer_options": qg_response.answer_options, "correct_answers": qg_response.correct_answers}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/questions/{doc_id}", response_class=JSONResponse)
 def get_questions(doc_id: str):

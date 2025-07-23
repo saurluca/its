@@ -1,4 +1,3 @@
-from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 from kg_gen import KGGen
 import os

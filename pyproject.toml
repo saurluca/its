@@ -19,6 +19,7 @@ dependencies = [
     "langgraph>=0.5.4",
     "llama-index>=0.12.38",
     "neo4j>=5.28.1",
+    "pre-commit>=4.2.0",
     "psycopg[binary]>=3.2.9",
     "pypdf2>=3.0.1",
     "pytesseract>=0.3.13",

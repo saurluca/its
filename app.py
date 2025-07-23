@@ -11,6 +11,7 @@ from db_utils import (
 from teacher import evaluate_student_answer
 from dotenv import load_dotenv
 import dspy
+from summariser import summarise_document
 
 app = FastAPI()
 
@@ -58,8 +59,9 @@ def get_document(doc_id: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))    
 
+
 @app.get("/summarise_document/{doc_id}", response_class=JSONResponse)
-def summarise_document(doc_id: str):
+def summarise_document_endpoint(doc_id: str):
     try:
         key_points = summarise_document(doc_id)
         return {"key_points": key_points}

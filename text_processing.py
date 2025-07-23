@@ -51,6 +51,26 @@ def save_text_to_db(text):
         conn.close()
 
 
+def get_text_from_db(doc_id):
+    conn = psycopg.connect(
+        dbname="postgres",
+        user="postgres",
+        password="password",
+        host="localhost",
+        port=5432,
+    )
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT content FROM documents WHERE id = %s;", (doc_id,))
+                row = cur.fetchone()
+                if row is None:
+                    raise ValueError(f"No document found with id: {doc_id}")
+                return row[0]
+    finally:
+        conn.close()
+
+
 def extract_text_from_file(
     file_or_path, output_path=None, save_to_file=False, mime_type=None, save_to_db=False
 ):

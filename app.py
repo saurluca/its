@@ -35,10 +35,12 @@ def get_titles():
         )
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT title FROM documents ORDER BY created_at DESC;")
-                titles = [row[0] for row in cur.fetchall()]
+                cur.execute("SELECT id, title FROM documents ORDER BY created_at DESC;")
+                results = cur.fetchall()
+                titles = [row[1] for row in results]
+                ids = [row[0] for row in results]
         conn.close()
-        return {"titles": titles}
+        return {"titles": titles, "ids": ids}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

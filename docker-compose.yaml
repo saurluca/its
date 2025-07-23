@@ -19,3 +19,15 @@ services:
       - NEO4J_apoc_import_file_use_neo4j_config=true
       - NEO4J_PLUGINS=["apoc"]
     restart: always # Ensure Neo4j restarts if it crashes(main) ✗ docker logs neo4j_local 
+
+  db:
+    image: postgres:latest
+    container_name: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    restart: always

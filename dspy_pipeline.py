@@ -4,9 +4,6 @@ from dotenv import load_dotenv
 from to_text import read_text_from_file
 
 
-
-
-
 load_dotenv()
 
 lm = dspy.LM("openai/gpt-4.1-nano")

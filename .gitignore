@@ -19,4 +19,7 @@ data/documents/*
 .env
 
 # neo4j
-neo4j/*
+neo4j/
+
+# db
+db/

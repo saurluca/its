@@ -56,8 +56,16 @@ def get_document(doc_id: str):
         content = get_document_content_from_db(doc_id)
         return {"content": content}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))    
 
+@app.get("/summarise_document/{doc_id}", response_class=JSONResponse)
+def summarise_document(doc_id: str):
+    try:
+        key_points = summarise_document(doc_id)
+        return {"key_points": key_points}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
 
 @app.get("/questions/{doc_id}", response_class=JSONResponse)
 def get_questions(doc_id: str):

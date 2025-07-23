@@ -1,12 +1,14 @@
 # %%
 import dspy
 from dotenv import load_dotenv
+from text_processing import extract_text_from_file
 from db_utils import (
     get_document_content_from_db,
     save_key_points_to_db,
     save_questions_to_db,
 )
 from teacher import evaluate_student_answer
+from summarizer import summarise_document
 
 
 load_dotenv()
@@ -17,30 +19,22 @@ dspy.configure(lm=lm)
 
 # %% READ IN DOCUMENT
 
-# raw_document_path = "data/documents/neuroscience_mini.pdf"
-# text_document_path = "data/documents/neuroscience_mini.txt"
+# raw_document_path = "data/documents/2_anonymization_I.pdf"
+# text_document_path = "data/documents/2_anonymization_I.txt"
 
 # document = extract_text_from_file(raw_document_path, output_path=text_document_path, save_to_file=True)
 
 # test_document = read_text_from_file("data/documents/neuroscience_mini.txt")
 # document = read_text_from_file(test_document)
 
-doc_id = "83ea9618-eb51-4e98-af2b-5068590ef4c2"
-document = get_document_content_from_db(doc_id)
+doc_id = "2be3c874-20e3-4d69-a0b4-ffe6e021c206"
+document = get_document_content_from_db(doc_id)   
 
-print(document)
-
+# print(document)
 
 # %% SUMMARISE DOCUMENT
 
-summarizer = dspy.ChainOfThought("document -> key_points")
-
-response = summarizer(document=document)
-key_points = response.key_points
-print(key_points)
-
-# save key points to db
-save_key_points_to_db(doc_id, key_points)
+key_points = summarise_document(doc_id)
 
 # %% GENERATE QUESTIONS
 

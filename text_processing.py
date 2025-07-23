@@ -2,7 +2,7 @@ from PyPDF2 import PdfReader
 import mimetypes
 import os
 from db_utils import save_document_to_db
-
+import re
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
@@ -10,6 +10,12 @@ def extract_text_from_pdf(pdf_path):
         text = ""
         for page in reader.pages:
             text += page.extract_text()
+    return text
+
+
+def clean_text(text):
+    # remove NUL (0x00) bytes
+    text = text.replace("\x00", "")   
     return text
 
 
@@ -75,6 +81,8 @@ def extract_text_from_file(
         raise ValueError("Image files are not yet supported")
     else:
         raise ValueError(f"Unsupported file type: {mime_type}")
+    
+    text = clean_text(text)
 
     if save_to_db:
         document_id = save_document_to_db(text)

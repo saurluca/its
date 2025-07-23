@@ -39,6 +39,9 @@ def extract_text_from_file(file_path, output_path=None, save_to_file=False):
         text = extract_text_from_pdf(file_path)
     elif mime_type == "text/plain":
         text = read_text_from_file(file_path)
+    elif mime_type and mime_type.startswith("image/"):
+        # TODO: OCR image files
+        raise ValueError("Image files are not yet supported")
     else:
         raise ValueError(f"Unsupported file type: {mime_type}")
 

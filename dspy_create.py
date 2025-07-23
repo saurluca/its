@@ -1,10 +1,10 @@
 # %%
 import dspy
 from dotenv import load_dotenv
-from to_text import extract_text_from_pdf, save_text_to_file, read_text_from_file
+from to_text import read_text_from_file
 
 
-document_path = "data/documents/neuroscience.pdf"
+
 
 
 load_dotenv()
@@ -15,10 +15,13 @@ dspy.configure(lm=lm)
 
 # %% READ IN DOCUMENT
 
-document = extract_text_from_pdf(document_path)
+# raw_document_path = "data/documents/neuroscience.pdf"
+# text_document_path = "data/documents/neuroscience.txt"
 
-save_text_to_file(document, "data/documents/neuroscience.txt")
+# document = extract_text_from_file(raw_document_path, output_path=text_document_path, save_to_file=True)
 
+test_document = read_text_from_file("data/documents/neuroscience_mini.txt")
+document = read_text_from_file(test_document)
 
 
 # %% SUMMARISE DOCUMENT

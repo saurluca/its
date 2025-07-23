@@ -24,7 +24,7 @@ dspy.configure(lm=lm)
 # document = read_text_from_file(test_document)
 
 doc_id = "2be3c874-20e3-4d69-a0b4-ffe6e021c206"
-document = get_document_content_from_db(doc_id)   
+document = get_document_content_from_db(doc_id)
 
 # print(document)
 

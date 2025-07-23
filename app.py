@@ -42,7 +42,9 @@ def document_to_questions(file: UploadFile = File(...)):
     4. Return questions and related info
     """
     # Step 1: Extract text and save to DB
-    document_id = extract_text_from_file(file.file, save_to_db=True, mime_type=file.content_type)
+    document_id = extract_text_from_file(
+        file.file, save_to_db=True, mime_type=file.content_type
+    )
 
     # Step 2: Summarise document (stores key points in DB)
     key_points = summarise_document(document_id)

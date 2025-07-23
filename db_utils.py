@@ -89,7 +89,9 @@ def get_key_points_from_db(doc_id):
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT key_points FROM documents WHERE id = %s;", (doc_id,))
+                cur.execute(
+                    "SELECT key_points FROM documents WHERE id = %s;", (doc_id,)
+                )
                 row = cur.fetchone()
                 return row[0]
     finally:

@@ -31,14 +31,16 @@ def save_document_to_db(text):
         # save document to db
         with conn:
             with conn.cursor() as cur:
+                document_id = str(uuid.uuid4())
                 cur.execute(
                     """
                     INSERT INTO documents (id, title, content)
                     VALUES (%s, %s, %s)
                     RETURNING id;
                     """,
-                    (str(uuid.uuid4()), title, text),
+                    (document_id, title, text),
                 )
+                return document_id
     finally:
         conn.close()
 

@@ -30,13 +30,13 @@ def health_check():
     return {"status": "ok"}
 
 
-@app.post("/convert_to_text", response_class=PlainTextResponse)
+@app.post("/convert_to_text", response_class=JSONResponse)
 def convert_to_text(file: UploadFile = File(...)):
     try:
-        text = extract_text_from_file(
+        document_id = extract_text_from_file(
             file.file, mime_type=file.content_type, save_to_db=True
         )
-        return text
+        return {"document_id": document_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

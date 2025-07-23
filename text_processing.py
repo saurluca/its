@@ -77,7 +77,8 @@ def extract_text_from_file(
         raise ValueError(f"Unsupported file type: {mime_type}")
 
     if save_to_db:
-        save_document_to_db(text)
+        document_id = save_document_to_db(text)
+        return document_id
 
     if save_to_file:
         assert output_path, "Output path is required when saving to file"

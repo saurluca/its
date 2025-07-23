@@ -42,7 +42,6 @@ print(key_points)
 # save key points to db
 save_key_points_to_db(doc_id, key_points)
 
-
 # %% GENERATE QUESTIONS
 
 

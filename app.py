@@ -2,7 +2,11 @@ from fastapi import FastAPI
 from fastapi import UploadFile, File, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
 from text_processing import extract_text_from_file
-from db_utils import get_document_titles_and_ids_from_db, get_document_content_from_db
+from db_utils import (
+    get_document_titles_and_ids_from_db,
+    get_document_content_from_db,
+    get_questions_by_document_id,
+)
 
 
 app = FastAPI()
@@ -40,6 +44,15 @@ def get_documents():
         return {"titles": titles, "ids": ids}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/questions/{doc_id}", response_class=JSONResponse)
+def get_questions(doc_id: str):
+    try:
+        questions = get_questions_by_document_id(doc_id)
+        return {"questions": questions}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/health", response_class=JSONResponse)

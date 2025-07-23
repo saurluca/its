@@ -112,3 +112,33 @@ def save_questions_to_db(doc_id, questions, answer_options, correct_answers):
                     )
     finally:
         conn.close()
+
+
+def get_questions_by_document_id(doc_id):
+    """
+    Retrieve all questions, answer options, and correct answers for a given document ID.
+    Returns a list of dicts: { 'question': str, 'answer_options': list[str], 'correct_answer': int }
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT question, answer_options, correct_answer
+                    FROM questions
+                    WHERE document_id = %s;
+                    """,
+                    (doc_id,),
+                )
+                rows = cur.fetchall()
+                return [
+                    {
+                        "question": row[0],
+                        "answer_options": row[1],
+                        "correct_answer": row[2],
+                    }
+                    for row in rows
+                ]
+    finally:
+        conn.close()

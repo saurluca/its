@@ -32,6 +32,34 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.post("/document_to_questions", response_class=JSONResponse)
+def document_to_questions(file: UploadFile = File(...)):
+    """
+    Run the full pipeline:
+    1. Convert file to text and save to DB (returns document_id)
+    2. Summarise document (stores key points in DB)
+    3. Generate questions (stores questions in DB)
+    4. Return questions and related info
+    """
+    # Step 1: Extract text and save to DB
+    document_id = extract_text_from_file(file.file, save_to_db=True, mime_type=file.content_type)
+
+    # Step 2: Summarise document (stores key points in DB)
+    key_points = summarise_document(document_id)
+
+    # Step 3: Generate questions (stores questions in DB)
+    qg_response = generate_questions(document_id)
+
+    # Step 4: Return questions and related info
+    return {
+        "document_id": document_id,
+        "key_points": key_points,
+        "questions": qg_response.questions,
+        "answer_options": qg_response.answer_options,
+        "correct_answers": qg_response.correct_answers,
+    }
+
+
 @app.post("/convert_to_text", response_class=JSONResponse)
 def convert_to_text(file: UploadFile = File(...)):
     try:

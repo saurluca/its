@@ -1,9 +1,7 @@
 from PyPDF2 import PdfReader
 import mimetypes
 import os
-import psycopg
-import uuid
-
+from db_utils import save_text_to_db
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
@@ -23,52 +21,6 @@ def read_text_from_file(text_path):
     with open(text_path, "r") as file:
         text = file.read()
     return text
-
-
-def save_text_to_db(text):
-    # Use the first line as the title
-    title = text.strip().split("\n", 1)[0][:255]
-    # Connect to local Postgres (docker-compose.yaml settings)
-    conn = psycopg.connect(
-        dbname="postgres",
-        user="postgres",
-        password="password",
-        host="localhost",
-        port=5432,
-    )
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO documents (id, title, content)
-                    VALUES (%s, %s, %s)
-                    RETURNING id;
-                    """,
-                    (str(uuid.uuid4()), title, text),
-                )
-    finally:
-        conn.close()
-
-
-def get_text_from_db(doc_id):
-    conn = psycopg.connect(
-        dbname="postgres",
-        user="postgres",
-        password="password",
-        host="localhost",
-        port=5432,
-    )
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT content FROM documents WHERE id = %s;", (doc_id,))
-                row = cur.fetchone()
-                if row is None:
-                    raise ValueError(f"No document found with id: {doc_id}")
-                return row[0]
-    finally:
-        conn.close()
 
 
 def extract_text_from_file(

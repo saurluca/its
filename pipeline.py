@@ -28,13 +28,13 @@ print(document)
 
 # %% SUMMARISE DOCUMENT
 
-document = open("data/documents/neuroscience_mini.txt", "r").read()
-
 summarizer = dspy.ChainOfThought("document -> key_points")
 
 response = summarizer(document=document)
 key_points = response.key_points
 print(key_points)
+
+
 
 # %% GENERATE QUESTIONS
 

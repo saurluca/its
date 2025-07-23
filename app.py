@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi import UploadFile, File, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
 from text_processing import extract_text_from_file
-import psycopg
+from db_utils import get_document_titles_and_ids_from_db, get_document_content_from_db
+
 
 app = FastAPI()
 
@@ -23,23 +24,19 @@ def convert_to_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/titles", response_class=JSONResponse)
-def get_titles():
+@app.get("/document/{doc_id}", response_class=JSONResponse)
+def get_document(doc_id: str):
     try:
-        conn = psycopg.connect(
-            dbname="postgres",
-            user="postgres",
-            password="password",
-            host="localhost",
-            port=5432,
-        )
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT id, title FROM documents ORDER BY created_at DESC;")
-                results = cur.fetchall()
-                titles = [row[1] for row in results]
-                ids = [row[0] for row in results]
-        conn.close()
+        content = get_document_content_from_db(doc_id)
+        return {"content": content}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+
+@app.get("/documents", response_class=JSONResponse)
+def get_documents():
+    try:
+        titles, ids = get_document_titles_and_ids_from_db()
         return {"titles": titles, "ids": ids}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

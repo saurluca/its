@@ -1,6 +1,8 @@
 from PyPDF2 import PdfReader
 import mimetypes
 import os
+import psycopg
+import uuid
 
 
 def extract_text_from_pdf(pdf_path):
@@ -23,8 +25,34 @@ def read_text_from_file(text_path):
     return text
 
 
+def save_text_to_db(text):
+    # Use the first line as the title
+    title = text.strip().split("\n", 1)[0][:255]
+    # Connect to local Postgres (docker-compose.yaml settings)
+    conn = psycopg.connect(
+        dbname="postgres",
+        user="postgres",
+        password="password",
+        host="localhost",
+        port=5432,
+    )
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO documents (id, title, content)
+                    VALUES (%s, %s, %s)
+                    RETURNING id;
+                    """,
+                    (str(uuid.uuid4()), title, text),
+                )
+    finally:
+        conn.close()
+
+
 def extract_text_from_file(
-    file_or_path, output_path=None, save_to_file=False, mime_type=None
+    file_or_path, output_path=None, save_to_file=False, mime_type=None, save_to_db=False
 ):
     assert file_or_path, "File or file path is required"
     text = None
@@ -74,6 +102,9 @@ def extract_text_from_file(
         raise ValueError("Image files are not yet supported")
     else:
         raise ValueError(f"Unsupported file type: {mime_type}")
+
+    if save_to_db:
+        save_text_to_db(text)
 
     if save_to_file:
         assert output_path, "Output path is required when saving to file"

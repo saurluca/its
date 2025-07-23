@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "dotenv>=0.9.9",
+    "fastapi>=0.116.1",
     "ipykernel>=6.30.0",
     "kg-gen>=0.2.0",
     "langchain>=0.3.26",
@@ -19,4 +20,7 @@ dependencies = [
     "neo4j>=5.28.1",
     "pypdf2>=3.0.1",
     "pytesseract>=0.3.13",
+    "uvicorn>=0.35.0",
 ]
+fastapi = "^0.110.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}

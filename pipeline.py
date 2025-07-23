@@ -1,7 +1,7 @@
 # %%
 import dspy
 from dotenv import load_dotenv
-from text_processing import get_text_from_db
+from db_utils import get_document_content_from_db
 
 
 load_dotenv()
@@ -21,7 +21,7 @@ dspy.configure(lm=lm)
 # document = read_text_from_file(test_document)
 
 doc_id = "83ea9618-eb51-4e98-af2b-5068590ef4c2"
-document = get_text_from_db(doc_id)
+document = get_document_content_from_db(doc_id)
 
 print(document)
 

@@ -1,7 +1,7 @@
 from PyPDF2 import PdfReader
 import mimetypes
 import os
-from db_utils import save_text_to_db
+from db_utils import save_document_to_db
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
@@ -76,7 +76,7 @@ def extract_text_from_file(
         raise ValueError(f"Unsupported file type: {mime_type}")
 
     if save_to_db:
-        save_text_to_db(text)
+        save_document_to_db(text)
 
     if save_to_file:
         assert output_path, "Output path is required when saving to file"

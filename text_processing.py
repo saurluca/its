@@ -2,7 +2,7 @@ from PyPDF2 import PdfReader
 import mimetypes
 import os
 from db_utils import save_document_to_db
-import re
+
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:

@@ -84,6 +84,18 @@ def save_key_points_to_db(doc_id, key_points):
         conn.close()
 
 
+def get_key_points_from_db(doc_id):
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT key_points FROM documents WHERE id = %s;", (doc_id,))
+                row = cur.fetchone()
+                return row[0]
+    finally:
+        conn.close()
+
+
 def save_questions_to_db(doc_id, questions, answer_options, correct_answers):
     """
     Save a list of questions, their answer options, and correct answers to the database, linked to the given document ID.

@@ -6,6 +6,8 @@ from db_utils import save_questions_to_db, get_key_points_from_db
 # TODO: also return the keypoint the answer was based on? For explainability, or for teacher.
 # TODO: experiment wiht more nested data structure so answer / questions togeher. maybe easier for model to produce.
 
+# IDEA
+# The correct answer is always in the first position, and the answers are shuffled in the frontend. Thus one less thing to save.
 
 class Question(dspy.Signature):
     """Generate multiple choice questions, answer options, and correct answer indices from key points."""
@@ -16,7 +18,7 @@ class Question(dspy.Signature):
         description="A list of multiple choice questions generated from the key points."
     )
     answer_options: list[list[str]] = dspy.OutputField(
-        description="A list of answer options for each question. Each entry is a list of 4 answer strings."
+        description="A list of answer options for each question. Each entry is a list of 4 answer strings. The correct answer should be in a random position in the list."
     )
     correct_answers: list[int] = dspy.OutputField(
         description="A list of integers, each representing the index (0-3) of the correct answer in the answer options for each question."

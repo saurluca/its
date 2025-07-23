@@ -7,6 +7,7 @@ from kg_gen.models import Graph
 
 load_dotenv()
 
+
 def read_text_from_file(text_path):
     with open(text_path, "r") as file:
         return file.read()

@@ -31,7 +31,7 @@ def get_document(doc_id: str):
         return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
 
 @app.get("/documents", response_class=JSONResponse)
 def get_documents():

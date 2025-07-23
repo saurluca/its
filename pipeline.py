@@ -35,8 +35,8 @@ key_points = response.key_points
 print(key_points)
 
 
-
 # %% GENERATE QUESTIONS
+
 
 class Question(dspy.Signature):
     """Generate multiple choice questions, answer options, and correct answer indices from key points."""

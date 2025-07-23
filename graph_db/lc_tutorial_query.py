@@ -256,7 +256,5 @@ langgraph = langgraph.compile()
 display(Image(langgraph.get_graph().draw_mermaid_png()))
 
 # Example usage:
-result = langgraph.invoke(
-    {"question": "What does Primary sensory cell do?"}
-)
+result = langgraph.invoke({"question": "What does Primary sensory cell do?"})
 print(result)

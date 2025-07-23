@@ -23,22 +23,53 @@ def read_text_from_file(text_path):
     return text
 
 
-def extract_text_from_file(file_path, output_path=None, save_to_file=False):
-    assert file_path, "File path is required"
-    assert os.path.exists(file_path), f"File not found: {file_path}"
-    assert os.path.isfile(file_path), f"File is a directory: {file_path}"
-    assert os.path.getsize(file_path) != 0, "File is empty"
-    
-    mime_type = mimetypes.guess_type(file_path)[0]
-    
-    assert mime_type, f"Could not determine MIME type of file: {file_path}"
-
+def extract_text_from_file(
+    file_or_path, output_path=None, save_to_file=False, mime_type=None
+):
+    assert file_or_path, "File or file path is required"
     text = None
+    file_obj = None
+    file_path = None
+
+    if isinstance(file_or_path, (str, bytes, os.PathLike)):
+        file_path = file_or_path
+        assert os.path.exists(file_path), f"File not found: {file_path}"
+        assert os.path.isfile(file_path), f"File is a directory: {file_path}"
+        assert os.path.getsize(file_path) != 0, "File is empty"
+        mime_type = mimetypes.guess_type(file_path)[0]
+    elif hasattr(file_or_path, "read"):
+        file_obj = file_or_path
+        if not mime_type:
+            if hasattr(file_obj, "name"):
+                mime_type = mimetypes.guess_type(file_obj.name)[0]
+            else:
+                mime_type = None  # Could try to sniff, but fallback to PDF for now
+    else:
+        raise ValueError("Input must be a file path or a file-like object")
+
+    assert mime_type, (
+        f"Could not determine MIME type of file: {getattr(file_obj, 'name', file_path)}"
+    )
 
     if mime_type == "application/pdf":
-        text = extract_text_from_pdf(file_path)
+        if file_obj:
+            file_obj.seek(0)
+            reader = PdfReader(file_obj)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text()
+        else:
+            text = extract_text_from_pdf(file_path)
     elif mime_type == "text/plain":
-        text = read_text_from_file(file_path)
+        if file_obj:
+            file_obj.seek(0)
+            text = (
+                file_obj.read().decode()
+                if hasattr(file_obj, "read")
+                else file_obj.read()
+            )
+        else:
+            text = read_text_from_file(file_path)
     elif mime_type and mime_type.startswith("image/"):
         # TODO: OCR image files
         raise ValueError("Image files are not yet supported")
@@ -50,13 +81,3 @@ def extract_text_from_file(file_path, output_path=None, save_to_file=False):
         save_text_to_file(text, output_path)
 
     return text
-
-
-def main():
-    pdf_path = "data/documents/neuroscience.pdf"
-    text_path = "data/documents/neuroscience.txt"
-
-    extract_text_from_file(pdf_path, output_path=text_path, save_to_file=True)
-    
-if __name__ == "__main__":
-    main()

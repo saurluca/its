@@ -1,7 +1,7 @@
 # %%
 import dspy
 from dotenv import load_dotenv
-from to_text import read_text_from_file
+from text_processing import read_text_from_file
 
 
 load_dotenv()

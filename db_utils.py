@@ -21,16 +21,14 @@ def save_document_to_db(text):
     title = text.strip().split("\n", 1)[0][:255]
     conn = get_db_connection()
     try:
-        # check if document already exists
         with conn:
             with conn.cursor() as cur:
+                # check if document already exists
                 cur.execute("SELECT id FROM documents WHERE title = %s;", (title,))
                 row = cur.fetchone()
                 if row is not None:
                     raise ValueError(f"Document with title {title} already exists")
-        # save document to db
-        with conn:
-            with conn.cursor() as cur:
+                # save document to db
                 document_id = str(uuid.uuid4())
                 cur.execute(
                     """
@@ -152,7 +150,10 @@ def get_question_by_id(question_id):
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT question, answer_options, correct_answer FROM questions WHERE id = %s;", (question_id,))
+                cur.execute(
+                    "SELECT question, answer_options, correct_answer FROM questions WHERE id = %s;",
+                    (question_id,),
+                )
                 row = cur.fetchone()
                 return row[0], row[1], row[2]
     finally:

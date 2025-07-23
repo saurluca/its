@@ -82,3 +82,33 @@ def save_key_points_to_db(doc_id, key_points):
                 )
     finally:
         conn.close()
+
+
+def save_questions_to_db(doc_id, questions, answer_options, correct_answers):
+    """
+    Save a list of questions, their answer options, and correct answers to the database, linked to the given document ID.
+    Each question will be inserted as a new row in the questions table.
+    Args:
+        doc_id (str): The UUID of the document the questions belong to.
+        questions (list[str]): List of question strings.
+        answer_options (list[list[str]]): List of answer options for each question (each is a list of 4 strings).
+        correct_answers (list[int]): List of indices (0-3) for the correct answer for each question.
+    """
+    if not (len(questions) == len(answer_options) == len(correct_answers)):
+        raise ValueError(
+            "questions, answer_options, and correct_answers must have the same length"
+        )
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                for q, opts, correct in zip(questions, answer_options, correct_answers):
+                    cur.execute(
+                        """
+                        INSERT INTO questions (id, question, answer_options, correct_answer, document_id)
+                        VALUES (%s, %s, %s, %s, %s);
+                        """,
+                        (str(uuid.uuid4()), q, opts, correct, doc_id),
+                    )
+    finally:
+        conn.close()

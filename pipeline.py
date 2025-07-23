@@ -1,7 +1,11 @@
 # %%
 import dspy
 from dotenv import load_dotenv
-from db_utils import get_document_content_from_db, save_key_points_to_db
+from db_utils import (
+    get_document_content_from_db,
+    save_key_points_to_db,
+    save_questions_to_db,
+)
 
 
 load_dotenv()
@@ -64,6 +68,14 @@ qg_response = question_generator(key_points=key_points)
 print(qg_response.questions[0])
 print(qg_response.answer_options[0])
 print("Correct answer: ", qg_response.correct_answers[0])
+
+# Save generated questions to the database
+save_questions_to_db(
+    doc_id,
+    qg_response.questions,
+    qg_response.answer_options,
+    qg_response.correct_answers,
+)
 
 # TODO: verify results: 1 answer correct, 3 wrong, answer is correct, results relevant
 # TODO: also return the keypoint the answer was based on? For explainability, or for teacher.

@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE TABLE IF NOT EXISTS questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question TEXT NOT NULL,
-    answer_options TEXT NOT NULL,
-    correct_answer TEXT NOT NULL,
+    answer_options TEXT[] NOT NULL,
+    correct_answer INTEGER NOT NULL,
     document_id UUID NOT NULL,
     FOREIGN KEY (document_id) REFERENCES documents(id)
 );

@@ -1,7 +1,7 @@
 # %%
 import dspy
 from dotenv import load_dotenv
-from db_utils import get_document_content_from_db
+from db_utils import get_document_content_from_db, save_key_points_to_db
 
 
 load_dotenv()
@@ -33,6 +33,9 @@ summarizer = dspy.ChainOfThought("document -> key_points")
 response = summarizer(document=document)
 key_points = response.key_points
 print(key_points)
+
+# save key points to db
+save_key_points_to_db(doc_id, key_points)
 
 
 # %% GENERATE QUESTIONS

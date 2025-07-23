@@ -69,3 +69,16 @@ def get_document_titles_and_ids_from_db():
         return titles, ids
     finally:
         conn.close()
+
+
+def save_key_points_to_db(doc_id, key_points):
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE documents SET key_points = %s WHERE id = %s;",
+                    (key_points, doc_id),
+                )
+    finally:
+        conn.close()

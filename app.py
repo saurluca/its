@@ -41,3 +41,8 @@ def get_titles():
         return {"titles": titles}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health", response_class=JSONResponse)
+def health_check():
+    return {"status": "ok"}

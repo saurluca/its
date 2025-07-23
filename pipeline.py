@@ -6,6 +6,7 @@ from db_utils import (
     save_key_points_to_db,
     save_questions_to_db,
 )
+from teacher import evaluate_student_answer
 
 
 load_dotenv()
@@ -85,36 +86,9 @@ save_questions_to_db(
 
 # %% EVALUATE STUDENT ANSWERS
 
-class Teacher(dspy.Signature):
-    """Evaluate the student's answer, and provide feedback."""
-
-    # input fields
-    question: str = dspy.InputField(
-        description="The question to be answered and the 4 answer options."
-    )
-    answer_options: list[str] = dspy.InputField(
-        description="The 4 answer options for the question."
-    )
-    correct_answer: int = dspy.InputField(
-        description="The correct answer to the question."
-    )
-    student_answer: int = dspy.InputField(
-        description="The student's answer to the question."
-    )
-
-    # output fields
-    feedback: str = dspy.OutputField(
-        description="Short feedback on the student's answer. If the answer is incorrect, provide a hint to the correct answer."
-    )
-
-
-teacher = dspy.ChainOfThought(Teacher)
-
-response = teacher(
+evaluate_student_answer(
     question=qg_response.questions[0],
     answer_options=qg_response.answer_options[0],
     correct_answer=qg_response.correct_answers[0],
     student_answer=0,
 )
-
-print(response.feedback)

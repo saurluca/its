@@ -31,19 +31,18 @@ def extract_text_from_file(
     file_obj = None
     file_path = None
 
+    # if it is a file path, get the mime type
     if isinstance(file_or_path, (str, bytes, os.PathLike)):
         file_path = file_or_path
         assert os.path.exists(file_path), f"File not found: {file_path}"
         assert os.path.isfile(file_path), f"File is a directory: {file_path}"
         assert os.path.getsize(file_path) != 0, "File is empty"
         mime_type = mimetypes.guess_type(file_path)[0]
+    # if it is a file-like object
     elif hasattr(file_or_path, "read"):
         file_obj = file_or_path
-        if not mime_type:
-            if hasattr(file_obj, "name"):
-                mime_type = mimetypes.guess_type(file_obj.name)[0]
-            else:
-                mime_type = None  # Could try to sniff, but fallback to PDF for now
+        if not mime_type and hasattr(file_obj, "name"):
+            mime_type = mimetypes.guess_type(file_obj.name)[0]
     else:
         raise ValueError("Input must be a file path or a file-like object")
 

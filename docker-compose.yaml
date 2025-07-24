@@ -1,24 +1,24 @@
 
 services:
-  neo4j:
-    image: neo4j:latest
-    container_name: neo4j_local
-    ports:
-      - "7474:7474"  # Neo4j Browser (HTTP)
-      - "7687:7687"  # Bolt protocol (for drivers like Python)
-    volumes:
-      - ./neo4j/data:/data  # Persist database data
-      - ./neo4j/logs:/logs  # Persist logs
-      - ./neo4j/plugins:/plugins  # Persist plugins
-      - ./neo4j/config:/config  # Persist config
-      - ./neo4j/import:/var/lib/neo4j/import # For bulk import of CSVs
-    environment:
-      - NEO4J_AUTH=neo4j/password
-      - NEO4J_apoc_export_file_enabled=true  # Enable APOC procedures for import/export
-      - NEO4J_apoc_import_file_enabled=true
-      - NEO4J_apoc_import_file_use_neo4j_config=true
-      - NEO4J_PLUGINS=["apoc"]
-    restart: always
+  # neo4j:
+  #   image: neo4j:latest
+  #   container_name: neo4j_local
+  #   ports:
+  #     - "7474:7474"  # Neo4j Browser (HTTP)
+  #     - "7687:7687"  # Bolt protocol (for drivers like Python)
+  #   volumes:
+  #     - ./neo4j/data:/data  # Persist database data
+  #     - ./neo4j/logs:/logs  # Persist logs
+  #     - ./neo4j/plugins:/plugins  # Persist plugins
+  #     - ./neo4j/config:/config  # Persist config
+  #     - ./neo4j/import:/var/lib/neo4j/import # For bulk import of CSVs
+  #   environment:
+  #     - NEO4J_AUTH=neo4j/password
+  #     - NEO4J_apoc_export_file_enabled=true  # Enable APOC procedures for import/export
+  #     - NEO4J_apoc_import_file_enabled=true
+  #     - NEO4J_apoc_import_file_use_neo4j_config=true
+  #     - NEO4J_PLUGINS=["apoc"]
+  #   restart: always
 
   db:
     image: postgres:latest

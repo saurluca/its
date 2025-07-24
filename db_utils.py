@@ -56,12 +56,6 @@ def save_document_to_db(text: str, title: Optional[str] = None) -> str:
         title = str(title)[:255]  # Ensure it's a string and within length limit
 
     with get_session() as session:
-        # Check if document already exists
-        statement = select(Document).where(Document.title == title)
-        existing_doc = session.exec(statement).first()
-        if existing_doc:
-            raise ValueError(f"Document with title {title} already exists")
-
         # Create new document
         document_data = DocumentCreate(
             title=title, content=text, source_file=title, total_chunks=0
@@ -84,7 +78,6 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
         chunks: List of chunk dictionaries with keys:
             - chunk_index: int
             - chunk_text: str
-            - original_text: str
             - metadata: dict
 
     Returns:
@@ -100,7 +93,6 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
                 document_id=document_uuid,
                 chunk_index=chunk_data["chunk_index"],
                 chunk_text=chunk_data["chunk_text"],
-                original_text=chunk_data.get("original_text", ""),
                 chunk_metadata=None,  # Will be set below using helper method
             )
 
@@ -313,7 +305,6 @@ def get_chunks_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
                 "id": str(chunk.id),
                 "chunk_index": chunk.chunk_index,
                 "chunk_text": chunk.chunk_text,
-                "original_text": chunk.original_text,
                 "metadata": chunk.get_metadata_dict(),
             }
             for chunk in chunks

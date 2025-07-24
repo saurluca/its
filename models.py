@@ -43,7 +43,6 @@ class ChunkBase(SQLModel):
     document_id: UUID = Field(foreign_key="document.id")
     chunk_index: int
     chunk_text: str
-    original_text: Optional[str] = None
     chunk_metadata: Optional[str] = None  # JSON string
 
 

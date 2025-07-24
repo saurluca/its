@@ -5,6 +5,9 @@ from uuid import UUID, uuid4
 import json
 
 
+# Import the new models
+
+
 class DocumentBase(SQLModel):
     title: str
     content: str

@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from router import router
+from courses.router import router as courses_router
+from tasks.router import router as tasks_router
 from utils import create_db_and_tables
 from config import LLMConfig, AppConfig
 
@@ -15,8 +17,10 @@ create_db_and_tables()
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()
 
-# Include the main router
+# Include all routers
 app.include_router(router)
+app.include_router(courses_router)
+app.include_router(tasks_router)
 
 if __name__ == "__main__":
     import uvicorn

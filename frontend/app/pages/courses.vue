@@ -25,7 +25,7 @@ onMounted(async () => {
 async function fetchCourses() {
   loading.value = true;
   try {
-    const response = await fetch('/api/courses');
+    const response = await fetch('http://127.0.0.1:8000/courses');
     courses.value = await response.json();
   } catch (error) {
     console.error('Error fetching courses:', error);
@@ -37,7 +37,7 @@ async function fetchCourses() {
 
 async function createCourse(courseData: Partial<Course>) {
   try {
-    const response = await fetch('/api/courses', {
+    const response = await fetch('http://127.0.0.1:8000/courses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ async function createCourse(courseData: Partial<Course>) {
 
 async function updateCourse(courseData: Course) {
   try {
-    const response = await fetch(`/api/courses/${courseData.id}`, {
+    const response = await fetch(`http://127.0.0.1:8000/courses/${courseData.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ async function updateCourse(courseData: Course) {
 
 async function deleteCourse(id: string) {
   try {
-    const response = await fetch(`/api/courses/${id}`, {
+    const response = await fetch(`http://127.0.0.1:8000/courses/${id}`, {
       method: 'DELETE',
     });
     

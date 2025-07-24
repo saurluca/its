@@ -88,13 +88,11 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
     }
 
 
-@app.post("/convert_to_text", response_class=JSONResponse)
-def convert_to_text(file: UploadFile = File(...)) -> dict:
+@app.post("/document_to_chunks", response_class=JSONResponse)
+def document_to_chunks(file: UploadFile = File(...)) -> dict:
     """
     Converts an uploaded file to text and stores it in the database.
     Extracts text and chunks, saves them, and returns the document ID.
-    Does not generate questions or summaries.
-    Useful for initial document ingestion without full processing.
     """
     try:
         result = extract_text_from_file_and_chunk(

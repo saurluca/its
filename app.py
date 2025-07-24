@@ -8,6 +8,9 @@ from db_utils import (
     get_document_content_from_db,
     get_questions_by_document_id,
     get_question_by_id,
+    save_document_to_db,
+    save_chunks_to_db,
+    save_questions_to_db,
 )
 from teacher import evaluate_student_answer
 from dotenv import load_dotenv
@@ -37,7 +40,7 @@ def health_check():
 
 
 @app.post("/document_to_questions", response_class=JSONResponse)
-def document_to_questions(file: UploadFile = File(...)):
+def document_to_questions(file: UploadFile = File(...)) -> dict:
     """
     Run the full pipeline:
     1. Convert file to text and save to DB (returns document_id)
@@ -45,28 +48,29 @@ def document_to_questions(file: UploadFile = File(...)):
     3. Generate questions (stores questions in DB)
     4. Return questions and related info
     """
-    # Step 1: Extract text and save to DB
-    document_id = extract_text_from_file(
-        file.file, save_to_db=True, mime_type=file.content_type
-    )
+    # Step 1: Extract text, chunks and save to db
+    result = extract_text_from_file_and_chunk(file.file, mime_type=file.content_type)
 
-    # Step 2: Summarise document (stores key points in DB)
-    key_points = summarise_document(document_id)
+    # Step 1.1: Save document metadata and get document_id
+    document_id = save_document_to_db(result["full_text"], title=result["name"])
+    # Step 1.2: Save chunks to database
+    save_chunks_to_db(document_id, result["chunks"])
 
-    # Step 3: Generate questions (stores questions in DB)
-    qg_response = generate_questions(document_id)
+    # Step 2: Generate questions (stores questions in DB)
+    questions, answer_options = generate_questions(document_id, result["chunks"])
+    # Step 2.1: Save questions to database
+    save_questions_to_db(document_id, questions, answer_options)
 
-    # Step 4: Return questions and related info
+    # Step 3: Return questions and related info
     return {
         "document_id": document_id,
-        "key_points": key_points,
-        "questions": qg_response.questions,
-        "answer_options": qg_response.answer_options,
+        "questions": questions,
+        "answer_options": answer_options,
     }
 
 
 @app.post("/convert_to_text", response_class=JSONResponse)
-def convert_to_text(file: UploadFile = File(...)):
+def convert_to_text(file: UploadFile = File(...)) -> dict:
     try:
         document_id = extract_text_from_file(
             file.file, save_to_db=True, mime_type=file.content_type
@@ -77,7 +81,7 @@ def convert_to_text(file: UploadFile = File(...)):
 
 
 @app.post("/convert_to_chunks", response_class=JSONResponse)
-def convert_to_chunks(file: UploadFile = File(...)):
+def convert_to_chunks(file: UploadFile = File(...)) -> dict:
     """
     Convert file to text and split into chunks for RAG system.
     Returns document_id, chunk_ids, and chunk information.

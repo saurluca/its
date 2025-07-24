@@ -62,7 +62,7 @@ def extract_text_from_file(file_obj, save_to_db=False, mime_type=None):
     return text
 
 
-def extract_text_from_file_and_chunk(file_obj, save_to_db=False, mime_type=None):
+def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     assert file_obj and hasattr(file_obj, "read"), (
         "Input must be a file-like object with .read()"
     )
@@ -133,11 +133,4 @@ def extract_text_from_file_and_chunk(file_obj, save_to_db=False, mime_type=None)
             }
         )
 
-    if save_to_db:
-        # Save document metadata and get document_id
-        document_id = save_document_to_db(full_text, title=name)
-        # Save chunks to database
-        chunk_ids = save_chunks_to_db(document_id, chunks)
-        return {"document_id": document_id, "chunk_ids": chunk_ids, "chunks": chunks}
-
-    return chunks
+    return {"full_text": full_text, "name": name, "chunks": chunks}

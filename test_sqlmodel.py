@@ -6,8 +6,6 @@ Test script for SQLModel migration
 from io import BytesIO
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
 
 from db_utils import (
     create_db_and_tables,
@@ -15,6 +13,9 @@ from db_utils import (
     get_document_titles_and_ids_from_db,
 )
 from text_processing import extract_text_from_file_and_chunk
+
+# Load environment variables
+load_dotenv()
 
 
 def test_sqlmodel_migration():

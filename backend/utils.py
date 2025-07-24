@@ -1,8 +1,10 @@
-import os
 from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
-from sqlmodel import SQLModel, Session, create_engine, select
-from dotenv import load_dotenv
+from sqlmodel import SQLModel, Session, select
+from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import DocumentStream
+from docling.chunking import HybridChunker
+from io import BytesIO
 
 from models import (
     Document,
@@ -12,26 +14,25 @@ from models import (
     Question,
     QuestionCreate,
 )
-
-load_dotenv()
-
-
-# Database configuration
-def get_database_url():
-    return f"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
-
-
-# Create engine
-engine = create_engine(get_database_url(), echo=False)
+from dependencies import get_database_engine
+from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH
+from exceptions import (
+    DocumentNotFoundError,
+    QuestionNotFoundError,
+    InvalidFileFormatError,
+)
 
 
+# Database utility functions
 def create_db_and_tables():
     """Create database tables"""
+    engine = get_database_engine()
     SQLModel.metadata.create_all(engine)
 
 
 def get_session():
     """Get database session"""
+    engine = get_database_engine()
     return Session(engine)
 
 
@@ -45,15 +46,12 @@ def save_document_to_db(text: str, title: Optional[str] = None) -> str:
 
     Returns:
         Document ID as string
-
-    Raises:
-        ValueError: If document with same title already exists
     """
     # Use provided title or extract from first line
     if title is None:
-        title = text.strip().split("\n", 1)[0][:255]
+        title = text.strip().split("\n", 1)[0][:MAX_TITLE_LENGTH]
     else:
-        title = str(title)[:255]  # Ensure it's a string and within length limit
+        title = str(title)[:MAX_TITLE_LENGTH]
 
     with get_session() as session:
         # Create new document
@@ -93,12 +91,10 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
                 document_id=document_uuid,
                 chunk_index=chunk_data["chunk_index"],
                 chunk_text=chunk_data["chunk_text"],
-                chunk_metadata=None,  # Will be set below using helper method
+                chunk_metadata=None,
             )
 
             chunk = Chunk.model_validate(chunk_create.model_dump())
-
-            # Set metadata using the helper method
             chunk.set_metadata_dict(chunk_data.get("metadata", {}))
 
             session.add(chunk)
@@ -129,7 +125,7 @@ def get_document_content_from_db(doc_id: str) -> str:
         Document content
 
     Raises:
-        ValueError: If no document found with the given ID
+        DocumentNotFoundError: If no document found with the given ID
     """
     document_uuid = UUID(doc_id)
 
@@ -138,7 +134,7 @@ def get_document_content_from_db(doc_id: str) -> str:
         document = session.exec(statement).first()
 
         if not document:
-            raise ValueError(f"No document found with id: {doc_id}")
+            raise DocumentNotFoundError(f"No document found with id: {doc_id}")
 
         return document.content
 
@@ -204,7 +200,6 @@ def save_questions_to_db(
 ):
     """
     Save a list of questions and their answer options to the database, linked to the given document ID.
-    Each question will be inserted as a new row in the questions table.
 
     Args:
         doc_id: The UUID of the document the questions belong to
@@ -220,7 +215,7 @@ def save_questions_to_db(
         for question_text, options in zip(questions, answer_options):
             question_create = QuestionCreate(
                 question=question_text,
-                answer_options="",  # Will be set below
+                answer_options="",
                 document_id=document_uuid,
             )
 
@@ -275,7 +270,7 @@ def get_question_by_id(question_id: str) -> Tuple[str, List[str]]:
         question = session.exec(statement).first()
 
         if not question:
-            raise ValueError(f"No question found with id: {question_id}")
+            raise QuestionNotFoundError(f"No question found with id: {question_id}")
 
         return question.question, question.get_answer_options_list()
 
@@ -309,3 +304,73 @@ def get_chunks_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
             }
             for chunk in chunks
         ]
+
+
+# Text processing utility functions
+def extract_text_from_file_and_chunk(file_obj, mime_type=None):
+    """
+    Extract text from file and chunk it
+
+    Args:
+        file_obj: File-like object
+        mime_type: MIME type of the file
+
+    Returns:
+        Dict with full_text, name, and chunks
+    """
+    assert file_obj and hasattr(file_obj, "read"), (
+        "Input must be a file-like object with .read()"
+    )
+
+    # Get the name for DocumentStream
+    name = getattr(file_obj, "name", None)
+
+    # For FastAPI UploadFile, use .filename if available
+    if hasattr(file_obj, "filename") and file_obj.filename:
+        name = file_obj.filename
+
+    # If still no name, create a default based on mime_type
+    if not name:
+        if mime_type:
+            extension = SUPPORTED_MIME_TYPES.get(mime_type, ".pdf")
+            name = f"uploaded_file{extension}"
+        else:
+            raise InvalidFileFormatError("No mime type provided")
+
+    # Read all bytes and wrap in BytesIO for Docling
+    file_obj.seek(0)
+    file_bytes = file_obj.read()
+    byte_stream = BytesIO(file_bytes)
+
+    # Create DocumentStream with name and BytesIO stream
+    stream = DocumentStream(name=str(name), stream=byte_stream)
+    print("Converting using Docling")
+
+    # Convert using Docling
+    converter = DocumentConverter()
+    result = converter.convert(stream)
+    docling_doc = result.document
+
+    print("Exporting to text")
+    # Get full text for document metadata
+    full_text = docling_doc.export_to_text()
+
+    print("Chunking")
+    # Use HybridChunker to split document into chunks
+    chunker = HybridChunker()
+    chunk_iter = chunker.chunk(dl_doc=docling_doc)
+
+    # Collect chunks with contextualized text
+    chunks = []
+    for i, chunk in enumerate(chunk_iter):
+        enriched_text = chunker.contextualize(chunk=chunk)
+
+        chunks.append(
+            {
+                "chunk_index": i,
+                "chunk_text": enriched_text,
+                "metadata": {"source_file": name, "chunk_length": len(enriched_text)},
+            }
+        )
+
+    return {"full_text": full_text, "name": name, "chunks": chunks}

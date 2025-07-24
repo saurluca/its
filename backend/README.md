@@ -14,3 +14,18 @@ To be discussed, so far:
 - Langchain
 - PyPDF2
 - Neo4J
+
+
+## Folder structure:
+
+backend/
+├── router.py         # FastAPI endpoints (moved from main.py)
+├── schemas.py        # Pydantic request/response models
+├── models.py         # Database models (unchanged)
+├── dependencies.py   # Router dependencies (DB sessions)
+├── config.py         # Configuration settings (DB, LLM, app)
+├── constants.py      # Module-specific constants
+├── exceptions.py     # Custom exception classes
+├── service.py        # Business logic (question generation, evaluation, summarization)
+├── utils.py          # Utility functions (DB operations, text processing)
+└── main.py           # Clean app setup with router integration

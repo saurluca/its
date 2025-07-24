@@ -16,7 +16,6 @@ from db_utils import (
 from teacher import evaluate_student_answer
 from dotenv import load_dotenv
 import dspy
-from summariser import summarise_document
 from question_generator import generate_questions
 import time
 import os
@@ -30,29 +29,39 @@ create_db_and_tables()
 
 # lm = dspy.LM("openai/gpt-4.1-nano")
 # lm = dspy.LM("gemini/gemini-2.0-flash")
-lm = dspy.LM("groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY"))   
+lm = dspy.LM("groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY"))
 
 dspy.configure(lm=lm)
 
 
 @app.get("/", response_class=PlainTextResponse)
 def read_root():
+    """
+    Root endpoint for the API.
+    Returns a simple greeting message to verify the API is running.
+    """
     return "Hello, World!"
 
 
 @app.get("/health", response_class=JSONResponse)
 def health_check():
+    """
+    Health check endpoint.
+    Returns a JSON object indicating the service status.
+    Useful for monitoring and deployment checks.
+    """
     return {"status": "ok"}
 
 
 @app.post("/document_to_questions", response_class=JSONResponse)
 def document_to_questions(file: UploadFile = File(...)) -> dict:
     """
-    Run the full pipeline:
-    1. Convert file to text and save to DB (returns document_id)
-    2. Summarise document (stores key points in DB)
-    3. Generate questions (stores questions in DB)
-    4. Return questions and related info
+    Full pipeline endpoint for document processing.
+    1. Extracts text and chunks from the uploaded file and saves them to the database.
+    2. Summarises the document and stores key points in the database.
+    3. Generates questions and answer options from the document chunks and stores them in the database.
+    4. Returns the document ID, generated questions, and answer options.
+    This endpoint orchestrates the main workflow for document ingestion and question generation.
     """
     start_time = time.time()
     # Step 1: Extract text, chunks and save to db
@@ -81,6 +90,12 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
 
 @app.post("/convert_to_text", response_class=JSONResponse)
 def convert_to_text(file: UploadFile = File(...)) -> dict:
+    """
+    Converts an uploaded file to text and stores it in the database.
+    Extracts text and chunks, saves them, and returns the document ID.
+    Does not generate questions or summaries.
+    Useful for initial document ingestion without full processing.
+    """
     try:
         result = extract_text_from_file_and_chunk(
             file.file, mime_type=file.content_type
@@ -94,6 +109,11 @@ def convert_to_text(file: UploadFile = File(...)) -> dict:
 
 @app.get("/document_chunks/{doc_id}", response_class=JSONResponse)
 def get_document_chunks(doc_id: str):
+    """
+    Retrieves all text chunks for a given document ID from the database.
+    Returns the chunks as a list.
+    Useful for accessing segmented document content for further processing or review.
+    """
     try:
         chunks = get_chunks_by_document_id(doc_id)
         return {"chunks": chunks}
@@ -103,6 +123,10 @@ def get_document_chunks(doc_id: str):
 
 @app.get("/documents", response_class=JSONResponse)
 def get_documents():
+    """
+    Retrieves all document titles and their corresponding IDs from the database.
+    Returns a list of titles and IDs for document selection or overview.
+    """
     try:
         titles, ids = get_document_titles_and_ids_from_db()
         return {"titles": titles, "ids": ids}
@@ -112,6 +136,11 @@ def get_documents():
 
 @app.get("/document/{doc_id}", response_class=JSONResponse)
 def get_document(doc_id: str):
+    """
+    Retrieves the full content of a document by its ID from the database.
+    Returns the document content as a string.
+    Useful for displaying or processing the original document text.
+    """
     try:
         content = get_document_content_from_db(doc_id)
         return {"content": content}
@@ -119,17 +148,14 @@ def get_document(doc_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/summarise_document/{doc_id}", response_class=JSONResponse)
-def summarise_document_endpoint(doc_id: str):
-    try:
-        key_points = summarise_document(doc_id)
-        return {"key_points": key_points}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 @app.get("/generate_questions/{doc_id}", response_class=JSONResponse)
 def generate_questions_endpoint(doc_id: str, num_questions: int = 10):
+    """
+    Generates a specified number of questions for a given document ID.
+    Uses the document's chunks to create questions and answer options.
+    Returns the generated questions and answer options.
+    Useful for on-demand question generation for existing documents.
+    """
     try:
         chunks = get_chunks_by_document_id(doc_id)
         questions, answer_options = generate_questions(doc_id, chunks, num_questions)
@@ -143,6 +169,11 @@ def generate_questions_endpoint(doc_id: str, num_questions: int = 10):
 
 @app.get("/questions/{doc_id}", response_class=JSONResponse)
 def get_questions(doc_id: str):
+    """
+    Retrieves all questions associated with a given document ID from the database.
+    Returns the questions as a list.
+    Useful for reviewing or displaying generated questions for a document.
+    """
     try:
         questions = get_questions_by_document_id(doc_id)
         return {"questions": questions}
@@ -152,6 +183,12 @@ def get_questions(doc_id: str):
 
 @app.post("/evaluate_answer", response_class=JSONResponse)
 def evaluate_answer(question_id: str, student_answer: int):
+    """
+    Evaluates a student's answer to a specific question.
+    Retrieves the question and answer options by question ID, then uses the evaluation logic to provide feedback.
+    Returns feedback on the student's answer.
+    Useful for automated grading or feedback in quiz applications.
+    """
     try:
         question, answer_options = get_question_by_id(question_id)
         feedback = evaluate_student_answer(question, answer_options, student_answer)

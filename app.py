@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi import UploadFile, File, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
-from text_processing import extract_text_from_file
+from text_processing import extract_text_from_file, extract_text_from_file_and_chunk
 from db_utils import (
+    create_db_and_tables,
     get_document_titles_and_ids_from_db,
     get_document_content_from_db,
     get_questions_by_document_id,
@@ -17,6 +18,9 @@ from question_generator import generate_questions
 app = FastAPI()
 
 load_dotenv()
+
+# Initialize database tables
+create_db_and_tables()
 
 lm = dspy.LM("openai/gpt-4.1-nano")
 dspy.configure(lm=lm)
@@ -68,6 +72,36 @@ def convert_to_text(file: UploadFile = File(...)):
             file.file, save_to_db=True, mime_type=file.content_type
         )
         return {"document_id": document_id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/convert_to_chunks", response_class=JSONResponse)
+def convert_to_chunks(file: UploadFile = File(...)):
+    """
+    Convert file to text and split into chunks for RAG system.
+    Returns document_id, chunk_ids, and chunk information.
+    """
+    try:
+        result = extract_text_from_file_and_chunk(
+            file.file, save_to_db=True, mime_type=file.content_type
+        )
+        return {
+            "document_id": result["document_id"],
+            "chunk_ids": result["chunk_ids"],
+            "total_chunks": len(result["chunks"]),
+            "chunks_preview": [
+                {
+                    "chunk_index": chunk["chunk_index"],
+                    "text_length": len(chunk["chunk_text"]),
+                    "text_preview": chunk["chunk_text"][:200] + "..."
+                    if len(chunk["chunk_text"]) > 200
+                    else chunk["chunk_text"],
+                    "metadata": chunk["metadata"],
+                }
+                for chunk in result["chunks"]
+            ],
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

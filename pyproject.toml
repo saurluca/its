@@ -20,10 +20,12 @@ dependencies = [
     "llama-index>=0.12.38",
     "neo4j>=5.28.1",
     "pre-commit>=4.2.0",
+    "psycopg2-binary>=2.9.10",
     "psycopg[binary]>=3.2.9",
     "pypdf2>=3.0.1",
     "pytesseract>=0.3.13",
     "python-multipart>=0.0.20",
+    "sqlmodel>=0.0.24",
     "uvicorn>=0.35.0",
 ]
 fastapi = "^0.110.0"

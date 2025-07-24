@@ -8,7 +8,6 @@ const taskSchema = z.object({
     options: z.array(z.string()).optional(),
     correctAnswer: z.string().min(1),
     courseId: z.string().uuid(),
-    skillId: z.string().uuid(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -28,7 +27,6 @@ export default defineEventHandler(async (event) => {
                 options: validatedData.options,
                 correctAnswer: validatedData.correctAnswer,
                 courseId: validatedData.courseId,
-                skillId: validatedData.skillId,
                 organisationId: secure.organisationId,
             })
             .returning()

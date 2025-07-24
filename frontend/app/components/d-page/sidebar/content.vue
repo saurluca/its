@@ -17,11 +17,6 @@ const links = [
     icon: ClipboardCheck,
   },
   {
-    name: "Skills",
-    to: "/skills",
-    icon: Lightbulb,
-  },
-  {
     name: "Courses",
     to: "/courses",
     icon: BookOpenIcon,

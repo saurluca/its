@@ -49,16 +49,6 @@ export const sessions = pgTable(
   (t: any) => [primaryKey({ columns: [t.token, t.userId] })],
 )
 
-export const skills = pgTable("skills", {
-  id: uuid().primaryKey().$defaultFn(uuidv7),
-  name: text().notNull(),
-  description: text(),
-  progress: integer().default(0),
-  maxProgress: integer().default(100),
-  ...organisationId,
-  ...timestamps,
-})
-
 export const courses = pgTable("courses", {
   id: uuid().primaryKey().$defaultFn(uuidv7),
   name: text().notNull(),
@@ -76,9 +66,6 @@ export const tasks = pgTable("tasks", {
   courseId: uuid()
     .notNull()
     .references(() => courses.id),
-  skillId: uuid()
-    .notNull()
-    .references(() => skills.id),
   ...organisationId,
   ...timestamps,
 })

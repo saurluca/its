@@ -6,7 +6,6 @@ const taskUpdateSchema = z.object({
     name: z.string().min(1).optional(),
     type: z.enum(["true_false", "multiple_choice", "free_text"]).optional(),
     courseId: z.string().uuid().optional(),
-    skillId: z.string().uuid().optional(),
 })
 
 export default defineEventHandler(async (event) => {

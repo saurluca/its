@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import type { Course, Skill, NewTaskForm } from '~/types/models';
+import type { Course, NewTaskForm } from '~/types/models';
 
 interface TaskForm extends Omit<NewTaskForm, 'organisationId'> {
   name: string;
   type: "true_false" | "multiple_choice" | "free_text";
   question: string;
   courseId: string;
-  skillId: string;
   options: string[];
   correctAnswer: string;
 }
@@ -15,7 +14,6 @@ interface TaskForm extends Omit<NewTaskForm, 'organisationId'> {
 const props = defineProps<{
   initialTask?: TaskForm;
   courses: Course[];
-  skills: Skill[];
 }>();
 
 const emit = defineEmits<{
@@ -27,7 +25,6 @@ const task = ref<TaskForm>({
   type: "true_false",
   question: "",
   courseId: "",
-  skillId: "",
   options: ["True", "False"],
   correctAnswer: "True"
 });
@@ -81,7 +78,7 @@ function removeOption(index: number) {
 }
 
 function saveTask() {
-  if (!task.value.name || !task.value.question || !task.value.courseId || !task.value.skillId) {
+  if (!task.value.name || !task.value.question || !task.value.courseId) {
     alert("Please fill in all required fields");
     return;
   }
@@ -100,14 +97,6 @@ const courseOptions = computed(() => {
   return props.courses.map(course => ({
     value: course.id,
     label: course.name
-  }));
-});
-
-// Format skills for dropdown
-const skillOptions = computed(() => {
-  return props.skills.map(skill => ({
-    value: skill.id,
-    label: skill.name
   }));
 });
 
@@ -169,16 +158,6 @@ const correctAnswerOptions = computed(() => {
               v-model="task.courseId"
               :options="courseOptions"
               placeholder="Select a course"
-              class="mt-1"
-            />
-          </div>
-          
-          <div>
-            <DLabel>Skill</DLabel>
-            <DDropdown
-              v-model="task.skillId"
-              :options="skillOptions"
-              placeholder="Select a skill"
               class="mt-1"
             />
           </div>

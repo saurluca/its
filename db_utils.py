@@ -98,31 +98,28 @@ def get_key_points_from_db(doc_id):
         conn.close()
 
 
-def save_questions_to_db(doc_id, questions, answer_options, correct_answers):
+def save_questions_to_db(doc_id, questions, answer_options):
     """
-    Save a list of questions, their answer options, and correct answers to the database, linked to the given document ID.
+    Save a list of questions, their answer options answers to the database, linked to the given document ID.
     Each question will be inserted as a new row in the questions table.
     Args:
         doc_id (str): The UUID of the document the questions belong to.
         questions (list[str]): List of question strings.
         answer_options (list[list[str]]): List of answer options for each question (each is a list of 4 strings).
-        correct_answers (list[int]): List of indices (0-3) for the correct answer for each question.
     """
-    if not (len(questions) == len(answer_options) == len(correct_answers)):
-        raise ValueError(
-            "questions, answer_options, and correct_answers must have the same length"
-        )
+    if not (len(questions) == len(answer_options)):
+        raise ValueError("questions and answer_options must have the same length")
     conn = get_db_connection()
     try:
         with conn:
             with conn.cursor() as cur:
-                for q, opts, correct in zip(questions, answer_options, correct_answers):
+                for q, opts in zip(questions, answer_options):
                     cur.execute(
                         """
-                        INSERT INTO questions (id, question, answer_options, correct_answer, document_id)
-                        VALUES (%s, %s, %s, %s, %s);
+                        INSERT INTO questions (id, question, answer_options, document_id)
+                        VALUES (%s, %s, %s, %s);
                         """,
-                        (str(uuid.uuid4()), q, opts, correct, doc_id),
+                        (str(uuid.uuid4()), q, opts, doc_id),
                     )
     finally:
         conn.close()
@@ -130,8 +127,8 @@ def save_questions_to_db(doc_id, questions, answer_options, correct_answers):
 
 def get_questions_by_document_id(doc_id):
     """
-    Retrieve all questions, their IDs, answer options, and correct answers for a given document ID.
-    Returns a list of dicts: { 'id': str, 'question': str, 'answer_options': list[str], 'correct_answer': int }
+    Retrieve all questions, their IDs, answer options for a given document ID.
+    Returns a list of dicts: { 'id': str, 'question': str, 'answer_options': list[str] }
     """
     conn = get_db_connection()
     try:
@@ -139,7 +136,7 @@ def get_questions_by_document_id(doc_id):
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, question, answer_options, correct_answer
+                    SELECT id, question, answer_options
                     FROM questions
                     WHERE document_id = %s;
                     """,
@@ -151,7 +148,6 @@ def get_questions_by_document_id(doc_id):
                         "id": row[0],
                         "question": row[1],
                         "answer_options": row[2],
-                        "correct_answer": row[3],
                     }
                     for row in rows
                 ]
@@ -165,10 +161,10 @@ def get_question_by_id(question_id):
         with conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT question, answer_options, correct_answer FROM questions WHERE id = %s;",
+                    "SELECT question, answer_options FROM questions WHERE id = %s;",
                     (question_id,),
                 )
                 row = cur.fetchone()
-                return row[0], row[1], row[2]
+                return row[0], row[1]
     finally:
         conn.close()

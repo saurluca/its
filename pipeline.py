@@ -39,7 +39,6 @@ qg_response = generate_questions(doc_id)
 
 print(qg_response.questions[0])
 print(qg_response.answer_options[0])
-print("Correct answer: ", qg_response.correct_answers[0])
 
 ### ASK QUESTION
 
@@ -48,6 +47,5 @@ print("Correct answer: ", qg_response.correct_answers[0])
 evaluate_student_answer(
     question=qg_response.questions[0],
     answer_options=qg_response.answer_options[0],
-    correct_answer=qg_response.correct_answers[0],
     student_answer=0,
 )

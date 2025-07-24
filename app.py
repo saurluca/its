@@ -58,7 +58,6 @@ def document_to_questions(file: UploadFile = File(...)):
         "key_points": key_points,
         "questions": qg_response.questions,
         "answer_options": qg_response.answer_options,
-        "correct_answers": qg_response.correct_answers,
     }
 
 
@@ -107,7 +106,6 @@ def generate_questions_endpoint(doc_id: str):
         return {
             "questions": qg_response.questions,
             "answer_options": qg_response.answer_options,
-            "correct_answers": qg_response.correct_answers,
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -125,10 +123,8 @@ def get_questions(doc_id: str):
 @app.post("/evaluate_answer", response_class=JSONResponse)
 def evaluate_answer(question_id: str, student_answer: int):
     try:
-        question, answer_options, correct_answer = get_question_by_id(question_id)
-        feedback = evaluate_student_answer(
-            question, answer_options, correct_answer, student_answer
-        )
+        question, answer_options = get_question_by_id(question_id)
+        feedback = evaluate_student_answer(question, answer_options, student_answer)
         return {"feedback": feedback}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

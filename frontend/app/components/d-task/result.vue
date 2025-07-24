@@ -1,0 +1,32 @@
+<script setup lang="ts">
+import type { Task } from '~/types/models';
+
+const props = defineProps<{
+  task: Task;
+  index: number;
+  userAnswer: string;
+  isCorrect: boolean;
+}>();
+</script>
+
+<template>
+  <div class="bg-white p-6 rounded-lg shadow">
+    <div class="flex justify-between">
+      <h3 class="text-lg font-medium">Task {{ index + 1 }}: {{ task.name }}</h3>
+      <span 
+        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+        :class="isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+      >
+        {{ isCorrect ? 'Correct' : 'Incorrect' }}
+      </span>
+    </div>
+    <p class="mt-2 text-gray-700">{{ task.question }}</p>
+    
+    <div class="mt-4">
+      <p>Your answer: <span :class="{ 'font-semibold': true, 'text-green-600': isCorrect, 'text-red-600': !isCorrect }">{{ userAnswer || 'Not answered' }}</span></p>
+      <p v-if="!isCorrect" class="text-gray-700 mt-1">
+        Correct answer: <span class="font-semibold">{{ task.correctAnswer }}</span>
+      </p>
+    </div>
+  </div>
+</template> 

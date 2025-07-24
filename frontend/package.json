@@ -1,0 +1,54 @@
+{
+  "name": "nuxt-app",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "generate-pwa-assets": "pwa-assets-generator --preset minimal-2023 public/vite.svg",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@langchain/google-genai": "^0.2.15",
+    "@libsql/client": "^0.14.0",
+    "@nuxt/fonts": "^0.10.3",
+    "@nuxt/kit": "^3.17.7",
+    "@pinia/nuxt": "^0.9.0",
+    "@tailwindcss/vite": "^4.1.11",
+    "@vueuse/core": "^12.8.2",
+    "@vueuse/nuxt": "^12.8.2",
+    "@vueuse/router": "^12.8.2",
+    "auth-utils": "^1.0.0",
+    "aws4fetch": "^1.0.20",
+    "drizzle-orm": "^0.39.3",
+    "lucide-vue-next": "^0.474.0",
+    "nanoid": "^5.1.5",
+    "nuxt": "^3.17.7",
+    "nuxt-auth-utils": "^0.5.20",
+    "pg": "^8.16.3",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "uuidv7": "^1.0.2",
+    "vite": "^6.3.5",
+    "vue": "^3.5.17",
+    "vue-router": "^4.5.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/bun": "^1.2.19",
+    "@types/pg": "^8.15.4",
+    "drizzle-kit": "^0.30.6",
+    "tsx": "^4.20.3"
+  },
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "esbuild",
+    "vue-demi"
+  ]
+}

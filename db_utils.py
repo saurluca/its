@@ -1,6 +1,7 @@
 import os
 import psycopg
 import uuid
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,9 +17,13 @@ def get_db_connection():
     )
 
 
-def save_document_to_db(text):
-    # Use the first line as the title
-    title = text.strip().split("\n", 1)[0][:255]
+def save_document_to_db(text, title=None):
+    # Use provided title or extract from first line
+    if title is None:
+        title = text.strip().split("\n", 1)[0][:255]
+    else:
+        title = str(title)[:255]  # Ensure it's a string and within length limit
+
     conn = get_db_connection()
     try:
         with conn:
@@ -32,15 +37,71 @@ def save_document_to_db(text):
                 document_id = str(uuid.uuid4())
                 cur.execute(
                     """
-                    INSERT INTO documents (id, title, content)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO documents (id, title, content, source_file, total_chunks)
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id;
                     """,
-                    (document_id, title, text),
+                    (document_id, title, text, title, 0),
                 )
                 return document_id
     finally:
         conn.close()
+
+
+def save_chunks_to_db(document_id, chunks):
+    """
+    Save chunks to the database and update the document's total_chunks count.
+
+    Args:
+        document_id (str): The UUID of the document the chunks belong to.
+        chunks (list[dict]): List of chunk dictionaries with keys:
+            - chunk_index: int
+            - chunk_text: str
+            - original_text: str
+            - metadata: dict
+
+    Returns:
+        list[str]: List of chunk UUIDs that were created
+    """
+    conn = get_db_connection()
+    chunk_ids = []
+
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                # Insert chunks
+                for chunk in chunks:
+                    chunk_id = str(uuid.uuid4())
+                    chunk_ids.append(chunk_id)
+
+                    # Convert metadata to JSON string
+                    metadata_json = json.dumps(chunk.get("metadata", {}))
+
+                    cur.execute(
+                        """
+                        INSERT INTO chunks (id, document_id, chunk_index, chunk_text, original_text, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s);
+                        """,
+                        (
+                            chunk_id,
+                            document_id,
+                            chunk["chunk_index"],
+                            chunk["chunk_text"],
+                            chunk.get("original_text", ""),
+                            metadata_json,
+                        ),
+                    )
+
+                # Update total_chunks count in documents table
+                cur.execute(
+                    "UPDATE documents SET total_chunks = %s WHERE id = %s;",
+                    (len(chunks), document_id),
+                )
+
+    finally:
+        conn.close()
+
+    return chunk_ids
 
 
 def get_document_content_from_db(doc_id):
@@ -166,5 +227,38 @@ def get_question_by_id(question_id):
                 )
                 row = cur.fetchone()
                 return row[0], row[1]
+    finally:
+        conn.close()
+
+
+def get_chunks_by_document_id(doc_id):
+    """
+    Retrieve all chunks for a given document ID.
+    Returns a list of dicts with chunk information.
+    """
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, chunk_index, chunk_text, original_text, metadata
+                    FROM chunks
+                    WHERE document_id = %s
+                    ORDER BY chunk_index;
+                    """,
+                    (doc_id,),
+                )
+                rows = cur.fetchall()
+                return [
+                    {
+                        "id": row[0],
+                        "chunk_index": row[1],
+                        "chunk_text": row[2],
+                        "original_text": row[3],
+                        "metadata": json.loads(row[4]) if row[4] else {},
+                    }
+                    for row in rows
+                ]
     finally:
         conn.close()

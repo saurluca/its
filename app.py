@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi import UploadFile, File, HTTPException
 from fastapi.responses import PlainTextResponse, JSONResponse
-from text_processing import extract_text_from_file, extract_text_from_file_and_chunk
+from text_processing import extract_text_from_file_and_chunk
 from db_utils import (
     create_db_and_tables,
     get_document_titles_and_ids_from_db,
@@ -11,12 +11,15 @@ from db_utils import (
     save_document_to_db,
     save_chunks_to_db,
     save_questions_to_db,
+    get_chunks_by_document_id,
 )
 from teacher import evaluate_student_answer
 from dotenv import load_dotenv
 import dspy
 from summariser import summarise_document
 from question_generator import generate_questions
+import time
+import os
 
 app = FastAPI()
 
@@ -25,7 +28,10 @@ load_dotenv()
 # Initialize database tables
 create_db_and_tables()
 
-lm = dspy.LM("openai/gpt-4.1-nano")
+# lm = dspy.LM("openai/gpt-4.1-nano")
+# lm = dspy.LM("gemini/gemini-2.0-flash")
+lm = dspy.LM("groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY"))   
+
 dspy.configure(lm=lm)
 
 
@@ -48,19 +54,23 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
     3. Generate questions (stores questions in DB)
     4. Return questions and related info
     """
+    start_time = time.time()
     # Step 1: Extract text, chunks and save to db
+    print("Extracting text and chunks")
     result = extract_text_from_file_and_chunk(file.file, mime_type=file.content_type)
-
+    print("Saving document metadata and chunks")
     # Step 1.1: Save document metadata and get document_id
     document_id = save_document_to_db(result["full_text"], title=result["name"])
     # Step 1.2: Save chunks to database
     save_chunks_to_db(document_id, result["chunks"])
-
+    print("Generating questions")
     # Step 2: Generate questions (stores questions in DB)
     questions, answer_options = generate_questions(document_id, result["chunks"])
+    print("Saving questions")
     # Step 2.1: Save questions to database
     save_questions_to_db(document_id, questions, answer_options)
-
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
     # Step 3: Return questions and related info
     return {
         "document_id": document_id,
@@ -72,40 +82,21 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
 @app.post("/convert_to_text", response_class=JSONResponse)
 def convert_to_text(file: UploadFile = File(...)) -> dict:
     try:
-        document_id = extract_text_from_file(
-            file.file, save_to_db=True, mime_type=file.content_type
+        result = extract_text_from_file_and_chunk(
+            file.file, mime_type=file.content_type
         )
+        document_id = save_document_to_db(result["full_text"], title=result["name"])
+        save_chunks_to_db(document_id, result["chunks"])
         return {"document_id": document_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/convert_to_chunks", response_class=JSONResponse)
-def convert_to_chunks(file: UploadFile = File(...)) -> dict:
-    """
-    Convert file to text and split into chunks for RAG system.
-    Returns document_id, chunk_ids, and chunk information.
-    """
+@app.get("/document_chunks/{doc_id}", response_class=JSONResponse)
+def get_document_chunks(doc_id: str):
     try:
-        result = extract_text_from_file_and_chunk(
-            file.file, save_to_db=True, mime_type=file.content_type
-        )
-        return {
-            "document_id": result["document_id"],
-            "chunk_ids": result["chunk_ids"],
-            "total_chunks": len(result["chunks"]),
-            "chunks_preview": [
-                {
-                    "chunk_index": chunk["chunk_index"],
-                    "text_length": len(chunk["chunk_text"]),
-                    "text_preview": chunk["chunk_text"][:200] + "..."
-                    if len(chunk["chunk_text"]) > 200
-                    else chunk["chunk_text"],
-                    "metadata": chunk["metadata"],
-                }
-                for chunk in result["chunks"]
-            ],
-        }
+        chunks = get_chunks_by_document_id(doc_id)
+        return {"chunks": chunks}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -138,12 +129,13 @@ def summarise_document_endpoint(doc_id: str):
 
 
 @app.get("/generate_questions/{doc_id}", response_class=JSONResponse)
-def generate_questions_endpoint(doc_id: str):
+def generate_questions_endpoint(doc_id: str, num_questions: int = 10):
     try:
-        qg_response = generate_questions(doc_id)
+        chunks = get_chunks_by_document_id(doc_id)
+        questions, answer_options = generate_questions(doc_id, chunks, num_questions)
         return {
-            "questions": qg_response.questions,
-            "answer_options": qg_response.answer_options,
+            "questions": questions,
+            "answer_options": answer_options,
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

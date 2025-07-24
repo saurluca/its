@@ -3,8 +3,8 @@ import dspy
 from dotenv import load_dotenv
 from db_utils import get_document_content_from_db
 from teacher import evaluate_student_answer
-from summarizer import summarise_document
-from question_generator import generate_questions
+from summariser import summarise_document
+from question_generator import generate_question_single
 
 
 load_dotenv()
@@ -35,10 +35,15 @@ key_points = summarise_document(doc_id)
 print(key_points)
 # %% GENERATE QUESTIONS
 
-qg_response = generate_questions(doc_id)
+# qg_response = generate_questions(doc_id)
 
-print(qg_response.questions[0])
-print(qg_response.answer_options[0])
+# print(qg_response.questions[0])
+# print(qg_response.answer_options[0])
+
+qg_response = generate_question_single(key_points, 3)
+
+print(qg_response.completions)
+
 
 ### ASK QUESTION
 

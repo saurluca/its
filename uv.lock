@@ -1097,6 +1097,7 @@ dependencies = [
     { name = "pytesseract" },
     { name = "python-multipart" },
     { name = "sqlmodel" },
+    { name = "tqdm" },
     { name = "uvicorn" },
 ]
 
@@ -1122,6 +1123,7 @@ requires-dist = [
     { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "uvicorn", specifier = ">=0.35.0" },
 ]
 

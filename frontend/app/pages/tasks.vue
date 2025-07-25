@@ -2,6 +2,8 @@
 import { ref, onMounted, computed } from "vue"
 import DViewToggle from "~/components/d-view-toggle.vue";
 import type { Task, Course } from '~/types/models';
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
 
 // Define the form interface for creating/editing tasks
 interface TaskFormData {
@@ -67,8 +69,8 @@ onMounted(async () => {
   loading.value = true
   try {
     const [tasksResponse, coursesResponse] = await Promise.all([
-      fetch("/api/tasks").then(res => res.json()),
-      fetch("/api/courses").then(res => res.json()),
+      fetch(`${apiUrl}/tasks`).then(res => res.json()),
+      fetch(`${apiUrl}/courses`).then(res => res.json()),
     ])
     
     tasks.value = tasksResponse.map((task: Task) => ({
@@ -92,7 +94,7 @@ onMounted(async () => {
 async function createTask(taskData: TaskFormData) {
   try {
     // Create the basic task
-    const taskResponse = await fetch("/api/tasks", {
+    const taskResponse = await fetch(`${apiUrl}/tasks`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -131,7 +133,7 @@ async function createTask(taskData: TaskFormData) {
 async function updateTask(taskData: Task) {
   try {
     // Update the basic task
-    const taskResponse = await fetch(`/api/tasks/${taskData.id}`, {
+    const taskResponse = await fetch(`${apiUrl}/tasks/${taskData.id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -165,7 +167,7 @@ async function updateTask(taskData: Task) {
 
 async function deleteTask(id: string) {
   try {
-    const response = await fetch(`/api/tasks/${id}`, {
+    const response = await fetch(`${apiUrl}/tasks/${id}`, {
       method: "DELETE",
     })
     

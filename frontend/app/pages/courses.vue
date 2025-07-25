@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
+
 
 interface Course {
   id: string;
@@ -25,11 +28,13 @@ onMounted(async () => {
 async function fetchCourses() {
   loading.value = true;
   try {
-    const response = await fetch('http://127.0.0.1:8000/courses');
-    courses.value = await response.json();
+    console.log("fetching courses")
+    const response = await fetch(`${apiUrl}/courses/`);
+    console.log("response", response)
+    courses.value = (await response.json()).courses;
   } catch (error) {
     console.error('Error fetching courses:', error);
-    alert('Failed to load courses. Please try again.');
+    alert('Failed to load courses. Please try again. ' + error);
   } finally {
     loading.value = false;
   }
@@ -37,7 +42,7 @@ async function fetchCourses() {
 
 async function createCourse(courseData: Partial<Course>) {
   try {
-    const response = await fetch('http://127.0.0.1:8000/courses', {
+    const response = await fetch(`${apiUrl}/courses/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +51,7 @@ async function createCourse(courseData: Partial<Course>) {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to create course');
+      throw new Error('Failed to create course. ' + response.statusText);
     }
     
     const newCourse = await response.json();
@@ -54,13 +59,13 @@ async function createCourse(courseData: Partial<Course>) {
     showForm.value = false;
   } catch (error) {
     console.error('Error creating course:', error);
-    alert('Failed to create course. Please try again.');
+    alert('Failed to create course. Please try again. ' + error);
   }
 }
 
 async function updateCourse(courseData: Course) {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/courses/${courseData.id}`, {
+    const response = await fetch(`${apiUrl}/courses/${courseData.id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -81,13 +86,13 @@ async function updateCourse(courseData: Course) {
     editingCourse.value = null;
   } catch (error) {
     console.error('Error updating course:', error);
-    alert('Failed to update course. Please try again.');
+    alert('Failed to update course. Please try again. ' + error);
   }
 }
 
 async function deleteCourse(id: string) {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/courses/${id}`, {
+    const response = await fetch(`${apiUrl}/courses/${id}/`, {
       method: 'DELETE',
     });
     
@@ -98,7 +103,7 @@ async function deleteCourse(id: string) {
     courses.value = courses.value.filter(c => c.id !== id);
   } catch (error) {
     console.error('Error deleting course:', error);
-    alert('Failed to delete course. Please try again.');
+    alert('Failed to delete course. Please try again. ' + error);
   }
 }
 

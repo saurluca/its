@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from router import router
 from courses.router import router as courses_router
 from tasks.router import router as tasks_router
@@ -9,6 +10,20 @@ app = FastAPI(
     title="ITS Pipeline API",
     description="Intelligent Tutoring System Pipeline for document processing and question generation",
     version=AppConfig.API_VERSION,
+)
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize database tables

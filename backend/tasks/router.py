@@ -233,6 +233,7 @@ def generate_questions_from_document(
     try:
         chunks = get_chunks_by_document_id(doc_id)
         questions, answer_options = generate_questions(doc_id, chunks, num_questions)
+        save_questions_to_db(doc_id, questions, answer_options)
         return {
             "questions": questions,
             "answer_options": answer_options,

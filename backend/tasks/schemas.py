@@ -9,9 +9,11 @@ from tasks.models import TaskType
 class TaskCreateRequest(BaseModel):
     type: TaskType
     question: str
-    options: Optional[List[str]] = None
+    options: List[str]
     correct_answer: str
-    course_id: UUID
+    course_id: Optional[UUID] = None
+    document_id: Optional[UUID] = None
+    chunk_id: Optional[UUID] = None
 
 
 class TaskUpdateRequest(BaseModel):
@@ -31,7 +33,7 @@ class TaskResponse(BaseModel):
     question: str
     options: Optional[List[str]] = None
     correct_answer: str
-    course_id: UUID
+    course_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

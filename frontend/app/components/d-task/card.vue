@@ -36,7 +36,7 @@ function editTask() {
 <template>
   <div class="bg-white p-4 rounded-lg shadow">
     <div class="flex justify-between">
-      <h3 class="text-lg font-medium">{{ task.name }}</h3>
+      <h3 class="text-lg font-medium">{{ task.question }}</h3>
       <div class="flex space-x-3 items-center">
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           {{ task.type === 'true_false' ? 'True/False' : task.type === 'multiple_choice' ? 'Multiple Choice' : 'Free Text' }}

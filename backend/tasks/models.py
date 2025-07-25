@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
@@ -17,7 +17,7 @@ class TaskBase(SQLModel):
     question: str
     options_json: Optional[str] = None
     correct_answer: str
-    course_id: Optional[UUID] = None
+    course_id: Optional[UUID] = Field(None, foreign_key="course.id")
     document_id: Optional[UUID] = Field(
         None, description="Document task was created from", foreign_key="document.id"
     )
@@ -68,3 +68,9 @@ class TaskUpdate(SQLModel):
     options_json: Optional[str] = None
     correct_answer: Optional[str] = None
     course_id: Optional[UUID] = None
+
+
+# Type checking imports to avoid circular imports
+if TYPE_CHECKING:
+    from courses.models import Course
+    from documents.models import Document

@@ -12,7 +12,7 @@ const props = defineProps<{
 <template>
   <div class="bg-white p-6 rounded-lg shadow">
     <div class="flex justify-between">
-      <h3 class="text-lg font-medium">Task {{ index + 1 }}: {{ task.name }}</h3>
+      <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
       <span 
         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
         :class="isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"

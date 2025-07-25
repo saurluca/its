@@ -24,7 +24,7 @@ console.log("task",props.task)
 <template>
   <div class="bg-white p-6 rounded-lg shadow">
     <div class="flex justify-between">
-      <h3 class="text-lg font-medium">Task {{ index + 1 }}: {{ task.name }}</h3>
+      <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
         {{ task.type === 'true_false' ? 'True/False' : task.type === 'multiple_choice' ? 'Multiple Choice' : 'Free Text' }}
       </span>

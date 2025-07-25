@@ -7,7 +7,6 @@ const apiUrl = runtimeConfig.public.apiBase;
 
 // Define the form interface for creating/editing tasks
 interface TaskFormData {
-  name: string;
   type: "true_false" | "multiple_choice" | "free_text";
   question: string;
   courseId: string;
@@ -75,8 +74,6 @@ onMounted(async () => {
     
     tasks.value = tasksResponse.map((task: Task) => ({
       ...task,
-      // Only set default values if they don't exist in the response
-      question: task.question || task.name,
       options: task.options || (
         task.type === "true_false" ? ["True", "False"] : []
       ),
@@ -100,7 +97,6 @@ async function createTask(taskData: TaskFormData) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: taskData.name,
         type: taskData.type,
         question: taskData.question,
         options: taskData.options,
@@ -139,8 +135,10 @@ async function updateTask(taskData: Task) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: taskData.name,
         type: taskData.type,
+        question: taskData.question,
+        options: taskData.options,
+        correctAnswer: taskData.correctAnswer,
         courseId: taskData.courseId,
       }),
     })
@@ -186,7 +184,6 @@ function handleSaveTask(taskData: TaskFormData) {
   if (editingTask.value) {
     const updatedTask = {
       ...editingTask.value,
-      name: taskData.name,
       type: taskData.type,
       question: taskData.question,
       options: taskData.options,
@@ -209,7 +206,6 @@ function handleSaveTask(taskData: TaskFormData) {
       // First set a temporary task with preserved values
       editingTask.value = {
         id: "",
-        name: "",
         type: preservedType,
         question: "",
         options: preservedType === "true_false" ? ["True", "False"] : 
@@ -272,7 +268,6 @@ function isAnswerCorrect(taskId: string): boolean {
       <DTaskForm
         :courses="coursesList"
         :initial-task="editingTask ? {
-          name: editingTask.name,
           type: editingTask.type,
           question: editingTask.question || '',
           courseId: editingTask.courseId,

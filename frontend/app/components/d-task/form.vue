@@ -3,7 +3,6 @@ import { ref, watch, computed } from 'vue';
 import type { Course, NewTaskForm } from '~/types/models';
 
 interface TaskForm extends Omit<NewTaskForm, 'organisationId'> {
-  name: string;
   type: "true_false" | "multiple_choice" | "free_text";
   question: string;
   courseId: string;
@@ -21,7 +20,6 @@ const emit = defineEmits<{
 }>();
 
 const task = ref<TaskForm>({
-  name: "",
   type: "true_false",
   question: "",
   courseId: "",
@@ -78,7 +76,7 @@ function removeOption(index: number) {
 }
 
 function saveTask() {
-  if (!task.value.name || !task.value.question || !task.value.courseId) {
+  if (!task.value.question || !task.value.courseId) {
     alert("Please fill in all required fields");
     return;
   }
@@ -120,15 +118,6 @@ const correctAnswerOptions = computed(() => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Basic Task Info -->
       <div class="space-y-4">
-        <div>
-          <DLabel>Task Name</DLabel>
-          <DInput 
-            v-model="task.name" 
-            type="text" 
-            placeholder="Enter task name"
-          />
-        </div>
-        
         <div>
           <DLabel>Question</DLabel>
           <DInputArea 

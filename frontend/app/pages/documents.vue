@@ -150,7 +150,7 @@ async function confirmGenerateTasks() {
                         <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" :iconLeft="PencilIcon">
                             Generate Tasks
                         </DButton>
-                        <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon">Delete</DButton>
+                        <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>
                     </div>
                 </div>
             </div>

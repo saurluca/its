@@ -63,8 +63,6 @@ function editTask() {
         </div>
       </div>
     </div>
-    <p class="mt-2 text-gray-700">{{ task.question }}</p>
-    
     <div class="mt-4 text-sm text-gray-500">
       <p v-if="task.type === 'true_false'">Correct answer: {{ task.correctAnswer }}</p>
       <p v-else-if="task.type === 'multiple_choice'">

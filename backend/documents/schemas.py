@@ -11,6 +11,10 @@ class DocumentResponse(BaseModel):
     content: str
 
 
+class DocumentDeleteResponse(BaseModel):
+    message: str
+
+
 class DocumentListResponse(BaseModel):
     titles: List[str]
     ids: List[str]

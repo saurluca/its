@@ -291,3 +291,18 @@ def summarise_document(doc_id: str) -> str:
     save_key_points_to_db(doc_id, response.key_points)
 
     return response.key_points
+
+
+def delete_document_from_db(doc_id: str):
+    """
+    Delete a document from the database
+    """
+    document_uuid = UUID(doc_id)
+    with get_session() as session:
+        statement = select(Document).where(Document.id == document_uuid)
+        document = session.exec(statement).first()
+        if document:
+            session.delete(document)
+            session.commit()
+        else:
+            raise DocumentNotFoundError(f"No document found with id: {doc_id}")

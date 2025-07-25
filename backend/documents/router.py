@@ -6,12 +6,14 @@ from documents.service import (
     save_document_to_db,
     save_chunks_to_db,
     extract_text_from_file_and_chunk,
+    delete_document_from_db,
 )
 from documents.schemas import (
     DocumentUploadResponse,
     DocumentResponse,
     DocumentListResponse,
     DocumentChunksResponse,
+    DocumentDeleteResponse,
 )
 from exceptions import DocumentNotFoundError
 
@@ -74,6 +76,20 @@ def get_document(doc_id: str):
     try:
         content = get_document_content_from_db(doc_id)
         return {"content": content}
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{doc_id}", response_model=DocumentDeleteResponse)
+def delete_document(doc_id: str):
+    """
+    Deletes a document by its ID from the database.
+    """
+    try:
+        delete_document_from_db(doc_id)
+        return {"message": "Document deleted successfully"}
     except DocumentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

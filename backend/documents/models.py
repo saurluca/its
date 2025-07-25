@@ -43,6 +43,14 @@ class DocumentUpdate(SQLModel):
     total_chunks: Optional[int] = None
 
 
+class DocumentDelete(SQLModel):
+    pass
+
+
+class DocumentDeleteResponse(SQLModel):
+    message: str
+
+
 class ChunkBase(SQLModel):
     document_id: UUID = Field(foreign_key="document.id")
     chunk_index: int

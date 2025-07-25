@@ -26,6 +26,11 @@ const links = [
     to: "/study",
     icon: Lightbulb,
   },
+  {
+    name: "Documents",
+    to: "/documents",
+    icon: FileIcon,
+  },
 ]
 
 const footerLinks = [

@@ -9,24 +9,27 @@ interface Props {
   type?: "submit" | "button" | any
   loading?: boolean
   textCenter?: boolean
+  disabled?: boolean
 }
 
-const { variant = "primary", type = "button", loading = false, textCenter = false } = defineProps<Props>()
+const { variant = "primary", type = "button", loading = false, textCenter = false, disabled = false } = defineProps<Props>()
 </script>
 
 <template>
   <component
     :is="to ? RouterLink : 'button'"
-    :type
-    :to
-    class="relative flex h-fit cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm ring-blue-600 ring-offset-2 outline-none focus:ring-2"
+    :type="type"
+    :to="to"
+    :disabled="disabled || loading"
+    class="relative flex h-fit items-center gap-2 rounded-md px-2.5 py-1.5 text-sm ring-blue-600 ring-offset-2 outline-none focus:ring-2"
     :class="{
-      'bg-gray-900 text-gray-50 hover:bg-gray-700': variant === 'primary',
-      'bg-gray-100 text-gray-700 hover:bg-gray-200': variant === 'secondary',
-      'bg-red-600 text-white hover:bg-red-700': variant === 'danger',
-      'bg-red-100 text-red-800 hover:bg-red-200': variant === 'danger-light',
-      'text-gray-500 hover:bg-gray-100': variant === 'transparent',
-      'bg-blue-100 text-blue-700 hover:bg-blue-200': variant === 'tertiary',
+      'bg-gray-900 text-gray-50 hover:bg-gray-700': variant === 'primary' && !disabled && !loading,
+      'bg-gray-100 text-gray-700 hover:bg-gray-200': variant === 'secondary' && !disabled && !loading,
+      'bg-red-600 text-white hover:bg-red-700': variant === 'danger' && !disabled && !loading,
+      'bg-red-100 text-red-800 hover:bg-red-200': variant === 'danger-light' && !disabled && !loading,
+      'text-gray-500 hover:bg-gray-100': variant === 'transparent' && !disabled && !loading,
+      'bg-blue-100 text-blue-700 hover:bg-blue-200': variant === 'tertiary' && !disabled && !loading,
+      'bg-gray-300 text-gray-500 cursor-not-allowed': disabled || loading,
       'justify-center': textCenter,
     }"
   >

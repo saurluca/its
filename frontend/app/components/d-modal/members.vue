@@ -4,13 +4,16 @@ type Props = {
   fileId: string
 }
 
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
+
 const { open, fileId } = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: "close"): void
 }>()
 
-const { data: users, refresh } = await useFetch(() => `/api/files/${fileId}/shares`, {
+const { data: users, refresh } = await useFetch(() => `${apiUrl}/files/${fileId}/shares/`, {
   cache: "no-cache",
 })
 
@@ -28,11 +31,11 @@ function close() {
 async function onPermissionChange(userId: string, value: string | null) {
   // if value is null then delete the user
   if (value === null) {
-    await useRequestFetch()(`/api/files/${fileId}/shares/${userId}`, {
+    await useRequestFetch()(`${apiUrl}/files/${fileId}/shares/${userId}/`, {
       method: "DELETE",
     })
   } else {
-    await useRequestFetch()(`/api/files/${fileId}/shares/${userId}`, {
+    await useRequestFetch()(`${apiUrl}/files/${fileId}/shares/${userId}/`, {
       method: "PATCH",
       body: { permission: value },
     })

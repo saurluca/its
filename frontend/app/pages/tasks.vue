@@ -64,13 +64,13 @@ function resetFilters() {
   selectedCourseId.value = ""
 }
 
-// Fetch tasks on page load
+// $fetchh tasks on page load
 onMounted(async () => {
   loading.value = true
   try {
     const [tasksResponse, coursesResponse] = await Promise.all([
-      fetch(`${apiUrl}/tasks`).then(res => res.json()),
-      fetch(`${apiUrl}/courses`).then(res => res.json()),
+      fetch(`${apiUrl}/tasks/`).then(res => res.json()),
+      fetch(`${apiUrl}/courses/`).then(res => res.json()),
     ])
     
     tasks.value = tasksResponse.map((task: Task) => ({
@@ -94,7 +94,7 @@ onMounted(async () => {
 async function createTask(taskData: TaskFormData) {
   try {
     // Create the basic task
-    const taskResponse = await fetch(`${apiUrl}/tasks`, {
+    const taskResponse = await fetch(`${apiUrl}/tasks/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -133,7 +133,7 @@ async function createTask(taskData: TaskFormData) {
 async function updateTask(taskData: Task) {
   try {
     // Update the basic task
-    const taskResponse = await fetch(`${apiUrl}/tasks/${taskData.id}`, {
+    const taskResponse = await fetch(`${apiUrl}/tasks/${taskData.id}/`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -167,7 +167,7 @@ async function updateTask(taskData: Task) {
 
 async function deleteTask(id: string) {
   try {
-    const response = await fetch(`${apiUrl}/tasks/${id}`, {
+    const response = await fetch(`${apiUrl}/tasks/${id}/`, {
       method: "DELETE",
     })
     

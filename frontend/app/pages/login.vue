@@ -3,6 +3,8 @@ definePageMeta({
   layout: false,
 })
 
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
 const email = ref("")
 const password = ref("")
 const errorMsg = ref("")
@@ -14,7 +16,7 @@ async function login() {
   try {
     loading.value = true
     errorMsg.value = ""
-    await $fetch("/api/login", {
+    await $fetch(`${apiUrl}/login/`, {
       method: "POST",
       body: {
         email: email.value,

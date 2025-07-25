@@ -3,6 +3,9 @@ definePageMeta({
   layout: false,
 })
 
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
+
 const orgName = ref("")
 const name = ref("")
 const email = ref("")
@@ -21,7 +24,7 @@ async function register() {
   try {
     loading.value = true
     errorMsg.value = ""
-    await $fetch("/api/register", {
+    await $fetch(`${apiUrl}/register/`, {
       method: "POST",
       body: {
         organisationName: orgName.value,

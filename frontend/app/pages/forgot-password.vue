@@ -3,6 +3,9 @@ definePageMeta({
   layout: false,
 })
 
+const runtimeConfig = useRuntimeConfig();
+const apiUrl = runtimeConfig.public.apiBase;
+
 const email = ref("")
 const loading = ref(false)
 const success = ref(false)
@@ -10,7 +13,7 @@ const success = ref(false)
 async function requestPasswordReset() {
   loading.value = true
   try {
-    await $fetch("/api/forgot-password", {
+    await $fetch(`${apiUrl}/forgot-password/`, {
       method: "POST",
       body: {
         email: email.value,

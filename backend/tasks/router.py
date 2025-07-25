@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, UploadFile, File
 from uuid import UUID
 from typing import Optional
 import json
+import time
 
 from tasks.schemas import (
     TaskCreateRequest,
@@ -9,6 +10,10 @@ from tasks.schemas import (
     TaskResponse,
     TasksListResponse,
     TaskDeleteResponse,
+    QuestionsResponse,
+    GeneratedQuestionsResponse,
+    DocumentToQuestionsResponse,
+    EvaluateAnswerResponse,
 )
 from tasks.service import (
     create_task,
@@ -17,9 +22,21 @@ from tasks.service import (
     get_tasks_by_course_id,
     update_task,
     delete_task,
+    generate_questions,
+    evaluate_student_answer,
+    save_questions_to_db,
+    get_questions_by_document_id,
+    get_question_by_id,
 )
 from tasks.models import TaskCreate, TaskUpdate
-from exceptions import DocumentNotFoundError
+from documents.service import (
+    save_document_to_db,
+    save_chunks_to_db,
+    extract_text_from_file_and_chunk,
+    get_chunks_by_document_id,
+)
+from exceptions import DocumentNotFoundError, QuestionNotFoundError
+from constants import DEFAULT_NUM_QUESTIONS
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -164,6 +181,104 @@ def delete_existing_task(task_id: UUID):
         task = delete_task(task_id)
         return TaskDeleteResponse(success=True, id=task.id)
     except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# Question-related endpoints
+@router.post("/document_to_questions", response_model=DocumentToQuestionsResponse)
+def document_to_questions(file: UploadFile = File(...)) -> dict:
+    """
+    Full pipeline endpoint for document processing.
+    1. Extracts text and chunks from the uploaded file and saves them to the database.
+    2. Summarises the document and stores key points in the database.
+    3. Generates questions and answer options from the document chunks and stores them in the database.
+    4. Returns the document ID, generated questions, and answer options.
+    This endpoint orchestrates the main workflow for document ingestion and question generation.
+    """
+    try:
+        start_time = time.time()
+        # Step 1: Extract text, chunks and save to db
+        print("Extracting text and chunks")
+        result = extract_text_from_file_and_chunk(
+            file.file, mime_type=file.content_type
+        )
+        print("Saving document metadata and chunks")
+        # Step 1.1: Save document metadata and get document_id
+        document_id = save_document_to_db(result["full_text"], title=result["name"])
+        # Step 1.2: Save chunks to database
+        save_chunks_to_db(document_id, result["chunks"])
+        print("Generating questions")
+        # Step 2: Generate questions (stores questions in DB)
+        questions, answer_options = generate_questions(document_id, result["chunks"])
+        print("Saving questions")
+        # Step 2.1: Save questions to database
+        save_questions_to_db(document_id, questions, answer_options)
+        end_time = time.time()
+        print(f"Time taken: {end_time - start_time} seconds")
+        # Step 3: Return questions and related info
+        return {
+            "document_id": document_id,
+            "questions": questions,
+            "answer_options": answer_options,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/generate_questions/{doc_id}", response_model=GeneratedQuestionsResponse)
+def generate_questions_endpoint(
+    doc_id: str, num_questions: int = DEFAULT_NUM_QUESTIONS
+):
+    """
+    Generates a specified number of questions for a given document ID.
+    Uses the document's chunks to create questions and answer options.
+    Returns the generated questions and answer options.
+    Useful for on-demand question generation for existing documents.
+    """
+    try:
+        chunks = get_chunks_by_document_id(doc_id)
+        questions, answer_options = generate_questions(doc_id, chunks, num_questions)
+        return {
+            "questions": questions,
+            "answer_options": answer_options,
+        }
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/questions/{doc_id}", response_model=QuestionsResponse)
+def get_questions(doc_id: str):
+    """
+    Retrieves all questions associated with a given document ID from the database.
+    Returns the questions as a list.
+    Useful for reviewing or displaying generated questions for a document.
+    """
+    try:
+        questions = get_questions_by_document_id(doc_id)
+        return {"questions": questions}
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/evaluate_answer", response_model=EvaluateAnswerResponse)
+def evaluate_answer(question_id: str, student_answer: int):
+    """
+    Evaluates a student's answer to a specific question.
+    Retrieves the question and answer options by question ID, then uses the evaluation logic to provide feedback.
+    Returns feedback on the student's answer.
+    Useful for automated grading or feedback in quiz applications.
+    """
+    try:
+        question, answer_options = get_question_by_id(question_id)
+        feedback = evaluate_student_answer(question, answer_options, student_answer)
+        return {"feedback": feedback}
+    except QuestionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

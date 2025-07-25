@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from router import router
 from courses.router import router as courses_router
 from tasks.router import router as tasks_router
+from documents.router import router as documents_router
 from utils import create_db_and_tables
 from config import LLMConfig, AppConfig
 
@@ -36,6 +37,7 @@ LLMConfig.configure_dspy()
 app.include_router(router)
 app.include_router(courses_router)
 app.include_router(tasks_router)
+app.include_router(documents_router)
 
 if __name__ == "__main__":
     import uvicorn

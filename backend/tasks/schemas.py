@@ -44,3 +44,39 @@ class TasksListResponse(BaseModel):
 class TaskDeleteResponse(BaseModel):
     success: bool
     id: UUID
+
+
+# Question-related schemas
+class EvaluateAnswerRequest(BaseModel):
+    question_id: str
+    student_answer: int
+
+
+class GenerateQuestionsRequest(BaseModel):
+    doc_id: str
+    num_questions: int = 10
+
+
+class QuestionResponse(BaseModel):
+    id: str
+    question: str
+    answer_options: List[str]
+
+
+class QuestionsResponse(BaseModel):
+    questions: List[QuestionResponse]
+
+
+class GeneratedQuestionsResponse(BaseModel):
+    questions: List[str]
+    answer_options: List[List[str]]
+
+
+class DocumentToQuestionsResponse(BaseModel):
+    document_id: str
+    questions: List[str]
+    answer_options: List[List[str]]
+
+
+class EvaluateAnswerResponse(BaseModel):
+    feedback: str

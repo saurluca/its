@@ -5,9 +5,6 @@ from uuid import UUID, uuid4
 import json
 
 
-# Import the new models
-
-
 class DocumentBase(SQLModel):
     title: str
     content: str
@@ -81,35 +78,3 @@ class ChunkCreate(ChunkBase):
 class ChunkRead(ChunkBase):
     id: UUID
     created_at: datetime
-
-
-class QuestionBase(SQLModel):
-    question: str
-    answer_options: str  # JSON string representation of list
-    document_id: UUID = Field(foreign_key="document.id")
-
-
-class Question(QuestionBase, table=True):
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-
-    # Relationships
-    document: Optional[Document] = Relationship(back_populates="questions")
-
-    def get_answer_options_list(self) -> List[str]:
-        """Convert answer_options JSON string to list"""
-        try:
-            return json.loads(self.answer_options)
-        except json.JSONDecodeError:
-            return []
-
-    def set_answer_options_list(self, options: List[str]):
-        """Convert list to answer_options JSON string"""
-        self.answer_options = json.dumps(options)
-
-
-class QuestionCreate(QuestionBase):
-    pass
-
-
-class QuestionRead(QuestionBase):
-    id: UUID

@@ -63,3 +63,36 @@ class TaskUpdate(SQLModel):
     options_json: Optional[str] = None
     correct_answer: Optional[str] = None
     course_id: Optional[UUID] = None
+
+
+# Question models for document-based questions
+class QuestionBase(SQLModel):
+    question: str
+    answer_options: str  # JSON string representation of list
+    document_id: UUID = Field(foreign_key="document.id")
+
+
+class Question(QuestionBase, table=True):
+    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+
+    # Relationships
+    document: Optional["Document"] = Relationship(back_populates="questions")
+
+    def get_answer_options_list(self) -> List[str]:
+        """Convert answer_options JSON string to list"""
+        try:
+            return json.loads(self.answer_options)
+        except json.JSONDecodeError:
+            return []
+
+    def set_answer_options_list(self, options: List[str]):
+        """Convert list to answer_options JSON string"""
+        self.answer_options = json.dumps(options)
+
+
+class QuestionCreate(QuestionBase):
+    pass
+
+
+class QuestionRead(QuestionBase):
+    id: UUID

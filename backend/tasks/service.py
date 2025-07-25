@@ -1,11 +1,20 @@
-from typing import List
+from typing import List, Tuple, Dict, Any
 from uuid import UUID
 from sqlmodel import Session, select
 from datetime import datetime
+import dspy
+import time
+from tqdm import tqdm
+import random
 
-from tasks.models import Task, TaskCreate, TaskUpdate
+from tasks.models import Task, TaskCreate, TaskUpdate, Question, QuestionCreate
 from dependencies import get_database_engine
-from exceptions import DocumentNotFoundError
+from exceptions import (
+    DocumentNotFoundError,
+    QuestionNotFoundError,
+    QuestionGenerationError,
+)
+from constants import DEFAULT_NUM_QUESTIONS, REQUIRED_ANSWER_OPTIONS
 
 
 def get_session():
@@ -151,3 +160,275 @@ def delete_task(task_id: UUID) -> Task:
         session.commit()
 
         return task
+
+
+# Question generation signatures
+class QuestionSingle(dspy.Signature):
+    """Generate a single multiple choice question, answer options, and correct answer indices from key points."""
+
+    text: str = dspy.InputField(description="The text to generate a question from.")
+
+    question: str = dspy.OutputField(
+        description="A single multiple choice question generated from the key points. It should foster a deep understanding of the material. The question should be short and concise."
+    )
+    answer_options: list[str] = dspy.OutputField(
+        description="A list of 4 answer options for each question. Exactly one answer option is correct. The correct answer should always be in the first position."
+    )
+
+
+class QuestionBatch(dspy.Signature):
+    """Generate multiple multiple-choice questions and answer options from a list of key points."""
+
+    texts: list[str] = dspy.InputField(
+        description="A list of texts to generate questions from."
+    )
+
+    questions: list[str] = dspy.OutputField(
+        description="A list of multiple choice questions, one per input text. Each question should be short and concise."
+    )
+    answer_options: list[list[str]] = dspy.OutputField(
+        description="A list of answer options for each question. Each should be a list of 4 options, with the correct answer always in the first position."
+    )
+
+
+# Teacher evaluation signature
+class Teacher(dspy.Signature):
+    """Evaluate the student's answer, and provide feedback."""
+
+    # input fields
+    question: str = dspy.InputField(
+        description="The question to be answered and the 4 answer options."
+    )
+    answer_options: list[str] = dspy.InputField(
+        description="The 4 answer options for the question."
+    )
+    student_answer: int = dspy.InputField(
+        description="The student's answer to the question."
+    )
+
+    # output fields
+    feedback: str = dspy.OutputField(
+        description="Short feedback on the student's answer. The correct answer is always the first option. If the student's answer is incorrect, provide a hint to the correct answer."
+    )
+
+
+# Question-related service functions
+def save_questions_to_db(
+    doc_id: str, questions: List[str], answer_options: List[List[str]]
+):
+    """
+    Save a list of questions and their answer options to the database, linked to the given document ID.
+
+    Args:
+        doc_id: The UUID of the document the questions belong to
+        questions: List of question strings
+        answer_options: List of answer options for each question (each is a list of 4 strings)
+    """
+    if len(questions) != len(answer_options):
+        raise ValueError("questions and answer_options must have the same length")
+
+    document_uuid = UUID(doc_id)
+
+    with get_session() as session:
+        for question_text, options in zip(questions, answer_options):
+            question_create = QuestionCreate(
+                question=question_text,
+                answer_options="",
+                document_id=document_uuid,
+            )
+
+            question = Question.model_validate(question_create.model_dump())
+            question.set_answer_options_list(options)
+
+            session.add(question)
+
+        session.commit()
+
+
+def get_questions_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
+    """
+    Retrieve all questions, their IDs, and answer options for a given document ID.
+
+    Args:
+        doc_id: Document UUID as string
+
+    Returns:
+        List of dicts: { 'id': str, 'question': str, 'answer_options': list[str] }
+    """
+    document_uuid = UUID(doc_id)
+
+    with get_session() as session:
+        statement = select(Question).where(Question.document_id == document_uuid)
+        questions = session.exec(statement).all()
+
+        return [
+            {
+                "id": str(question.id),
+                "question": question.question,
+                "answer_options": question.get_answer_options_list(),
+            }
+            for question in questions
+        ]
+
+
+def get_question_by_id(question_id: str) -> Tuple[str, List[str]]:
+    """
+    Get question and answer options by question ID
+
+    Args:
+        question_id: Question UUID as string
+
+    Returns:
+        Tuple of (question_text, answer_options)
+    """
+    question_uuid = UUID(question_id)
+
+    with get_session() as session:
+        statement = select(Question).where(Question.id == question_uuid)
+        question = session.exec(statement).first()
+
+        if not question:
+            raise QuestionNotFoundError(f"No question found with id: {question_id}")
+
+        return question.question, question.get_answer_options_list()
+
+
+def generate_questions(
+    document_id: str, chunks: List[dict], num_questions: int = DEFAULT_NUM_QUESTIONS
+) -> Tuple[List[str], List[List[str]]]:
+    """
+    Generate questions from document chunks
+
+    Args:
+        document_id: Document ID
+        chunks: List of document chunks
+        num_questions: Number of questions to generate
+
+    Returns:
+        Tuple of (questions, answer_options)
+    """
+    print(f"Generating questions for document {document_id} with {len(chunks)} chunks")
+    questions = []
+    answer_options = []
+    question_generator = dspy.ChainOfThought(QuestionSingle)
+    start_time = time.time()
+
+    if num_questions != len(chunks):
+        # randomly select num_questions chunks
+        chunks = random.sample(chunks, num_questions)
+
+    for chunk in tqdm(chunks):
+        try:
+            qg_response = question_generator(text=chunk["chunk_text"])
+
+            if len(qg_response.answer_options) != REQUIRED_ANSWER_OPTIONS:
+                print(
+                    f"Skipping chunk {chunk['chunk_index']} because it has {len(qg_response.answer_options)} answer options, but should have exactly {REQUIRED_ANSWER_OPTIONS} choices."
+                )
+                continue
+
+            questions.append(qg_response.question)
+            answer_options.append(qg_response.answer_options)
+        except Exception as e:
+            print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
+            continue
+
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
+    print(
+        f"Generated {len(questions)} questions and {len(answer_options)} answer options in {end_time - start_time} seconds"
+    )
+
+    if not questions:
+        raise QuestionGenerationError(
+            "No questions could be generated from the provided chunks"
+        )
+
+    return questions, answer_options
+
+
+def generate_questions_batch(
+    document_id: str, chunks: List[dict], num_questions: int = DEFAULT_NUM_QUESTIONS
+) -> Tuple[List[str], List[List[str]]]:
+    """
+    Generate questions in batch mode for better performance
+
+    Args:
+        document_id: Document ID
+        chunks: List of document chunks
+        num_questions: Number of questions to generate
+
+    Returns:
+        Tuple of (questions, answer_options)
+    """
+    print(
+        f"Batch-generating questions for document {document_id} with {len(chunks)} chunks"
+    )
+    if num_questions != len(chunks):
+        chunks = random.sample(chunks, num_questions)
+
+    chunk_texts = [chunk["chunk_text"] for chunk in chunks]
+    question_generator = dspy.ChainOfThought(QuestionBatch)
+    start_time = time.time()
+
+    try:
+        qg_response = question_generator(texts=chunk_texts)
+
+        # Validate output
+        questions = []
+        answer_options = []
+        for i, (q, opts) in enumerate(
+            zip(qg_response.questions, qg_response.answer_options)
+        ):
+            if not isinstance(opts, list) or len(opts) != REQUIRED_ANSWER_OPTIONS:
+                print(
+                    f"Skipping question {i} because it has {len(opts) if isinstance(opts, list) else 'invalid'} answer options, should have exactly {REQUIRED_ANSWER_OPTIONS}."
+                )
+                continue
+            questions.append(q)
+            answer_options.append(opts)
+
+        end_time = time.time()
+        print(f"Time taken (batch): {end_time - start_time} seconds")
+        print(
+            f"Generated {len(questions)} questions and {len(answer_options)} answer options in {end_time - start_time} seconds (batch)"
+        )
+
+        if not questions:
+            raise QuestionGenerationError(
+                "No valid questions could be generated in batch mode"
+            )
+
+        return questions, answer_options
+    except Exception as e:
+        raise QuestionGenerationError(f"Batch question generation failed: {e}")
+
+
+def evaluate_student_answer(
+    question: str, answer_options: List[str], student_answer: int
+) -> str:
+    """
+    Evaluate a student's answer and provide feedback
+
+    Args:
+        question: The question text
+        answer_options: List of answer options
+        student_answer: Student's selected answer index
+
+    Returns:
+        Feedback text
+    """
+    if student_answer < 0 or student_answer >= len(answer_options):
+        return "Invalid answer selection. Please choose a valid option."
+
+    teacher = dspy.ChainOfThought(Teacher)
+
+    try:
+        response = teacher(
+            question=question,
+            answer_options=answer_options,
+            student_answer=student_answer,
+        )
+        return response.feedback
+    except Exception as e:
+        return f"Error evaluating answer: {e}"

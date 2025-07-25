@@ -21,3 +21,8 @@ dependencies = [
 ]
 fastapi = "^0.110.0"
 uvicorn = {extras = ["standard"], version = "^0.29.0"}
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.1a15",
+]

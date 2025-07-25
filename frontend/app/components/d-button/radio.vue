@@ -10,6 +10,7 @@ interface Props {
   options: Option[] | string[]
   name: string
   direction?: 'horizontal' | 'vertical'
+  disabled?: boolean
 }
 
 const props = defineProps<Props>()
@@ -51,6 +52,7 @@ const containerClass = computed(() => {
         :value="option.value"
         v-model="model"
         class="size-4 text-gray-900 border-gray-300 focus:ring-blue-600"
+        :disabled="disabled"
       />
       <span class="text-sm text-gray-700">{{ option.label }}</span>
     </label>

@@ -6,6 +6,7 @@ const props = defineProps<{
   task: Task;
   index: number;
   modelValue: string;
+  disabled: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -46,6 +47,7 @@ console.log("task",props.task)
         v-model="answer"
         :name="`answer-${task.id}`"
         :options="task.options || []"
+        :disabled="disabled"
       />
     </div>
     

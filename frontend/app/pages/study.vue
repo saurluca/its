@@ -127,6 +127,7 @@ function restart() {
             :task="currentTask"
             :index="currentTaskIndex"
             v-model="currentAnswer"
+            :disabled="showEvaluation"
           />
           
           <div v-if="showEvaluation">

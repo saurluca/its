@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { PlusIcon } from 'lucide-vue-next';
+
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
 
@@ -139,12 +141,13 @@ function cancelEdit() {
     
     <div v-else class="space-y-8">
       <!-- Teacher View Form -->
-      <div v-if="isTeacherView && !showForm" class="flex justify-end">
+      <div v-if="isTeacherView && !showForm" class="flex">
         <DButton 
           @click="showForm = true" 
           variant="primary"
+          :iconLeft="PlusIcon"
         >
-          Add New Course
+          New Course
         </DButton>
       </div>
       

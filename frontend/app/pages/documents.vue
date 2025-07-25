@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { TrashIcon, PencilIcon, CheckIcon, UploadIcon } from 'lucide-vue-next';
+
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
 
@@ -8,6 +10,10 @@ const loadingDocuments = ref(true);
 const uploadingDocument = ref(false);
 const uploadedDocumentId = ref<string | null>(null);
 const deletingDocument = ref(false);
+const generatingTasks = ref(false);
+const showGenerateTasksModal = ref(false);
+const generateTasksDocumentId = ref<string | null>(null);
+const numTasksToGenerate = ref(1);
 
 async function fetchDocuments() {
   loadingDocuments.value = true;
@@ -84,6 +90,34 @@ async function deleteDocument(documentId: string) {
     deletingDocument.value = false;
   }
 }
+
+function openGenerateTasksModal(documentId: string) {
+  generateTasksDocumentId.value = documentId;
+  numTasksToGenerate.value = 1;
+  showGenerateTasksModal.value = true;
+}
+function closeGenerateTasksModal() {
+  showGenerateTasksModal.value = false;
+  generateTasksDocumentId.value = null;
+}
+async function confirmGenerateTasks() {
+  if (!generateTasksDocumentId.value) return;
+  generatingTasks.value = true;
+  try {
+    // Call the API to generate tasks
+    await fetch(`${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/`, {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num_tasks: parseInt(numTasksToGenerate.value) }),
+    });
+    closeGenerateTasksModal();
+    // Optionally refresh documents or show a success message
+  } catch (error) {
+    alert('Failed to generate tasks. Please try again. ' + error);
+  } finally {
+    generatingTasks.value = false;
+  }
+}
 </script>
 
 <template>
@@ -93,7 +127,7 @@ async function deleteDocument(documentId: string) {
     </div>
 
     <div class="flex justify-between items-center mb-8">
-      <DButton @click="triggerFilePicker" :loading="uploadingDocument">Upload Document</DButton>
+      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">New Document</DButton>
     </div>
     
     <div v-if="uploadedDocumentId" class="py-20 text-center">
@@ -103,8 +137,6 @@ async function deleteDocument(documentId: string) {
     <div v-else-if="uploadingDocument" class="py-20 text-center">
       <div class="text-xl">Uploading document...</div>
     </div>
-
-
     
     <div class="border border-gray-200 rounded-md p-4">
         <div v-if="loadingDocuments" class="py-20 text-center">
@@ -115,10 +147,33 @@ async function deleteDocument(documentId: string) {
             <div v-for="document in documents" :key="document.id">
                 <div class="flex justify-between items-center gap-2">
                     <p>{{ document.title }} / {{ document.id }}</p>
-                    <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger">Delete</DButton>
+                    <div class="flex gap-2">
+                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" :iconLeft="PencilIcon">
+                            Generate Tasks
+                        </DButton>
+                        <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon">Delete</DButton>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
   </div>
+  <DModal
+    v-if="showGenerateTasksModal"
+    titel="Generate Tasks"
+    :confirmText="generatingTasks ? 'Generating...' : 'Generate'"
+    @close="closeGenerateTasksModal"
+    @confirm="confirmGenerateTasks"
+  >
+    <div class="p-4">
+      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
+      <input
+        id="num-tasks"
+        type="number"
+        min="1"
+        v-model.number="numTasksToGenerate"
+        class="border rounded px-2 py-1 w-24"
+      />
+    </div>
+  </DModal>
 </template>

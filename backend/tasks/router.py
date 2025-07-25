@@ -255,10 +255,8 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/generate_questions/{doc_id}", response_model=dict)
-def generate_questions_from_document(
-    doc_id: str, num_questions: int = DEFAULT_NUM_QUESTIONS
-):
+@router.post("/generate/{doc_id}", response_model=dict)
+def generate_tasks_from_document(doc_id: str, num_tasks: int = DEFAULT_NUM_QUESTIONS):
     """
     Generates a specified number of questions for a given document ID.
     Uses the document's chunks to create questions and answer options.
@@ -267,7 +265,7 @@ def generate_questions_from_document(
     """
     try:
         chunks = get_chunks_by_document_id(doc_id)
-        questions, answer_options = generate_questions(doc_id, chunks, num_questions)
+        questions, answer_options = generate_questions(doc_id, chunks, num_tasks)
         save_questions_to_db(doc_id, questions, answer_options)
         return {
             "questions": questions,

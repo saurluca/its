@@ -3,8 +3,6 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from tasks.models import Task
-
 
 class CourseBase(SQLModel):
     name: str

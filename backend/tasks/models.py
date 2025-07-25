@@ -4,8 +4,6 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
 import json
-from courses.models import Course
-from documents.models import Document
 
 
 class TaskType(str, Enum):

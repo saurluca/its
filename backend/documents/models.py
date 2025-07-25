@@ -4,8 +4,6 @@ from datetime import datetime
 from uuid import UUID, uuid4
 import json
 
-from tasks.models import Task
-
 
 class DocumentBase(SQLModel):
     title: str
@@ -21,7 +19,7 @@ class Document(DocumentBase, table=True):
 
     # Relationships
     chunks: List["Chunk"] = Relationship(back_populates="document", cascade_delete=True)
-    tasks: List[Task] = Relationship(back_populates="document")
+    tasks: List["Task"] = Relationship(back_populates="document")
 
 
 class DocumentCreate(DocumentBase):

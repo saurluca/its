@@ -21,7 +21,7 @@ from tasks.service import (
     generate_questions,
     evaluate_student_answer,
     save_questions_to_db,
-    get_questions_by_document_id,
+    # get_questions_by_document_id,
     get_question_by_id,
 )
 from tasks.models import TaskCreate, TaskUpdate
@@ -33,7 +33,6 @@ from documents.service import (
 )
 from exceptions import DocumentNotFoundError
 from constants import DEFAULT_NUM_QUESTIONS
-from tasks.schemas import QuestionsResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -220,7 +219,7 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
 
 
 @router.get("/generate_questions/{doc_id}", response_model=dict)
-def generate_questions_endpoint(
+def generate_questions_from_document(
     doc_id: str, num_questions: int = DEFAULT_NUM_QUESTIONS
 ):
     """
@@ -242,20 +241,20 @@ def generate_questions_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/questions/{doc_id}", response_model=QuestionsResponse)
-def get_questions(doc_id: str):
-    """
-    Retrieves all questions associated with a given document ID from the database.
-    Returns the questions as a list.
-    Useful for reviewing or displaying generated questions for a document.
-    """
-    try:
-        questions = get_questions_by_document_id(doc_id)
-        return {"questions": questions}
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.get("/questions/{doc_id}", response_model=QuestionsResponse)
+# def get_questions(doc_id: str):
+#     """
+#     Retrieves all questions associated with a given document ID from the database.
+#     Returns the questions as a list.
+#     Useful for reviewing or displaying generated questions for a document.
+#     """
+#     try:
+#         questions = get_questions_by_document_id(doc_id)
+#         return {"questions": questions}
+#     except DocumentNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/evaluate_answer", response_model=dict)

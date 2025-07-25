@@ -90,7 +90,7 @@ function restart() {
 </script>
 
 <template>
-  <DPage>
+  <div class="max-w-6xl mx-auto px-4 py-8">
     <DPageHeader title="Study Mode" />
     <DPageContent>
       <div class="mx-auto max-w-2xl">
@@ -135,5 +135,5 @@ function restart() {
         </div>
       </div>
     </DPageContent>
-  </DPage>
+  </div>
 </template>

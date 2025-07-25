@@ -263,7 +263,7 @@ def get_question_by_id(question_id: str) -> Tuple[str, List[str]]:
 
 
 def generate_questions(
-    document_id: str, chunks: List[dict], num_questions: int = DEFAULT_NUM_QUESTIONS
+    document_id: str, chunks: List[dict], num_questions: int = 0
 ) -> Tuple[List[str], List[List[str]]]:
     """
     Generate questions from document chunks
@@ -276,6 +276,9 @@ def generate_questions(
     Returns:
         Tuple of (questions, answer_options)
     """
+    if num_questions == 0:
+        num_questions = len(chunks)
+
     print(f"Generating questions for document {document_id} with {len(chunks)} chunks")
     questions = []
     answer_options = []

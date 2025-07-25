@@ -21,6 +21,11 @@ const links = [
     to: "/courses",
     icon: BookOpenIcon,
   },
+  {
+    name: "Study",
+    to: "/study",
+    icon: Lightbulb,
+  },
 ]
 
 const footerLinks = [
@@ -93,4 +98,5 @@ function close() {
       <div v-show="!collapsed">{{ link.name }}</div>
     </NuxtLink>
   </nav>
+
 </template>

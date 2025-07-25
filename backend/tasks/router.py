@@ -21,10 +21,9 @@ from tasks.service import (
     generate_questions,
     evaluate_student_answer,
     save_questions_to_db,
-    # get_questions_by_document_id,
     get_question_by_id,
 )
-from tasks.models import TaskCreate, TaskUpdate
+from tasks.models import TaskCreate, TaskUpdate, Task
 from documents.service import (
     save_document_to_db,
     save_chunks_to_db,
@@ -65,6 +64,41 @@ def get_tasks(
             for task in tasks
         ]
         return TasksListResponse(tasks=task_responses)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/document/{document_id}", response_model=TasksListResponse)
+def get_tasks_by_document_id_endpoint(document_id: str):
+    """
+    Retrieve all tasks associated with a given document ID.
+    """
+    try:
+        # Get the actual Task objects from the database
+        document_uuid = UUID(document_id)
+        from tasks.service import get_session
+        from sqlmodel import select
+
+        with get_session() as session:
+            statement = select(Task).where(Task.document_id == document_uuid)
+            tasks = session.exec(statement).all()
+
+        task_responses = [
+            TaskResponse(
+                id=task.id,
+                question=task.question,
+                type=task.type,
+                options=task.get_options_list(),
+                correct_answer=task.correct_answer,
+                course_id=task.course_id,
+                created_at=task.created_at,
+                updated_at=task.updated_at,
+            )
+            for task in tasks
+        ]
+        return TasksListResponse(tasks=task_responses)
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

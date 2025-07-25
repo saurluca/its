@@ -25,7 +25,7 @@ const props = defineProps<{
     <div class="mt-4">
       <p>Your answer: <span :class="{ 'font-semibold': true, 'text-green-600': isCorrect, 'text-red-600': !isCorrect }">{{ userAnswer || 'Not answered' }}</span></p>
       <p v-if="!isCorrect" class="text-gray-700 mt-1">
-        Correct answer: <span class="font-semibold">{{ task.correctAnswer }}</span>
+        Correct answer: <span class="font-semibold">{{ task.correct_answer }}</span>
       </p>
     </div>
   </div>

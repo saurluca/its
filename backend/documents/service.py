@@ -10,6 +10,7 @@ from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
 from utils import get_session
+from sqlalchemy import desc
 
 
 def save_document_to_db(text: str, title: Optional[str] = None) -> str:
@@ -123,7 +124,7 @@ def get_document_titles_and_ids_from_db() -> Tuple[List[str], List[str]]:
         Tuple of (titles, ids) lists
     """
     with get_session() as session:
-        statement = select(Document).order_by(Document.created_at.desc())
+        statement = select(Document).order_by(desc(Document.created_at))
         documents = session.exec(statement).all()
 
         titles = [doc.title for doc in documents]

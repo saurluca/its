@@ -1,8 +1,12 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
 import json
+
+
+if TYPE_CHECKING:
+    from tasks.models import Task
 
 
 class DocumentBase(SQLModel):

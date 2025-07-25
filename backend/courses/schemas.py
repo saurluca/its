@@ -15,7 +15,7 @@ class CourseUpdateRequest(BaseModel):
 
 # Response schemas
 class CourseResponse(BaseModel):
-    id: UUID
+    id: Optional[UUID]
     name: str
     created_at: datetime
     updated_at: datetime
@@ -27,4 +27,4 @@ class CoursesListResponse(BaseModel):
 
 class CourseDeleteResponse(BaseModel):
     success: bool
-    id: UUID
+    id: Optional[UUID]

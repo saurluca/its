@@ -2,6 +2,7 @@ from typing import List
 from uuid import UUID
 from sqlmodel import select
 from datetime import datetime
+from sqlalchemy import desc
 
 from courses.models import Course, CourseCreate, CourseUpdate
 from exceptions import DocumentNotFoundError
@@ -60,7 +61,7 @@ def get_all_courses(limit: int = 100) -> List[Course]:
         List of courses
     """
     with get_session() as session:
-        statement = select(Course).order_by(Course.created_at.desc()).limit(limit)
+        statement = select(Course).order_by(desc(Course.created_at)).limit(limit)
         courses = session.exec(statement).all()
         return list(courses)
 

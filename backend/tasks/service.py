@@ -7,6 +7,7 @@ import time
 from tqdm import tqdm
 import random
 import json
+from sqlalchemy import desc
 
 from tasks.models import Task, TaskCreate, TaskUpdate
 from exceptions import (
@@ -68,7 +69,7 @@ def get_all_tasks(limit: int = 100) -> List[Task]:
         List of tasks
     """
     with get_session() as session:
-        statement = select(Task).order_by(Task.created_at.desc()).limit(limit)
+        statement = select(Task).order_by(desc(Task.created_at)).limit(limit)
         tasks = session.exec(statement).all()
         return list(tasks)
 
@@ -88,7 +89,7 @@ def get_tasks_by_course_id(course_id: UUID, limit: int = 100) -> List[Task]:
         statement = (
             select(Task)
             .where(Task.course_id == course_id)
-            .order_by(Task.created_at.desc())
+            .order_by(desc(Task.created_at))
             .limit(limit)
         )
         tasks = session.exec(statement).all()

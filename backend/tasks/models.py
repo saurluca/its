@@ -6,6 +6,11 @@ from enum import Enum
 import json
 
 
+if TYPE_CHECKING:
+    from courses.models import Course
+    from documents.models import Document
+
+
 class TaskType(str, Enum):
     TRUE_FALSE = "true_false"
     MULTIPLE_CHOICE = "multiple_choice"
@@ -68,9 +73,3 @@ class TaskUpdate(SQLModel):
     options_json: Optional[str] = None
     correct_answer: Optional[str] = None
     course_id: Optional[UUID] = None
-
-
-# Type checking imports to avoid circular imports
-if TYPE_CHECKING:
-    from courses.models import Course
-    from documents.models import Document

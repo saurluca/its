@@ -28,7 +28,7 @@ class TaskUpdateRequest(BaseModel):
 
 # Response schemas
 class TaskResponse(BaseModel):
-    id: UUID
+    id: Optional[UUID]
     type: TaskType
     question: str
     options: Optional[List[str]] = None
@@ -44,7 +44,7 @@ class TasksListResponse(BaseModel):
 
 class TaskDeleteResponse(BaseModel):
     success: bool
-    id: UUID
+    id: Optional[UUID]
 
 
 class EvaluateAnswerRequest(BaseModel):

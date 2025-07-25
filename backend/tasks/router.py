@@ -278,24 +278,8 @@ def generate_questions_from_document(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# @router.get("/questions/{doc_id}", response_model=QuestionsResponse)
-# def get_questions(doc_id: str):
-#     """
-#     Retrieves all questions associated with a given document ID from the database.
-#     Returns the questions as a list.
-#     Useful for reviewing or displaying generated questions for a document.
-#     """
-#     try:
-#         questions = get_questions_by_document_id(doc_id)
-#         return {"questions": questions}
-#     except DocumentNotFoundError as e:
-#         raise HTTPException(status_code=404, detail=str(e))
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/evaluate_answer", response_model=dict)
-def evaluate_answer(question_id: str, student_answer: int):
+@router.post("/evaluate_answer/{question_id}", response_model=dict)
+def evaluate_answer(question_id: UUID, student_answer: str) -> dict:
     """
     Evaluates a student's answer to a specific question.
     Retrieves the question and answer options by question ID, then uses the evaluation logic to provide feedback.
@@ -304,7 +288,10 @@ def evaluate_answer(question_id: str, student_answer: int):
     """
     try:
         question, answer_options = get_question_by_id(question_id)
-        feedback = evaluate_student_answer(question, answer_options, student_answer)
+        correct_answer = answer_options[0]
+        feedback = evaluate_student_answer(
+            question, answer_options, student_answer, correct_answer
+        )
         return {"feedback": feedback}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -195,13 +195,18 @@ class Teacher(dspy.Signature):
     answer_options: list[str] = dspy.InputField(
         description="The 4 answer options for the question."
     )
-    student_answer: int = dspy.InputField(
+    correct_answer: str = dspy.InputField(
+        description="The correct answer to the question."
+    )
+    student_answer: str = dspy.InputField(
         description="The student's answer to the question."
     )
 
     # output fields
     feedback: str = dspy.OutputField(
-        description="Short feedback on the student's answer. The correct answer is always the first option. If the student's answer is incorrect, provide a hint to the correct answer."
+        description="""
+        Short and concise feedback on the student's answer. If the student's answer is incorrect, provide an explanation of the correct answer.
+        """
     )
 
 
@@ -249,13 +254,12 @@ def get_questions_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
         ]
 
 
-def get_question_by_id(question_id: str) -> Tuple[str, List[str]]:
+def get_question_by_id(question_id: UUID) -> Tuple[str, List[str]]:
     """
     Get question and answer options by task ID
     """
-    task_uuid = UUID(question_id)
     with get_session() as session:
-        statement = select(Task).where(Task.id == task_uuid)
+        statement = select(Task).where(Task.id == question_id)
         task = session.exec(statement).first()
         if not task:
             raise Exception(f"No task found with id: {question_id}")
@@ -373,7 +377,7 @@ def generate_questions_batch(
 
 
 def evaluate_student_answer(
-    question: str, answer_options: List[str], student_answer: int
+    question: str, answer_options: List[str], student_answer: str, correct_answer: str
 ) -> str:
     """
     Evaluate a student's answer and provide feedback
@@ -381,20 +385,18 @@ def evaluate_student_answer(
     Args:
         question: The question text
         answer_options: List of answer options
-        student_answer: Student's selected answer index
+        student_answer: Student's selected answer
 
     Returns:
         Feedback text
     """
-    if student_answer < 0 or student_answer >= len(answer_options):
-        return "Invalid answer selection. Please choose a valid option."
-
     teacher = dspy.ChainOfThought(Teacher)
 
     try:
         response = teacher(
             question=question,
             answer_options=answer_options,
+            correct_answer=correct_answer,
             student_answer=student_answer,
         )
         return response.feedback

@@ -1,6 +1,6 @@
 from typing import List, Tuple, Dict, Any
 from uuid import UUID
-from sqlmodel import Session, select
+from sqlmodel import select
 from datetime import datetime
 import dspy
 import time
@@ -8,19 +8,13 @@ from tqdm import tqdm
 import random
 
 from tasks.models import Task, TaskCreate, TaskUpdate, Question, QuestionCreate
-from dependencies import get_database_engine
 from exceptions import (
     DocumentNotFoundError,
     QuestionNotFoundError,
     QuestionGenerationError,
 )
 from constants import DEFAULT_NUM_QUESTIONS, REQUIRED_ANSWER_OPTIONS
-
-
-def get_session():
-    """Get database session"""
-    engine = get_database_engine()
-    return Session(engine)
+from utils import get_session
 
 
 def create_task(task_data: TaskCreate) -> Task:

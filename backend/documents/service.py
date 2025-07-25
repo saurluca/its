@@ -1,21 +1,15 @@
-from sqlmodel import Session, select
+from sqlmodel import select
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.chunking import HybridChunker
 from io import BytesIO
 import dspy
 from documents.models import Document, DocumentCreate, Chunk, ChunkCreate
-from dependencies import get_database_engine
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
-
-
-def get_session():
-    """Get database session"""
-    engine = get_database_engine()
-    return Session(engine)
+from utils import get_session
 
 
 def save_document_to_db(text: str, title: Optional[str] = None) -> str:

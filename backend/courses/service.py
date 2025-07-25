@@ -1,17 +1,11 @@
 from typing import List
 from uuid import UUID
-from sqlmodel import Session, select
+from sqlmodel import select
 from datetime import datetime
 
 from courses.models import Course, CourseCreate, CourseUpdate
-from dependencies import get_database_engine
 from exceptions import DocumentNotFoundError
-
-
-def get_session():
-    """Get database session"""
-    engine = get_database_engine()
-    return Session(engine)
+from utils import get_session
 
 
 def create_course(course_data: CourseCreate) -> Course:

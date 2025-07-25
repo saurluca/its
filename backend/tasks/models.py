@@ -4,6 +4,8 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
 import json
+from courses.models import Course
+from documents.models import Document
 
 
 class TaskType(str, Enum):
@@ -13,12 +15,17 @@ class TaskType(str, Enum):
 
 
 class TaskBase(SQLModel):
-    name: str
     type: TaskType
     question: str
-    options_json: Optional[str] = None  # JSON string representation of list
+    options_json: Optional[str] = None
     correct_answer: str
-    course_id: UUID = Field(foreign_key="course.id")
+    course_id: Optional[UUID] = None
+    document_id: Optional[UUID] = Field(
+        None, description="Document task was created from", foreign_key="document.id"
+    )
+    chunk_id: Optional[UUID] = Field(
+        None, description="Chunk task was created from", foreign_key="chunk.id"
+    )
 
 
 class Task(TaskBase, table=True):
@@ -28,6 +35,7 @@ class Task(TaskBase, table=True):
 
     # Relationships
     course: Optional["Course"] = Relationship(back_populates="tasks")
+    document: Optional["Document"] = Relationship(back_populates="tasks")
 
     def get_options_list(self) -> List[str]:
         """Convert options_json string to list"""
@@ -57,42 +65,8 @@ class TaskRead(TaskBase):
 
 
 class TaskUpdate(SQLModel):
-    name: Optional[str] = None
     type: Optional[TaskType] = None
     question: Optional[str] = None
     options_json: Optional[str] = None
     correct_answer: Optional[str] = None
     course_id: Optional[UUID] = None
-
-
-# Question models for document-based questions
-class QuestionBase(SQLModel):
-    question: str
-    answer_options: str  # JSON string representation of list
-    document_id: UUID = Field(foreign_key="document.id")
-
-
-class Question(QuestionBase, table=True):
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-
-    # Relationships
-    document: Optional["Document"] = Relationship(back_populates="questions")
-
-    def get_answer_options_list(self) -> List[str]:
-        """Convert answer_options JSON string to list"""
-        try:
-            return json.loads(self.answer_options)
-        except json.JSONDecodeError:
-            return []
-
-    def set_answer_options_list(self, options: List[str]):
-        """Convert list to answer_options JSON string"""
-        self.answer_options = json.dumps(options)
-
-
-class QuestionCreate(QuestionBase):
-    pass
-
-
-class QuestionRead(QuestionBase):
-    id: UUID

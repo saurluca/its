@@ -10,10 +10,6 @@ from tasks.schemas import (
     TaskResponse,
     TasksListResponse,
     TaskDeleteResponse,
-    QuestionsResponse,
-    GeneratedQuestionsResponse,
-    DocumentToQuestionsResponse,
-    EvaluateAnswerResponse,
 )
 from tasks.service import (
     create_task,
@@ -35,8 +31,9 @@ from documents.service import (
     extract_text_from_file_and_chunk,
     get_chunks_by_document_id,
 )
-from exceptions import DocumentNotFoundError, QuestionNotFoundError
+from exceptions import DocumentNotFoundError
 from constants import DEFAULT_NUM_QUESTIONS
+from tasks.schemas import QuestionsResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -58,9 +55,8 @@ def get_tasks(
         task_responses = [
             TaskResponse(
                 id=task.id,
-                name=task.name,
-                type=task.type,
                 question=task.question,
+                type=task.type,
                 options=task.get_options_list(),
                 correct_answer=task.correct_answer,
                 course_id=task.course_id,
@@ -78,13 +74,12 @@ def get_tasks(
 def create_new_task(task_request: TaskCreateRequest):
     """
     Create a new task.
-    Requires task details including name, type, question, options, correct answer, and course ID.
+    Requires task details including question, type, options, correct answer, and course ID.
     """
     try:
         task_data = TaskCreate(
-            name=task_request.name,
-            type=task_request.type,
             question=task_request.question,
+            type=task_request.type,
             options_json=None,  # Will be set after task creation
             correct_answer=task_request.correct_answer,
             course_id=task_request.course_id,
@@ -97,9 +92,8 @@ def create_new_task(task_request: TaskCreateRequest):
 
         return TaskResponse(
             id=task.id,
-            name=task.name,
-            type=task.type,
             question=task.question,
+            type=task.type,
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
@@ -120,9 +114,8 @@ def get_task(task_id: UUID):
         task = get_task_by_id(task_id)
         return TaskResponse(
             id=task.id,
-            name=task.name,
-            type=task.type,
             question=task.question,
+            type=task.type,
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
@@ -156,9 +149,8 @@ def update_existing_task(task_id: UUID, task_request: TaskUpdateRequest):
 
         return TaskResponse(
             id=task.id,
-            name=task.name,
-            type=task.type,
             question=task.question,
+            type=task.type,
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
@@ -187,7 +179,7 @@ def delete_existing_task(task_id: UUID):
 
 
 # Question-related endpoints
-@router.post("/document_to_questions", response_model=DocumentToQuestionsResponse)
+@router.post("/document_to_questions", response_model=dict)
 def document_to_questions(file: UploadFile = File(...)) -> dict:
     """
     Full pipeline endpoint for document processing.
@@ -227,7 +219,7 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/generate_questions/{doc_id}", response_model=GeneratedQuestionsResponse)
+@router.get("/generate_questions/{doc_id}", response_model=dict)
 def generate_questions_endpoint(
     doc_id: str, num_questions: int = DEFAULT_NUM_QUESTIONS
 ):
@@ -266,7 +258,7 @@ def get_questions(doc_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/evaluate_answer", response_model=EvaluateAnswerResponse)
+@router.post("/evaluate_answer", response_model=dict)
 def evaluate_answer(question_id: str, student_answer: int):
     """
     Evaluates a student's answer to a specific question.
@@ -278,7 +270,5 @@ def evaluate_answer(question_id: str, student_answer: int):
         question, answer_options = get_question_by_id(question_id)
         feedback = evaluate_student_answer(question, answer_options, student_answer)
         return {"feedback": feedback}
-    except QuestionNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

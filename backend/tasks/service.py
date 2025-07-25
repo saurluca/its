@@ -6,12 +6,11 @@ import dspy
 import time
 from tqdm import tqdm
 import random
+import json
 
-from tasks.models import Task, TaskCreate, TaskUpdate, Question, QuestionCreate
+from tasks.models import Task, TaskCreate, TaskUpdate
 from exceptions import (
     DocumentNotFoundError,
-    QuestionNotFoundError,
-    QuestionGenerationError,
 )
 from constants import DEFAULT_NUM_QUESTIONS, REQUIRED_ANSWER_OPTIONS
 from utils import get_session
@@ -212,11 +211,6 @@ def save_questions_to_db(
 ):
     """
     Save a list of questions and their answer options to the database, linked to the given document ID.
-
-    Args:
-        doc_id: The UUID of the document the questions belong to
-        questions: List of question strings
-        answer_options: List of answer options for each question (each is a list of 4 strings)
     """
     if len(questions) != len(answer_options):
         raise ValueError("questions and answer_options must have the same length")
@@ -225,66 +219,47 @@ def save_questions_to_db(
 
     with get_session() as session:
         for question_text, options in zip(questions, answer_options):
-            question_create = QuestionCreate(
+            task_create = TaskCreate(
                 question=question_text,
-                answer_options="",
+                type="multiple_choice",
+                options_json=json.dumps(options),
+                correct_answer=options[0],
                 document_id=document_uuid,
             )
-
-            question = Question.model_validate(question_create.model_dump())
-            question.set_answer_options_list(options)
-
-            session.add(question)
-
+            task = Task.model_validate(task_create.model_dump())
+            session.add(task)
         session.commit()
 
 
 def get_questions_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
     """
-    Retrieve all questions, their IDs, and answer options for a given document ID.
-
-    Args:
-        doc_id: Document UUID as string
-
-    Returns:
-        List of dicts: { 'id': str, 'question': str, 'answer_options': list[str] }
+    Retrieve all tasks (questions), their IDs, and answer options for a given document ID.
     """
     document_uuid = UUID(doc_id)
-
     with get_session() as session:
-        statement = select(Question).where(Question.document_id == document_uuid)
-        questions = session.exec(statement).all()
-
+        statement = select(Task).where(Task.document_id == document_uuid)
+        tasks = session.exec(statement).all()
         return [
             {
-                "id": str(question.id),
-                "question": question.question,
-                "answer_options": question.get_answer_options_list(),
+                "id": str(task.id),
+                "question": task.question,
+                "answer_options": task.get_options_list(),
             }
-            for question in questions
+            for task in tasks
         ]
 
 
 def get_question_by_id(question_id: str) -> Tuple[str, List[str]]:
     """
-    Get question and answer options by question ID
-
-    Args:
-        question_id: Question UUID as string
-
-    Returns:
-        Tuple of (question_text, answer_options)
+    Get question and answer options by task ID
     """
-    question_uuid = UUID(question_id)
-
+    task_uuid = UUID(question_id)
     with get_session() as session:
-        statement = select(Question).where(Question.id == question_uuid)
-        question = session.exec(statement).first()
-
-        if not question:
-            raise QuestionNotFoundError(f"No question found with id: {question_id}")
-
-        return question.question, question.get_answer_options_list()
+        statement = select(Task).where(Task.id == task_uuid)
+        task = session.exec(statement).first()
+        if not task:
+            raise Exception(f"No task found with id: {question_id}")
+        return task.question, task.get_options_list()
 
 
 def generate_questions(
@@ -334,9 +309,7 @@ def generate_questions(
     )
 
     if not questions:
-        raise QuestionGenerationError(
-            "No questions could be generated from the provided chunks"
-        )
+        raise Exception("No questions could be generated from the provided chunks")
 
     return questions, answer_options
 
@@ -389,13 +362,11 @@ def generate_questions_batch(
         )
 
         if not questions:
-            raise QuestionGenerationError(
-                "No valid questions could be generated in batch mode"
-            )
+            raise Exception("No valid questions could be generated in batch mode")
 
         return questions, answer_options
     except Exception as e:
-        raise QuestionGenerationError(f"Batch question generation failed: {e}")
+        raise Exception(f"Batch question generation failed: {e}")
 
 
 def evaluate_student_answer(

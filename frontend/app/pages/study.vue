@@ -12,6 +12,7 @@ const isCorrect = ref<boolean | null>(null)
 const score = ref(0)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const feedback = ref<string | null>(null)
 
 const runtimeConfig = useRuntimeConfig()
 const apiUrl = runtimeConfig.public.apiBase
@@ -49,17 +50,35 @@ async function startStudy() {
   }
 }
 
-function evaluateAnswer() {
+async function evaluateAnswer() {
   if (currentAnswer.value === null || currentAnswer.value === '') {
-    // Maybe show a message to the user
+    error.value = 'Please enter an answer.'
     return;
   }
+
+  feedback.value = "Evaluating..."
+
   const correct = currentAnswer.value === currentTask.value.correct_answer
   isCorrect.value = correct
+
+  showEvaluation.value = true
+
   if (correct) {
     score.value++
+  } else {
+    const { data: responseData, error: fetchError } = await useFetch<{ feedback: string }>(`${apiUrl}/tasks/evaluate_answer/${currentTask.value.id}`, {
+      method: 'POST',
+      body: {
+        student_answer: currentAnswer.value
+      }
+    })
+
+    if (fetchError.value) {
+      error.value = fetchError.value.data?.message || 'Failed to evaluate answer.'
+      return;
+    }
+    feedback.value = responseData.value?.feedback
   }
-  showEvaluation.value = true
 }
 
 function nextQuestion() {
@@ -116,6 +135,7 @@ function restart() {
               :index="currentTaskIndex"
               :userAnswer="currentAnswer"
               :isCorrect="isCorrect ?? false"
+              :feedback="feedback ?? ''"
               class="mt-4"
             />
             <DButton @click="nextQuestion" class="mt-4">

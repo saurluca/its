@@ -204,9 +204,7 @@ class Teacher(dspy.Signature):
 
     # output fields
     feedback: str = dspy.OutputField(
-        description="""
-        Short and concise feedback on the student's answer. If the student's answer is incorrect, provide an explanation of the correct answer.
-        """
+        description="Short and concise explanation for the student based on their answer."
     )
 
 

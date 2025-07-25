@@ -10,6 +10,7 @@ from tasks.schemas import (
     TaskResponse,
     TasksListResponse,
     TaskDeleteResponse,
+    EvaluateAnswerRequest,
 )
 from tasks.service import (
     create_task,
@@ -279,13 +280,8 @@ def generate_questions_from_document(
 
 
 @router.post("/evaluate_answer/{question_id}", response_model=dict)
-def evaluate_answer(question_id: UUID, student_answer: str) -> dict:
-    """
-    Evaluates a student's answer to a specific question.
-    Retrieves the question and answer options by question ID, then uses the evaluation logic to provide feedback.
-    Returns feedback on the student's answer.
-    Useful for automated grading or feedback in quiz applications.
-    """
+def evaluate_answer(question_id: UUID, body: EvaluateAnswerRequest) -> dict:
+    student_answer = body.student_answer
     try:
         question, answer_options = get_question_by_id(question_id)
         correct_answer = answer_options[0]

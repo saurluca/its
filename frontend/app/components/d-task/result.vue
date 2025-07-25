@@ -6,6 +6,7 @@ const props = defineProps<{
   index: number;
   userAnswer: string;
   isCorrect: boolean;
+  feedback: string;
 }>();
 </script>
 
@@ -20,13 +21,23 @@ const props = defineProps<{
         {{ isCorrect ? 'Correct' : 'Incorrect' }}
       </span>
     </div>
-    <p class="mt-2 text-gray-700">{{ task.question }}</p>
+    <!-- <p class="mt-2 text-gray-700">{{ task.question }}</p> -->
     
     <div class="mt-4">
-      <p>Your answer: <span :class="{ 'font-semibold': true, 'text-green-600': isCorrect, 'text-red-600': !isCorrect }">{{ userAnswer || 'Not answered' }}</span></p>
-      <p v-if="!isCorrect" class="text-gray-700 mt-1">
-        Correct answer: <span class="font-semibold">{{ task.correct_answer }}</span>
+      
+      <p class="text-gray-700">
+        <span class="font-semibold">Your answer: </span> 
+        <span :class="{ 'font-semibold': true, 'text-green-600': isCorrect, 'text-red-600': !isCorrect }">{{ userAnswer || 'Not answered' }}</span>
       </p>
+      <p v-if="!isCorrect" class="text-gray-700 mt-1">
+        <span class="font-semibold">Correct answer: </span> 
+        <span class="">{{ task.correct_answer }}</span>
+      </p>
+       <p v-if="!isCorrect" class="text-gray-700 mt-4">
+        <span class="font-semibold">Explanation: </span> 
+        <span class="">{{ feedback }}</span>
+      </p>
+   
     </div>
   </div>
 </template> 

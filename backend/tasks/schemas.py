@@ -45,3 +45,7 @@ class TasksListResponse(BaseModel):
 class TaskDeleteResponse(BaseModel):
     success: bool
     id: UUID
+
+
+class EvaluateAnswerRequest(BaseModel):
+    student_answer: str

@@ -22,14 +22,14 @@ console.log("task",props.task)
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-lg shadow">
+  <div class="bg-white p-6 rounded-lg shadow w-2xl">
     <div class="flex justify-between">
       <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
         {{ task.type === 'true_false' ? 'True/False' : task.type === 'multiple_choice' ? 'Multiple Choice' : 'Free Text' }}
       </span>
     </div>
-    <p class="mt-2 text-gray-700">{{ task.question }}</p>
+    <p class="mt-2">{{ task.question }}</p>
     
     <!-- True/False Answer -->
     <div v-if="task.type === 'true_false'" class="mt-4">

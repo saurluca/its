@@ -8,8 +8,8 @@ from utils import create_db_and_tables
 from config import LLMConfig, AppConfig
 
 app = FastAPI(
-    title="ITS Pipeline API",
-    description="Intelligent Tutoring System Pipeline for document processing and question generation",
+    title="ITS Backend",
+    description="Backend for Intelligent Tutoring System",
     version=AppConfig.API_VERSION,
 )
 

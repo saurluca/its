@@ -88,6 +88,8 @@ def create_new_task(task_request: TaskCreateRequest):
         # Set options using the helper method
         if task_request.options:
             task.set_options_list(task_request.options)
+            # Persist the options to the database
+            task = update_task(task.id, TaskUpdate(options_json=task.options_json))
 
         return TaskResponse(
             id=task.id,

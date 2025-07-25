@@ -72,7 +72,10 @@ onMounted(async () => {
       fetch(`${apiUrl}/courses/`).then(res => res.json()),
     ])
     
-    tasks.value = tasksResponse.map((task: Task) => ({
+    console.log("coursesResponse", coursesResponse)
+    console.log("tasksResponse", tasksResponse)
+    
+    tasks.value = (tasksResponse.tasks || []).map((task: Task) => ({
       ...task,
       options: task.options || (
         task.type === "true_false" ? ["True", "False"] : []
@@ -80,7 +83,7 @@ onMounted(async () => {
       correctAnswer: task.correctAnswer || ""
     }))
     
-    coursesList.value = coursesResponse
+    coursesList.value = coursesResponse.courses
   } catch (error) {
     console.error("Error fetching data:", error)
   } finally {
@@ -100,8 +103,8 @@ async function createTask(taskData: TaskFormData) {
         type: taskData.type,
         question: taskData.question,
         options: taskData.options,
-        correctAnswer: taskData.correctAnswer,
-        courseId: taskData.courseId,
+        correct_answer: taskData.correctAnswer,
+        course_id: taskData.courseId,
       }),
     })
     
@@ -138,8 +141,8 @@ async function updateTask(taskData: Task) {
         type: taskData.type,
         question: taskData.question,
         options: taskData.options,
-        correctAnswer: taskData.correctAnswer,
-        courseId: taskData.courseId,
+        correct_answer: taskData.correctAnswer,
+        course_id: taskData.courseId,
       }),
     })
     

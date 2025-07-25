@@ -2,7 +2,7 @@ name: "its"
 
 services:
   db:
-    image: postgres:latest-alpine
+    image: postgres:17-alpine
     container_name: db
     ports:
       - "5432:5432"

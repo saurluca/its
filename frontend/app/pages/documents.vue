@@ -105,10 +105,9 @@ async function confirmGenerateTasks() {
   generatingTasks.value = true;
   try {
     // Call the API to generate tasks
-    await fetch(`${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/`, {
+    await fetch(`${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`, {
       method: "POST",
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ num_tasks: parseInt(numTasksToGenerate.value) }),
     });
     closeGenerateTasksModal();
     // Optionally refresh documents or show a success message

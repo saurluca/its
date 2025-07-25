@@ -5,7 +5,7 @@ from docling.chunking import HybridChunker
 from io import BytesIO
 import dspy
 from documents.models import Document, DocumentCreate, Chunk, ChunkCreate
-from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH
+from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
@@ -268,6 +268,53 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
                 "metadata": {"source_file": name, "chunk_length": len(enriched_text)},
             }
         )
+
+    print("Post-processing chunks: merging small chunks")
+    # Merge small chunks with next chunks if they're below MIN_CHUNK_LENGTH
+    if len(chunks) > 1:
+        merged_chunks = []
+        i = 0
+
+        while i < len(chunks):
+            current_chunk = chunks[i]
+
+            # If current chunk is too small and there's a next chunk, merge them
+            if len(current_chunk["chunk_text"]) < MIN_CHUNK_LENGTH and i + 1 < len(
+                chunks
+            ):
+                next_chunk = chunks[i + 1]
+
+                # Merge the text content
+                merged_text = (
+                    current_chunk["chunk_text"] + "\n\n" + next_chunk["chunk_text"]
+                )
+
+                # Create merged chunk with updated metadata
+                merged_chunk = {
+                    "chunk_index": len(merged_chunks),
+                    "chunk_text": merged_text,
+                    "metadata": {
+                        "source_file": name,
+                        "chunk_length": len(merged_text),
+                        "merged_from_chunks": [
+                            current_chunk["chunk_index"],
+                            next_chunk["chunk_index"],
+                        ],
+                    },
+                }
+
+                merged_chunks.append(merged_chunk)
+                i += 1  # Skip both current and next chunk
+            else:
+                # Keep the chunk as is, but update its index
+                current_chunk["chunk_index"] = len(merged_chunks)
+                current_chunk["metadata"]["chunk_length"] = len(
+                    current_chunk["chunk_text"]
+                )
+                merged_chunks.append(current_chunk)
+                i += 1
+
+        chunks = merged_chunks
 
     return {"full_text": full_text, "name": name, "chunks": chunks}
 

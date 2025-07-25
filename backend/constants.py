@@ -22,3 +22,6 @@ ROOT_MESSAGE = "Hello, World!"
 
 # Database constraints
 MAX_CONTENT_PREVIEW_LENGTH = 1000
+
+# Chunking constants
+MIN_CHUNK_LENGTH = 350

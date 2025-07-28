@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion } from 'lucide-vue-next';
+import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon } from 'lucide-vue-next';
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
@@ -152,10 +152,10 @@ async function confirmGenerateTasks() {
                 <div class="flex justify-between items-center gap-2">
                     <p>{{ document.title }} / {{ document.id }}</p>
                     <div class="flex gap-2">
-                        <DButton @click="navigateToTasks(document.id)" :iconLeft="BookCheckIcon">
+                        <DButton @click="navigateToTasks(document.id)" variant="secondary" :iconLeft="EyeIcon">
                             View Tasks
                         </DButton>
-                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" :iconLeft="FileQuestion">
+                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="FileQuestion">
                             Generate Tasks
                         </DButton>
                         <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>

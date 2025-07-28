@@ -6,10 +6,15 @@ import { useSessionStorage } from "@vueuse/core"
 const route = useRoute()
 
 const links = [
+  // {
+  //   name: "Home",
+  //   to: "/",
+  //   icon: HomeIcon,
+  // },
   {
-    name: "Home",
-    to: "/",
-    icon: HomeIcon,
+    name: "Documents",
+    to: "/documents",
+    icon: FileIcon,
   },
   {
     name: "Tasks",
@@ -26,11 +31,7 @@ const links = [
     to: "/study",
     icon: Lightbulb,
   },
-  {
-    name: "Documents",
-    to: "/documents",
-    icon: FileIcon,
-  },
+
 ]
 
 const footerLinks = [

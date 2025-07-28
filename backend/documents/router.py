@@ -7,6 +7,7 @@ from documents.service import (
     save_chunks_to_db,
     extract_text_from_file_and_chunk,
     delete_document_from_db,
+    generate_document_title,
 )
 from documents.schemas import (
     DocumentUploadResponse,
@@ -30,7 +31,16 @@ def document_to_chunks(file: UploadFile = File(...)) -> dict:
         result = extract_text_from_file_and_chunk(
             file.file, mime_type=file.content_type
         )
-        document_id = save_document_to_db(result["full_text"], title=result["name"])
+
+        title_context = "\n".join(
+            [chunk["chunk_text"] for chunk in result["chunks"][:4]]
+        )
+
+        # create title for document based on first chunk
+        title = generate_document_title(title_context)
+
+        # save document and chunks to db
+        document_id = save_document_to_db(result["full_text"], title=title)
         save_chunks_to_db(document_id, result["chunks"])
         return {"document_id": document_id}
     except Exception as e:

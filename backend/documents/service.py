@@ -11,6 +11,7 @@ from uuid import UUID
 from utils import get_session
 from sqlalchemy import desc
 import time
+import dspy
 
 
 def save_document_to_db(text: str, title: Optional[str] = None) -> str:
@@ -352,3 +353,24 @@ def delete_document_from_db(doc_id: str):
             session.commit()
         else:
             raise DocumentNotFoundError(f"No document found with id: {doc_id}")
+
+
+def generate_document_title(document_start: str) -> str:
+    try:
+
+        class DocumentTitle(dspy.Signature):
+            document_start: str = dspy.InputField(
+                description="The first characters of the document."
+            )
+            document_title: str = dspy.OutputField(
+                description="A short title for the document based on the first characters of the document. The document is part of a lecture course, so try to come a with a title for this course based on the short snippet of the document. Provide a single sentence as the title."
+            )
+
+        model = dspy.ChainOfThought(DocumentTitle)
+        print(f"Document start: {document_start}")
+        result = model(document_start=document_start)
+        print(f"Document title: {result.document_title}")
+        return result.document_title
+    except Exception as e:
+        print(f"Error generating document title: {e}")
+        return "Untitled Document"

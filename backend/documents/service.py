@@ -222,23 +222,42 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     print(f"Time taken to convert: {time.time() - start_time} seconds")
 
     print("Chunking")
-    start_time = time.time()
-    # Use HybridChunker to split document into chunks
-    chunker = HybridChunker()
+    # Use HybridChunker to split document into chunks, excluding images and documents
+    chunker = HybridChunker(
+        merge_peers=True,  # Merge undersized successive chunks with same headings
+        include_images=False,  # Exclude images from chunks
+        include_tables=False,  # Exclude tables from chunks
+        include_figures=False,  # Exclude figures from chunks
+        include_formulas=False,  # Exclude formulas from chunks
+    )
     chunk_iter = chunker.chunk(dl_doc=docling_doc)
 
-    # Collect chunks with contextualized text
+    # Collect chunks without contextualization, only text content
     chunks = []
-    for i, chunk in enumerate(chunk_iter):
-        enriched_text = chunker.contextualize(chunk=chunk)
+    chunk_index = 0
+    for chunk in chunk_iter:
+        # Get text from DocChunk object
+        chunk_text = chunk.text if hasattr(chunk, "text") else str(chunk)
+
+        # Skip empty chunks or chunks that are not primarily text
+        if not chunk_text or not chunk_text.strip():
+            continue
+
+        # Skip chunks that are too short (likely non-text content)
+        if len(chunk_text.strip()) < 10:  # Minimum text length
+            continue
+
+        # contextualize chunk
+        # chunk_text = chunker.contextualize(chunk=chunk)
 
         chunks.append(
             {
-                "chunk_index": i,
-                "chunk_text": enriched_text,
-                "chunk_length": len(enriched_text),
+                "chunk_index": chunk_index,
+                "chunk_text": chunk_text.strip(),
+                "chunk_length": len(chunk_text.strip()),
             }
         )
+        chunk_index += 1
 
     print(f"Time taken to chunk: {time.time() - start_time} seconds")
 
@@ -248,31 +267,23 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     print("Post-processing chunks: merging small chunks")
     og_num_chunks = len(chunks)
     print(f"Number of chunks before post-processing: {og_num_chunks}")
-    start_time = time.time()
-
-    # Delete a chunk if it's empty
-    print("Deleting empty chunks")
-    chunks = [chunk for chunk in chunks if chunk["chunk_text"].strip()]
-
-    if len(chunks) != og_num_chunks:
-        print(f"Number of removed empty chunks: {og_num_chunks - len(chunks)}")
-        og_num_chunks = len(chunks)
 
     # Delete a chunk if the next chunk starts with the current chunk text (i.e. it's a duplicate, or slides adding more text)
     print("Deleting duplicate chunks")
-    for i in range(len(chunks) - 1):
-        chunk_text = chunks[i]["chunk_text"]
-        next_chunk_text = chunks[i + 1]["chunk_text"]
-        # Check if the next chunk text starts with the current chunk text
-        if len(next_chunk_text) > len(chunk_text) and next_chunk_text.startswith(
-            chunk_text
-        ):
-            chunks.pop(i)
-            i -= 1
+    try:
+        for i in range(len(chunks) - 2):
+            chunk_text = chunks[i]["chunk_text"]
+            next_chunk_text = chunks[i + 1]["chunk_text"]
+            # Check if the next chunk contains the current chunk text
+            if len(next_chunk_text) > len(chunk_text) and chunk_text in next_chunk_text:
+                chunks.pop(i)
+                i -= 1
 
-    if len(chunks) != og_num_chunks:
-        print(f"Number of removed duplicate chunks: {og_num_chunks - len(chunks)}")
-        og_num_chunks = len(chunks)
+        if len(chunks) != og_num_chunks:
+            print(f"Number of removed duplicate chunks: {og_num_chunks - len(chunks)}")
+            og_num_chunks = len(chunks)
+    except Exception as e:
+        print(f"Error deleting duplicate chunks: {e}")
 
     print("Merging chunks")
     # Merge chunks with neighbours until all chunks are above MIN_CHUNK_LENGTH
@@ -324,7 +335,6 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
 
     print(f"Number of chunks after merging small chunks: {len(chunks)}")
     print(f"Number of chunks merged: {n_merged}")
-    print(f"Time taken to merge chunks: {time.time() - start_time} seconds")
 
     return {"full_text": full_text, "name": name, "chunks": chunks}
 

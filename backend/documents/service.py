@@ -3,7 +3,6 @@ from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.chunking import HybridChunker
 from io import BytesIO
-import dspy
 from documents.models import Document, DocumentCreate, Chunk, ChunkCreate
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
@@ -11,6 +10,7 @@ from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
 from utils import get_session
 from sqlalchemy import desc
+import time
 
 
 def save_document_to_db(text: str, title: Optional[str] = None) -> str:
@@ -53,7 +53,6 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
         chunks: List of chunk dictionaries with keys:
             - chunk_index: int
             - chunk_text: str
-            - metadata: dict
 
     Returns:
         List of chunk UUIDs that were created
@@ -68,11 +67,10 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
                 document_id=document_uuid,
                 chunk_index=chunk_data["chunk_index"],
                 chunk_text=chunk_data["chunk_text"],
-                chunk_metadata=None,
+                chunk_length=chunk_data["chunk_length"],
             )
 
             chunk = Chunk.model_validate(chunk_create.model_dump())
-            chunk.set_metadata_dict(chunk_data.get("metadata", {}))
 
             session.add(chunk)
             session.commit()
@@ -133,45 +131,6 @@ def get_document_titles_and_ids_from_db() -> Tuple[List[str], List[str]]:
         return titles, ids
 
 
-def save_key_points_to_db(doc_id: str, key_points: str):
-    """
-    Save key points to a document
-
-    Args:
-        doc_id: Document UUID as string
-        key_points: Key points text
-    """
-    document_uuid = UUID(doc_id)
-
-    with get_session() as session:
-        statement = select(Document).where(Document.id == document_uuid)
-        document = session.exec(statement).first()
-
-        if document:
-            document.key_points = key_points
-            session.add(document)
-            session.commit()
-
-
-def get_key_points_from_db(doc_id: str) -> Optional[str]:
-    """
-    Get key points from a document
-
-    Args:
-        doc_id: Document UUID as string
-
-    Returns:
-        Key points text or None
-    """
-    document_uuid = UUID(doc_id)
-
-    with get_session() as session:
-        statement = select(Document).where(Document.id == document_uuid)
-        document = session.exec(statement).first()
-
-        return document.key_points if document else None
-
-
 def get_chunks_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
     """
     Retrieve all chunks for a given document ID.
@@ -197,7 +156,7 @@ def get_chunks_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
                 "id": str(chunk.id),
                 "chunk_index": chunk.chunk_index,
                 "chunk_text": chunk.chunk_text,
-                "metadata": chunk.get_metadata_dict(),
+                "chunk_length": chunk.chunk_length,
             }
             for chunk in chunks
         ]
@@ -240,18 +199,30 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
 
     # Create DocumentStream with name and BytesIO stream
     stream = DocumentStream(name=str(name), stream=byte_stream)
-    print("Converting using Docling")
 
-    # Convert using Docling
+    print("Converting using Docling")
+    start_time = time.time()
+
     converter = DocumentConverter()
     result = converter.convert(stream)
     docling_doc = result.document
 
-    print("Exporting to text")
-    # Get full text for document metadata
+    if hasattr(docling_doc, "tables"):
+        print(f"Document has {len(docling_doc.tables)} tables")
+    else:
+        print("Document does not contain any tables.")
+    if hasattr(docling_doc, "images"):
+        print(f"Document has {len(docling_doc.images)} images")
+    else:
+        print("Document does not contain any images.")
+
+    # Get full text for document saving to db
     full_text = docling_doc.export_to_text()
 
+    print(f"Time taken to convert: {time.time() - start_time} seconds")
+
     print("Chunking")
+    start_time = time.time()
     # Use HybridChunker to split document into chunks
     chunker = HybridChunker()
     chunk_iter = chunker.chunk(dl_doc=docling_doc)
@@ -265,79 +236,97 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
             {
                 "chunk_index": i,
                 "chunk_text": enriched_text,
-                "metadata": {"source_file": name, "chunk_length": len(enriched_text)},
+                "chunk_length": len(enriched_text),
             }
         )
 
+    print(f"Time taken to chunk: {time.time() - start_time} seconds")
+
+    if len(chunks) <= 1:
+        return {"full_text": full_text, "name": name, "chunks": chunks}
+
     print("Post-processing chunks: merging small chunks")
-    # Merge small chunks with next chunks if they're below MIN_CHUNK_LENGTH
-    if len(chunks) > 1:
-        merged_chunks = []
-        i = 0
+    og_num_chunks = len(chunks)
+    print(f"Number of chunks before post-processing: {og_num_chunks}")
+    start_time = time.time()
 
+    # Delete a chunk if it's empty
+    print("Deleting empty chunks")
+    chunks = [chunk for chunk in chunks if chunk["chunk_text"].strip()]
+
+    if len(chunks) != og_num_chunks:
+        print(f"Number of removed empty chunks: {og_num_chunks - len(chunks)}")
+        og_num_chunks = len(chunks)
+
+    # Delete a chunk if the next chunk starts with the current chunk text (i.e. it's a duplicate, or slides adding more text)
+    print("Deleting duplicate chunks")
+    for i in range(len(chunks) - 1):
+        chunk_text = chunks[i]["chunk_text"]
+        next_chunk_text = chunks[i + 1]["chunk_text"]
+        # Check if the next chunk text starts with the current chunk text
+        if len(next_chunk_text) > len(chunk_text) and next_chunk_text.startswith(
+            chunk_text
+        ):
+            chunks.pop(i)
+            i -= 1
+
+    if len(chunks) != og_num_chunks:
+        print(f"Number of removed duplicate chunks: {og_num_chunks - len(chunks)}")
+        og_num_chunks = len(chunks)
+
+    print("Merging chunks")
+    # Merge chunks with neighbours until all chunks are above MIN_CHUNK_LENGTH
+    i = 0
+    n_merged = 0
+    try:
         while i < len(chunks):
-            current_chunk = chunks[i]
+            chunk = chunks[i]
 
-            # If current chunk is too small and there's a next chunk, merge them
-            if len(current_chunk["chunk_text"]) < MIN_CHUNK_LENGTH and i + 1 < len(
-                chunks
-            ):
-                next_chunk = chunks[i + 1]
-
-                # Merge the text content
-                merged_text = (
-                    current_chunk["chunk_text"] + "\n\n" + next_chunk["chunk_text"]
-                )
-
-                # Create merged chunk with updated metadata
-                merged_chunk = {
-                    "chunk_index": len(merged_chunks),
-                    "chunk_text": merged_text,
-                    "metadata": {
-                        "source_file": name,
-                        "chunk_length": len(merged_text),
-                        "merged_from_chunks": [
-                            current_chunk["chunk_index"],
-                            next_chunk["chunk_index"],
-                        ],
-                    },
-                }
-
-                merged_chunks.append(merged_chunk)
-                i += 1  # Skip both current and next chunk
-            else:
-                # Keep the chunk as is, but update its index
-                current_chunk["chunk_index"] = len(merged_chunks)
-                current_chunk["metadata"]["chunk_length"] = len(
-                    current_chunk["chunk_text"]
-                )
-                merged_chunks.append(current_chunk)
+            # check if chunk is long enough
+            if len(chunk["chunk_text"]) >= MIN_CHUNK_LENGTH:
+                # if last chunk, we're done
+                if i == len(chunks) - 1:
+                    break
+                # if not last chunk, move to next chunk
                 i += 1
+                continue
 
-        chunks = merged_chunks
+            # if first chunk, merge with next chunk
+            if i == 0:
+                idx_to_merge_with = i + 1
+            # if last chunk, merge with prev chunk
+            elif i == len(chunks) - 1:
+                idx_to_merge_with = i - 1
+            # if middle chunk, merge with next chunk if it's smaller
+            elif len(chunks[i + 1]["chunk_text"]) < len(chunks[i - 1]["chunk_text"]):
+                idx_to_merge_with = i + 1
+            # else merge with prev chunk
+            else:
+                idx_to_merge_with = i - 1
+
+            # merge chunk with chosen chunk
+            chunks[idx_to_merge_with]["chunk_text"] += "\n\n" + chunk["chunk_text"]
+            chunks.pop(i)
+            n_merged += 1
+    except Exception as e:
+        print(f"Error merging chunks: {e}")
+
+    # update chunk length
+    for chunk in chunks:
+        chunk["chunk_length"] = len(chunk["chunk_text"])
+
+    # assert length of all chunks is greater than MIN_CHUNK_LENGTH
+    count_too_short = 0
+    for chunk in chunks:
+        if len(chunk["chunk_text"]) < MIN_CHUNK_LENGTH:
+            count_too_short += 1
+    print(f"Number of chunks too short: {count_too_short}")
+
+    print(f"Number of chunks after merging small chunks: {len(chunks)}")
+    print(f"Number of chunks merged: {n_merged}")
+    print(f"Time taken to merge chunks: {time.time() - start_time} seconds")
 
     return {"full_text": full_text, "name": name, "chunks": chunks}
-
-
-def summarise_document(doc_id: str) -> str:
-    """
-    Summarize a document and save key points to database
-
-    Args:
-        doc_id: Document ID
-
-    Returns:
-        Key points summary
-    """
-    document = get_document_content_from_db(doc_id)
-
-    summarizer = dspy.ChainOfThought("document -> key_points")
-
-    response = summarizer(document=document)
-
-    save_key_points_to_db(doc_id, response.key_points)
-
-    return response.key_points
 
 
 def delete_document_from_db(doc_id: str):

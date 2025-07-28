@@ -168,11 +168,11 @@ async function confirmDelete() {
                 <div class="flex justify-between items-center gap-2">
                     <p>{{ document.title }} / {{ document.id }}</p>
                     <div class="flex gap-2">
-                        <DButton @click="navigateToTasks(document.id)" variant="secondary" :iconLeft="EyeIcon">
+                        <DButton @click="navigateToTasks(document.id)" variant="primary" :iconLeft="EyeIcon">
                             View Tasks
                         </DButton>
                         <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="FileQuestion">
-                            Generate Tasks
+                            New Tasks
                         </DButton>
                         <DButton @click="openDeleteModal(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>
                     </div>

@@ -24,7 +24,7 @@ class ChunkResponse(BaseModel):
     id: str
     chunk_index: int
     chunk_text: str
-    metadata: Dict[str, Any]
+    chunk_length: int
 
 
 class DocumentChunksResponse(BaseModel):

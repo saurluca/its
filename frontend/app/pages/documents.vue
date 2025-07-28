@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { TrashIcon, PencilIcon, CheckIcon, UploadIcon } from 'lucide-vue-next';
+import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion } from 'lucide-vue-next';
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
@@ -100,6 +100,11 @@ function closeGenerateTasksModal() {
   showGenerateTasksModal.value = false;
   generateTasksDocumentId.value = null;
 }
+
+function navigateToTasks(documentId: string) {
+  navigateTo(`/tasks?documentId=${documentId}`);
+}
+
 async function confirmGenerateTasks() {
   if (!generateTasksDocumentId.value) return;
   generatingTasks.value = true;
@@ -147,7 +152,10 @@ async function confirmGenerateTasks() {
                 <div class="flex justify-between items-center gap-2">
                     <p>{{ document.title }} / {{ document.id }}</p>
                     <div class="flex gap-2">
-                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" :iconLeft="PencilIcon">
+                        <DButton @click="navigateToTasks(document.id)" :iconLeft="BookCheckIcon">
+                            View Tasks
+                        </DButton>
+                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" :iconLeft="FileQuestion">
                             Generate Tasks
                         </DButton>
                         <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>

@@ -28,14 +28,27 @@ const submittedAnswers = ref<Record<string, string>>({})
 
 // For filtering tasks
 const selectedCourseId = ref<string>("")
-const filterType = ref<"course">("course")
+const selectedDocumentId = ref<string>("")
+const filterType = ref<"course" | "document">("course")
+
+// Get document ID from route query if present
+const route = useRoute()
+const documentIdFromRoute = route.query.documentId as string
+
+// Initialize document filter from route if present
+if (documentIdFromRoute) {
+  selectedDocumentId.value = documentIdFromRoute
+  filterType.value = "document"
+}
 
 // Computed property for filtered tasks
 const filteredTasks = computed(() => {
-  if (!selectedCourseId.value) {
-    return tasks.value
+  if (filterType.value === "document" && selectedDocumentId.value) {
+    return tasks.value.filter(task => task.documentId === selectedDocumentId.value)
+  } else if (filterType.value === "course" && selectedCourseId.value) {
+    return tasks.value.filter(task => task.courseId === selectedCourseId.value)
   }
-  return tasks.value.filter(task => task.courseId === selectedCourseId.value)
+  return tasks.value
 })
 
 // Computed properties for score calculation
@@ -54,16 +67,22 @@ const scorePercentage = computed(() => {
 
 // Toggle filter type
 function toggleFilterType() {
-  // Only course filter remains
-  selectedCourseId.value = ""
+  if (filterType.value === "course") {
+    filterType.value = "document"
+    selectedCourseId.value = ""
+  } else {
+    filterType.value = "course"
+    selectedDocumentId.value = ""
+  }
 }
 
 // Reset filters
 function resetFilters() {
   selectedCourseId.value = ""
+  selectedDocumentId.value = ""
 }
 
-// $fetchh tasks on page load
+// Fetch tasks on page load
 onMounted(async () => {
   loading.value = true
   try {
@@ -75,12 +94,19 @@ onMounted(async () => {
     console.log("coursesResponse", coursesResponse)
     console.log("tasksResponse", tasksResponse)
     
-    tasks.value = (tasksResponse.tasks || []).map((task: Task) => ({
+    tasks.value = (tasksResponse.tasks || []).map((task: any) => ({
       ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
       options: task.options || (
         task.type === "true_false" ? ["True", "False"] : []
       ),
-      correctAnswer: task.correctAnswer || ""
+      correctAnswer: task.correct_answer || "",
+      courseId: task.course_id || "",
+      documentId: task.document_id || "",
+      createdAt: new Date(task.created_at),
+      updatedAt: new Date(task.updated_at)
     }))
     
     coursesList.value = coursesResponse.courses
@@ -311,9 +337,16 @@ function isAnswerCorrect(taskId: string): boolean {
               <DButton 
                 @click="toggleFilterType" 
                 variant="secondary"
-                class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300"
+                :class="filterType === 'course' ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300' : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'"
               >
                 Course
+              </DButton>
+              <DButton 
+                @click="toggleFilterType" 
+                variant="secondary"
+                :class="filterType === 'document' ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300' : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'"
+              >
+                Document
               </DButton>
             </div>
             <DButton 
@@ -325,16 +358,28 @@ function isAnswerCorrect(taskId: string): boolean {
             </DButton>
           </div>
           
-          <DLabel>Select Course</DLabel>
-          <DDropdown
-            v-model="selectedCourseId"
-            :options="[
-              { value: '', label: 'All Courses' },
-              ...coursesList.map(course => ({ value: course.id, label: course.name }))
-            ]"
-            placeholder="All Courses"
-            class="mt-1 w-full"
-          />
+          <div v-if="filterType === 'course'">
+            <DLabel>Select Course</DLabel>
+            <DDropdown
+              v-model="selectedCourseId"
+              :options="[
+                { value: '', label: 'All Courses' },
+                ...coursesList.map(course => ({ value: course.id, label: course.name }))
+              ]"
+              placeholder="All Courses"
+              class="mt-1 w-full"
+            />
+          </div>
+          
+          <div v-else-if="filterType === 'document'">
+            <DLabel>Document ID</DLabel>
+            <input
+              v-model="selectedDocumentId"
+              type="text"
+              placeholder="Enter document ID"
+              class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
         </div>
 
         <h2 class="text-xl font-bold mb-4">Answer Tasks</h2>

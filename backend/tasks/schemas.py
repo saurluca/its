@@ -34,6 +34,8 @@ class TaskResponse(BaseModel):
     options: Optional[List[str]] = None
     correct_answer: str
     course_id: Optional[UUID] = None
+    document_id: Optional[UUID] = None
+    # chunk_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

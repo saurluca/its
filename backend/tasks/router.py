@@ -59,6 +59,7 @@ def get_tasks(
                 options=task.get_options_list(),
                 correct_answer=task.correct_answer,
                 course_id=task.course_id,
+                document_id=task.document_id,
                 created_at=task.created_at,
                 updated_at=task.updated_at,
             )
@@ -92,6 +93,7 @@ def get_tasks_by_document_id_endpoint(document_id: str):
                 options=task.get_options_list(),
                 correct_answer=task.correct_answer,
                 course_id=task.course_id,
+                document_id=task.document_id,
                 created_at=task.created_at,
                 updated_at=task.updated_at,
             )

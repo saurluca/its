@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { Task } from '~/types/models'
 
+const route = useRoute()
 const pageState = ref<'initial' | 'studying' | 'finished'>('initial')
 const fileId = ref('')
 const tasks = ref<Task[]>([])
@@ -18,6 +19,15 @@ const runtimeConfig = useRuntimeConfig()
 const apiUrl = runtimeConfig.public.apiBase
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value])
+
+onMounted(() => {
+  // Check if documentId is provided in URL parameters
+  const documentId = route.query.documentId as string
+  if (documentId) {
+    fileId.value = documentId
+    startStudy()
+  }
+})
 
 async function startStudy() {
   if (!fileId.value) {

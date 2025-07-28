@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon } from 'lucide-vue-next';
+import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon, BookOpenIcon } from 'lucide-vue-next';
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
@@ -107,6 +107,10 @@ function navigateToTasks(documentId: string) {
   navigateTo(`/tasks?documentId=${documentId}`);
 }
 
+function navigateToStudy(documentId: string) {
+  navigateTo(`/study?documentId=${documentId}`);
+}
+
 function openDeleteModal(documentId: string) {
   showDeleteModal.value = true;
   deleteDocumentId.value = documentId;
@@ -168,8 +172,12 @@ async function confirmDelete() {
                 <div class="flex justify-between items-center gap-2">
                     <p>{{ document.title }} / {{ document.id }}</p>
                     <div class="flex gap-2">
+                    
                         <DButton @click="navigateToTasks(document.id)" variant="primary" :iconLeft="EyeIcon">
                             View Tasks
+                        </DButton>
+                        <DButton @click="navigateToStudy(document.id)" variant="secondary" :iconLeft="BookOpenIcon">
+                            Study
                         </DButton>
                         <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="FileQuestion">
                             New Tasks

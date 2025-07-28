@@ -18,8 +18,11 @@ class LLMConfig:
 
     @staticmethod
     def configure_dspy():
+        # lm = dspy.LM(
+        #     "groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY")
+        # )
         lm = dspy.LM(
-            "groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY")
+            "ollama_chat/llama3.2", api_base="http://localhost:11434", api_key="test"
         )
         dspy.configure(lm=lm)
         return lm

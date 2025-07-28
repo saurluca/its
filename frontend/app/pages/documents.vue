@@ -12,8 +12,10 @@ const uploadedDocumentId = ref<string | null>(null);
 const deletingDocument = ref(false);
 const generatingTasks = ref(false);
 const showGenerateTasksModal = ref(false);
+const showDeleteModal = ref(false);
 const generateTasksDocumentId = ref<string | null>(null);
 const numTasksToGenerate = ref(1);
+const deleteDocumentId = ref<string | null>(null);
 
 async function fetchDocuments() {
   loadingDocuments.value = true;
@@ -105,6 +107,14 @@ function navigateToTasks(documentId: string) {
   navigateTo(`/tasks?documentId=${documentId}`);
 }
 
+function openDeleteModal(documentId: string) {
+  showDeleteModal.value = true;
+  deleteDocumentId.value = documentId;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+}
 async function confirmGenerateTasks() {
   if (!generateTasksDocumentId.value) return;
   generatingTasks.value = true;
@@ -121,6 +131,12 @@ async function confirmGenerateTasks() {
   } finally {
     generatingTasks.value = false;
   }
+}
+
+async function confirmDelete() {
+  if (!deleteDocumentId.value) return;
+  await deleteDocument(deleteDocumentId.value);
+  closeDeleteModal();
 }
 </script>
 
@@ -158,7 +174,7 @@ async function confirmGenerateTasks() {
                         <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="FileQuestion">
                             Generate Tasks
                         </DButton>
-                        <DButton @click="deleteDocument(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>
+                        <DButton @click="openDeleteModal(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>
                     </div>
                 </div>
             </div>
@@ -181,6 +197,18 @@ async function confirmGenerateTasks() {
         v-model.number="numTasksToGenerate"
         class="border rounded px-2 py-1 w-24"
       />
+    </div>
+  </DModal>
+  <DModal
+    v-if="showDeleteModal"
+    titel="Delete Document"
+    :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
+    @close="closeDeleteModal"
+    @confirm="confirmDelete"
+  >
+    <div class="p-4">
+      <p>Are you sure you want to delete the document "{{ deleteDocumentId }}"?</p>
+      <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
     </div>
   </DModal>
 </template>

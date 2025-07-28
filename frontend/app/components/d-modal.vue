@@ -10,7 +10,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  confirmText: "Speichern",
+  confirmText: "Save",
   wide: false,
 })
 
@@ -51,7 +51,7 @@ onKeyDown("Escape", () => emit("close"))
                 <slot></slot>
               </div>
               <div class="flex justify-end space-x-2 rounded-b border-t border-gray-200 p-4">
-                <DButton ref="cancelButton" id="cancel" variant="secondary" @click="close">Abbrechen</DButton>
+                <DButton ref="cancelButton" id="cancel" variant="secondary" @click="close">Cancel</DButton>
                 <DButton variant="primary" @click="save">{{ confirmText }}</DButton>
               </div>
             </div>

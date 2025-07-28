@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon, BookOpenIcon } from 'lucide-vue-next';
+import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon, BookOpenIcon, PlusIcon } from 'lucide-vue-next';
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
@@ -170,7 +170,10 @@ async function confirmDelete() {
         <div v-else class="space-y-4 w-full">
             <div v-for="document in documents" :key="document.id">
                 <div class="flex justify-between items-center gap-2">
-                    <p>{{ document.title }} / {{ document.id }}</p>
+                <div class="flex flex-col ">
+                    <p>{{ document.title }}</p>
+                    <p class="text-md text-gray-500">{{ document.id }}</p>
+                    </div>
                     <div class="flex gap-2">
                     
                         <DButton @click="navigateToTasks(document.id)" variant="primary" :iconLeft="EyeIcon">
@@ -179,10 +182,12 @@ async function confirmDelete() {
                         <DButton @click="navigateToStudy(document.id)" variant="secondary" :iconLeft="BookOpenIcon">
                             Study
                         </DButton>
-                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="FileQuestion">
+                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks" :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon">
                             New Tasks
                         </DButton>
-                        <DButton @click="openDeleteModal(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon"/>
+                        <DButton @click="openDeleteModal(document.id)" :disabled="deletingDocument" :loading="deletingDocument" variant="danger" :iconLeft="TrashIcon">
+                            Delete
+                        </DButton>
                     </div>
                 </div>
             </div>

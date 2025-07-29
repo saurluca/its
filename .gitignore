@@ -23,3 +23,6 @@ neo4j/
 
 # db
 db/
+
+# backend
+backend/data/

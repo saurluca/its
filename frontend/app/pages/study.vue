@@ -132,7 +132,7 @@ function restart() {
         </div>
 
         <!-- Studying State: Displaying Questions -->
-        <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-6">
+        <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-2">
           <DTaskAnswer
             :task="currentTask"
             :index="currentTaskIndex"
@@ -149,9 +149,11 @@ function restart() {
               :feedback="feedback ?? ''"
               class="mt-4"
             />
-            <DButton @click="nextQuestion" class="mt-4">
-              {{ currentTaskIndex < tasks.length - 1 ? 'Next Question' : 'Show Results' }}
-            </DButton>
+            <div class="flex justify-end">
+              <DButton @click="nextQuestion" class="mt-4">
+                {{ currentTaskIndex < tasks.length - 1 ? 'Next Question' : 'Show Results' }}
+              </DButton>
+            </div>
           </div>
           <div v-else class="flex justify-end">
              <DButton @click="evaluateAnswer">Evaluate</DButton>

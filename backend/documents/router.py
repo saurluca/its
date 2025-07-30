@@ -9,6 +9,7 @@ from documents.service import (
     delete_document_from_db,
     generate_document_title,
     update_document_title_in_db,
+    get_chunk,
 )
 from documents.schemas import (
     DocumentUploadResponse,
@@ -17,6 +18,7 @@ from documents.schemas import (
     DocumentChunksResponse,
     DocumentDeleteResponse,
     DocumentUpdateResponse,
+    ChunkResponse,
 )
 from exceptions import DocumentNotFoundError
 from uuid import UUID
@@ -110,7 +112,7 @@ def document_to_chunks_endpoint(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/chunks/{doc_id}", response_model=DocumentChunksResponse)
+@router.get("/chunks/document/{doc_id}", response_model=DocumentChunksResponse)
 def get_document_chunks_endpoint(doc_id: str):
     """
     Retrieves all text chunks for a given document ID from the database.
@@ -122,5 +124,23 @@ def get_document_chunks_endpoint(doc_id: str):
         return {"chunks": chunks}
     except DocumentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/chunks/{chunk_id}", response_model=ChunkResponse)
+def get_chunk_endpoint(chunk_id: str):
+    """
+    Retrieves a specific chunk by its ID from the database.
+    Returns the chunk as a dictionary.
+    """
+    try:
+        chunk_uuid = UUID(chunk_id)
+        chunk = get_chunk(chunk_uuid)
+        return chunk
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid chunk ID")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

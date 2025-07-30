@@ -60,6 +60,7 @@ def get_tasks(
                 correct_answer=task.correct_answer,
                 course_id=task.course_id,
                 document_id=task.document_id,
+                chunk_id=task.chunk_id,
                 created_at=task.created_at,
                 updated_at=task.updated_at,
             )
@@ -94,6 +95,7 @@ def get_tasks_by_document_id_endpoint(document_id: str):
                 correct_answer=task.correct_answer,
                 course_id=task.course_id,
                 document_id=task.document_id,
+                chunk_id=task.chunk_id,
                 created_at=task.created_at,
                 updated_at=task.updated_at,
             )
@@ -135,6 +137,8 @@ def create_new_task(task_request: TaskCreateRequest):
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
+            document_id=task.document_id,
+            chunk_id=task.chunk_id,
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
@@ -157,6 +161,8 @@ def get_task(task_id: UUID):
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
+            document_id=task.document_id,
+            chunk_id=task.chunk_id,
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
@@ -192,6 +198,8 @@ def update_existing_task(task_id: UUID, task_request: TaskUpdateRequest):
             options=task.get_options_list(),
             correct_answer=task.correct_answer,
             course_id=task.course_id,
+            document_id=task.document_id,
+            chunk_id=task.chunk_id,
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
@@ -241,10 +249,12 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
         save_chunks_to_db(document_id, result["chunks"])
         print("Generating questions")
         # Step 2: Generate questions (stores questions in DB)
-        questions, answer_options = generate_questions(document_id, result["chunks"])
+        questions, answer_options, chunk_ids = generate_questions(
+            document_id, result["chunks"]
+        )
         print("Saving questions")
         # Step 2.1: Save questions to database
-        save_questions_to_db(document_id, questions, answer_options)
+        save_questions_to_db(document_id, questions, answer_options, chunk_ids)
         end_time = time.time()
         print(f"Time taken: {end_time - start_time} seconds")
         # Step 3: Return questions and related info
@@ -267,8 +277,10 @@ def generate_tasks_from_document(doc_id: str, num_tasks: int = DEFAULT_NUM_QUEST
     """
     try:
         chunks = get_chunks_by_document_id(doc_id)
-        questions, answer_options = generate_questions(doc_id, chunks, num_tasks)
-        save_questions_to_db(doc_id, questions, answer_options)
+        questions, answer_options, chunk_ids = generate_questions(
+            doc_id, chunks, num_tasks
+        )
+        save_questions_to_db(doc_id, questions, answer_options, chunk_ids)
         return {
             "questions": questions,
             "answer_options": answer_options,

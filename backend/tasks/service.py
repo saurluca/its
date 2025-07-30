@@ -205,13 +205,16 @@ class Teacher(dspy.Signature):
 
     # output fields
     feedback: str = dspy.OutputField(
-        description="Short and concise explanation for the student based on their answer."
+        description="Short and concise explanation of what the correct answer is and why it is correct. The feedback should be based on the student's answer."
     )
 
 
 # Question-related service functions
 def save_questions_to_db(
-    doc_id: str, questions: List[str], answer_options: List[List[str]]
+    doc_id: str,
+    questions: List[str],
+    answer_options: List[List[str]],
+    chunk_ids: List[UUID] = None,
 ):
     """
     Save a list of questions and their answer options to the database, linked to the given document ID.
@@ -219,16 +222,21 @@ def save_questions_to_db(
     if len(questions) != len(answer_options):
         raise ValueError("questions and answer_options must have the same length")
 
+    if chunk_ids and len(questions) != len(chunk_ids):
+        raise ValueError("questions and chunk_ids must have the same length")
+
     document_uuid = UUID(doc_id)
 
     with get_session() as session:
-        for question_text, options in zip(questions, answer_options):
+        for i, (question_text, options) in enumerate(zip(questions, answer_options)):
+            chunk_id = chunk_ids[i] if chunk_ids else None
             task_create = TaskCreate(
                 question=question_text,
                 type="multiple_choice",
                 options_json=json.dumps(options),
                 correct_answer=options[0],
                 document_id=document_uuid,
+                chunk_id=chunk_id,
             )
             task = Task.model_validate(task_create.model_dump())
             session.add(task)
@@ -267,7 +275,7 @@ def get_question_by_id(question_id: UUID) -> Tuple[str, List[str]]:
 
 def generate_questions(
     document_id: str, chunks: List[dict], num_questions: int = 0
-) -> Tuple[List[str], List[List[str]]]:
+) -> Tuple[List[str], List[List[str]], List[UUID]]:
     """
     Generate questions from document chunks
 
@@ -277,7 +285,7 @@ def generate_questions(
         num_questions: Number of questions to generate
 
     Returns:
-        Tuple of (questions, answer_options)
+        Tuple of (questions, answer_options, chunk_ids)
     """
     if num_questions == 0:
         num_questions = len(chunks)
@@ -285,6 +293,7 @@ def generate_questions(
     print(f"Generating questions for document {document_id} with {len(chunks)} chunks")
     questions = []
     answer_options = []
+    chunk_ids = []
     question_generator = dspy.ChainOfThought(QuestionSingle)
     start_time = time.time()
 
@@ -304,6 +313,7 @@ def generate_questions(
 
             questions.append(qg_response.question)
             answer_options.append(qg_response.answer_options)
+            chunk_ids.append(chunk["id"])
         except Exception as e:
             print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
             continue
@@ -317,12 +327,12 @@ def generate_questions(
     if not questions:
         raise Exception("No questions could be generated from the provided chunks")
 
-    return questions, answer_options
+    return questions, answer_options, chunk_ids
 
 
 def generate_questions_batch(
     document_id: str, chunks: List[dict], num_questions: int = DEFAULT_NUM_QUESTIONS
-) -> Tuple[List[str], List[List[str]]]:
+) -> Tuple[List[str], List[List[str]], List[UUID]]:
     """
     Generate questions in batch mode for better performance
 
@@ -332,7 +342,7 @@ def generate_questions_batch(
         num_questions: Number of questions to generate
 
     Returns:
-        Tuple of (questions, answer_options)
+        Tuple of (questions, answer_options, chunk_ids)
     """
     print(
         f"Batch-generating questions for document {document_id} with {len(chunks)} chunks"
@@ -341,6 +351,7 @@ def generate_questions_batch(
         chunks = random.sample(chunks, num_questions)
 
     chunk_texts = [chunk["chunk_text"] for chunk in chunks]
+    chunk_ids = [chunk["id"] for chunk in chunks]
     question_generator = dspy.ChainOfThought(QuestionBatch)
     start_time = time.time()
 
@@ -350,6 +361,7 @@ def generate_questions_batch(
         # Validate output
         questions = []
         answer_options = []
+        valid_chunk_ids = []
         for i, (q, opts) in enumerate(
             zip(qg_response.questions, qg_response.answer_options)
         ):
@@ -360,6 +372,7 @@ def generate_questions_batch(
                 continue
             questions.append(q)
             answer_options.append(opts)
+            valid_chunk_ids.append(chunk_ids[i])
 
         end_time = time.time()
         print(f"Time taken (batch): {end_time - start_time} seconds")
@@ -370,7 +383,7 @@ def generate_questions_batch(
         if not questions:
             raise Exception("No valid questions could be generated in batch mode")
 
-        return questions, answer_options
+        return questions, answer_options, valid_chunk_ids
     except Exception as e:
         raise Exception(f"Batch question generation failed: {e}")
 

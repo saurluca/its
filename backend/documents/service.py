@@ -3,7 +3,7 @@ from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.chunking import HybridChunker
 from io import BytesIO
-from documents.schemas import DocumentResponse
+from documents.schemas import DocumentResponse, ChunkResponse
 from documents.models import Document, DocumentCreate, Chunk, ChunkCreate
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
@@ -388,3 +388,26 @@ def update_document_title_in_db(doc_id: UUID, title: str):
             session.commit()
         else:
             raise DocumentNotFoundError(f"No document found with id: {doc_id}")
+
+
+def get_chunk(chunk_id: UUID) -> ChunkResponse:
+    """
+    Retrieve a specific chunk by its ID from the database.
+    Returns the chunk as a dictionary.
+
+    Raises:
+        DocumentNotFoundError: If no chunk found with the given ID
+    """
+    with get_session() as session:
+        statement = select(Chunk).where(Chunk.id == chunk_id)
+        chunk = session.exec(statement).first()
+
+        if not chunk:
+            raise DocumentNotFoundError(f"No chunk found with id: {chunk_id}")
+
+        return ChunkResponse(
+            id=str(chunk.id),
+            chunk_index=chunk.chunk_index,
+            chunk_text=chunk.chunk_text,
+            chunk_length=chunk.chunk_length,
+        )

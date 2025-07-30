@@ -60,6 +60,7 @@ class Chunk(ChunkBase, table=True):
 
     # Relationships
     document: Optional[Document] = Relationship(back_populates="chunks")
+    tasks: List["Task"] = Relationship(back_populates="chunk")
 
     # Ensure unique combination of document_id and chunk_index
     __table_args__ = {"sqlite_autoincrement": True}

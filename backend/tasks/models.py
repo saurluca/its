@@ -9,6 +9,7 @@ import json
 if TYPE_CHECKING:
     from courses.models import Course
     from documents.models import Document
+    from documents.models import Chunk
 
 
 class TaskType(str, Enum):
@@ -39,6 +40,7 @@ class Task(TaskBase, table=True):
     # Relationships
     course: Optional["Course"] = Relationship(back_populates="tasks")
     document: Optional["Document"] = Relationship(back_populates="tasks")
+    chunk: Optional["Chunk"] = Relationship(back_populates="tasks")
 
     def get_options_list(self) -> List[str]:
         """Convert options_json string to list"""

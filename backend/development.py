@@ -4,11 +4,12 @@ from dotenv import load_dotenv
 from datasets import load_dataset
 from dspy.teleprompt import BootstrapFewShotWithRandomSearch
 from tqdm import tqdm
+import os
 
 load_dotenv()
 
-# lm = dspy.LM("groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY"))
-lm = dspy.LM("ollama_chat/llama3.2", api_base="http://localhost:11434", api_key="test")
+lm = dspy.LM("groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROK_API_KEY"))
+# lm = dspy.LM("ollama_chat/llama3.2", api_base="http://localhost:11434", api_key="test")
 dspy.configure(lm=lm)
 
 ds = load_dataset("rajpurkar/squad", split="train")

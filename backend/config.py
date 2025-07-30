@@ -16,14 +16,33 @@ class DatabaseConfig:
 class LLMConfig:
     """Language model configuration"""
 
+    # TODO add test if llm conection works
+
     @staticmethod
     def configure_dspy():
-        # lm = dspy.LM(
-        #     "groq/deepseek-r1-distill-llama-70b", api_key=os.getenv("GROQ_API_KEY")
-        # )
-        lm = dspy.LM(
-            "ollama_chat/llama3.2", api_base="http://localhost:11434", api_key="test"
-        )
+        if os.getenv("USE_OLLAMA", "False").lower() == "true" and os.getenv(
+            "OLLAMA_MODEL"
+        ):
+            lm = dspy.LM(
+                os.getenv("OLLAMA_MODEL"),
+                api_base=os.getenv("OLLAMA_API_BASE"),
+                api_key="",
+            )
+        elif os.getenv("GROQ_API_KEY") and os.getenv("GROQ_MODEL"):
+            lm = dspy.LM(os.getenv("GROQ_MODEL"), api_key=os.getenv("GROQ_API_KEY"))
+        elif os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_MODEL"):
+            lm = dspy.LM(
+                os.getenv("GEMINI_MODEL"),
+                api_key=os.getenv("GEMINI_API_KEY"),
+            )
+        elif os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL"):
+            lm = dspy.LM(
+                os.getenv("OPENAI_MODEL"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+            )
+        else:
+            raise ValueError("No LLM configured")
+
         dspy.configure(lm=lm)
         return lm
 

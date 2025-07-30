@@ -29,6 +29,13 @@ const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
 
+// HTML viewer state
+const showHtmlViewer = ref(false);
+const htmlContent = ref("");
+const loadingHtml = ref(false);
+const htmlError = ref("");
+const selectedDocumentId = ref<string | null>(null);
+
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
@@ -219,91 +226,143 @@ async function copyToClipboard(text: string) {
 
 
 async function viewDocument(documentId: string) {
-  const response = await fetch(`${apiUrl}/documents/${documentId}/`);
-  const data = await response.json();
+  if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
+    // If clicking the same document, toggle the viewer off
+    showHtmlViewer.value = false;
+    selectedDocumentId.value = null;
+    htmlContent.value = "";
+    return;
+  }
 
+  loadingHtml.value = true;
+  htmlError.value = "";
+  selectedDocumentId.value = documentId;
+  showHtmlViewer.value = true;
 
+  try {
+    const response = await fetch(`${apiUrl}/documents/${documentId}/`);
+    const data = await response.json();
+
+    if (data.content) {
+      htmlContent.value = data.content;
+    } else {
+      htmlError.value = "Document content not found";
+    }
+  } catch (err) {
+    console.error("Error fetching document content:", err);
+    htmlError.value = "Failed to load document content";
+  } finally {
+    loadingHtml.value = false;
+  }
 }
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold">Documents</h1>
-    </div>
+  <div class="h-screen flex">
+    <!-- Left side - Documents list -->
+    <div class="w-1/2 p-6 overflow-y-auto">
+      <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+          <h1 class="text-3xl font-bold">Documents</h1>
+        </div>
 
-    <div class="flex items-center gap-4 mb-8">
-      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
-        New Document
-      </DButton>
-      <div v-if="uploadingDocument">
-        <DSpinner />
-        <p>Uploading document and extracting text, this may take a while...</p>
-      </div>
-    </div>
+        <div class="flex items-center gap-4 mb-8">
+          <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
+            New Document
+          </DButton>
+          <div v-if="uploadingDocument">
+            <DSpinner />
+            <p>Uploading document and extracting text, this may take a while...</p>
+          </div>
+        </div>
 
-    <div class="border border-gray-200 rounded-md p-4">
-      <div v-if="loadingDocuments" class="py-8 text-center">
-        <div class="text-xl">Loading documents...</div>
-      </div>
+        <div class="border border-gray-200 rounded-md p-4">
+          <div v-if="loadingDocuments" class="py-8 text-center">
+            <div class="text-xl">Loading documents...</div>
+          </div>
 
-      <div v-else class="space-y-3 w-full">
-        <div v-for="document in documents" :key="document.id">
-          <div class="flex justify-between items-center gap-2">
+          <div v-else class="space-y-3 w-full">
+            <div v-for="document in documents" :key="document.id">
+              <div class="flex justify-between items-center gap-2">
 
-            <div class="flex flex-col cursor-pointer" @click="navigateToStudy(document.id)">
-              <p>{{ document.title }}</p>
-            </div>
+                <div class="flex flex-col cursor-pointer" @click="viewDocument(document.id)">
+                  <p>{{ document.title }}</p>
+                </div>
 
-            <div class="flex gap-2">
-              <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon" class="!p-2" />
-              <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
+                <div class="flex gap-2">
+                  <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
+                    Study
+                  </DButton>
+                  <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
+                    :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
 
-              <DHamburgerMenu>
-                <template #default="{ close }">
-                  <button @click="
-                    openEditTitleModal(document.id, document.title);
-                  close();
-                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <PencilIcon class="h-4 w-4" />
-                    Edit Title
-                  </button>
+                  <DHamburgerMenu>
+                    <template #default="{ close }">
+                      <button @click="
+                        openEditTitleModal(document.id, document.title);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <PencilIcon class="h-4 w-4" />
+                        Edit Title
+                      </button>
 
 
-                  <button @click="
-                    navigateToTasks(document.id);
-                  close();
-                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <EyeIcon class="h-4 w-4" />
-                    View Tasks
-                  </button>
-                  <button @click="
-                    navigateToOriginal(document.id);
-                  close();
-                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <FileTextIcon class="h-4 w-4" />
-                    View Original
-                  </button>
-                  <button @click="
-                    copyToClipboard(document.id);
-                  close();
-                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <ClipboardIcon class="h-4 w-4" />
-                    Copy ID
-                  </button>
-                  <div class="border-t border-gray-200 my-1"></div>
-                  <button @click="
-                    openDeleteModal(document.id);
-                  close();
-                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                    <TrashIcon class="h-4 w-4" />
-                    Delete
-                  </button>
-                </template>
-              </DHamburgerMenu>
+                      <button @click="
+                        navigateToTasks(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <EyeIcon class="h-4 w-4" />
+                        View Tasks
+                      </button>
+                      <button @click="
+                        viewDocument(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <FileTextIcon class="h-4 w-4" />
+                        View Original
+                      </button>
+                      <button @click="
+                        copyToClipboard(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <ClipboardIcon class="h-4 w-4" />
+                        Copy ID
+                      </button>
+                      <div class="border-t border-gray-200 my-1"></div>
+                      <button @click="
+                        openDeleteModal(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                        <TrashIcon class="h-4 w-4" />
+                        Delete
+                      </button>
+                    </template>
+                  </DHamburgerMenu>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right side - HTML viewer -->
+    <div class="w-1/2 border-l border-gray-200">
+      <div v-if="showHtmlViewer" class="h-full p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold">Document Preview</h2>
+          <DButton @click="showHtmlViewer = false" variant="secondary" class="!p-2">
+            Close
+          </DButton>
+        </div>
+        <div class="h-[calc(100%-4rem)]">
+          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+        </div>
+      </div>
+      <div v-else class="h-full flex items-center justify-center text-gray-500">
+        <div class="text-center">
+          <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>Select "View Original" to preview document content</p>
         </div>
       </div>
     </div>

@@ -28,8 +28,8 @@ class LLMConfig:
                 api_base=os.getenv("OLLAMA_API_BASE"),
                 api_key="",
             )
-        elif os.getenv("GROQ_API_KEY") and os.getenv("GROQ_MODEL"):
-            lm = dspy.LM(os.getenv("GROQ_MODEL"), api_key=os.getenv("GROQ_API_KEY"))
+        elif os.getenv("GROK_API_KEY") and os.getenv("GROK_MODEL"):
+            lm = dspy.LM(os.getenv("GROK_MODEL"), api_key=os.getenv("GROK_API_KEY"))
         elif os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_MODEL"):
             lm = dspy.LM(
                 os.getenv("GEMINI_MODEL"),

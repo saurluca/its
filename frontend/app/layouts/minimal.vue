@@ -3,9 +3,9 @@
 </script>
 
 <template>
-    <div class="h-full">
-        <main class="h-full">
-            <slot></slot>
-        </main>
-    </div>
+  <div class="h-full">
+    <main class="h-full">
+      <slot></slot>
+    </main>
+  </div>
 </template>

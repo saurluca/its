@@ -72,18 +72,32 @@ const sizeClasses = {
 <template>
   <div class="relative">
     <!-- Hamburger Button -->
-    <button ref="buttonRef" @click="toggleMenu" :class="[
-      'flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 transition-colors duration-200',
-      sizeClasses[size],
-    ]" aria-label="Toggle menu" aria-expanded="false" :aria-expanded="isOpen">
+    <button
+      ref="buttonRef"
+      @click="toggleMenu"
+      :class="[
+        'flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 transition-colors duration-200',
+        sizeClasses[size],
+      ]"
+      aria-label="Toggle menu"
+      aria-expanded="false"
+      :aria-expanded="isOpen"
+    >
       <MenuIcon class="h-4 w-4 text-gray-700" />
     </button>
 
     <!-- Popup Menu -->
-    <div v-if="isOpen" ref="menuRef" :class="[
-      'absolute z-50 mt-2 min-w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5',
-      positionClasses[position],
-    ]" role="menu" aria-orientation="vertical" aria-labelledby="menu-button">
+    <div
+      v-if="isOpen"
+      ref="menuRef"
+      :class="[
+        'absolute z-50 mt-2 min-w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5',
+        positionClasses[position],
+      ]"
+      role="menu"
+      aria-orientation="vertical"
+      aria-labelledby="menu-button"
+    >
       <div class="py-1" role="none">
         <slot :close="closeMenu"></slot>
       </div>

@@ -93,11 +93,12 @@ function resetFilters() {
 onMounted(async () => {
   loading.value = true;
   try {
-    const [tasksResponse, coursesResponse, documentsResponse] = await Promise.all([
-      fetch(`${apiUrl}/tasks/`).then((res) => res.json()),
-      fetch(`${apiUrl}/courses/`).then((res) => res.json()),
-      fetch(`${apiUrl}/documents/`).then((res) => res.json()),
-    ]);
+    const [tasksResponse, coursesResponse, documentsResponse] =
+      await Promise.all([
+        fetch(`${apiUrl}/tasks/`).then((res) => res.json()),
+        fetch(`${apiUrl}/courses/`).then((res) => res.json()),
+        fetch(`${apiUrl}/documents/`).then((res) => res.json()),
+      ]);
 
     console.log("coursesResponse", coursesResponse);
     console.log("tasksResponse", tasksResponse);
@@ -121,10 +122,12 @@ onMounted(async () => {
 
     // Process documents for dropdown
     if (documentsResponse.titles && documentsResponse.ids) {
-      documentsList.value = documentsResponse.titles.map((title: string, index: number) => ({
-        value: documentsResponse.ids[index],
-        label: title,
-      }));
+      documentsList.value = documentsResponse.titles.map(
+        (title: string, index: number) => ({
+          value: documentsResponse.ids[index],
+          label: title,
+        }),
+      );
     }
   } catch (error) {
     console.error("Error fetching data:", error);
@@ -310,23 +313,34 @@ function isAnswerCorrect(taskId: string): boolean {
     <!-- Teacher View -->
     <div v-else-if="isTeacherView" class="space-y-8">
       <!-- Task Creation Form -->
-      <DTaskForm :courses="coursesList" :initial-task="editingTask
-        ? {
-          type: editingTask.type,
-          question: editingTask.question || '',
-          courseId: editingTask.courseId,
-          options: editingTask.options || [],
-          correctAnswer: editingTask.correctAnswer || '',
-        }
-        : undefined
-        " @save="handleSaveTask" />
+      <DTaskForm
+        :courses="coursesList"
+        :initial-task="
+          editingTask
+            ? {
+                type: editingTask.type,
+                question: editingTask.question || '',
+                courseId: editingTask.courseId,
+                options: editingTask.options || [],
+                correctAnswer: editingTask.correctAnswer || '',
+              }
+            : undefined
+        "
+        @save="handleSaveTask"
+      />
 
       <!-- Existing Tasks -->
       <div v-if="tasks.length > 0" class="space-y-4">
         <h2 class="text-xl font-bold">Existing Tasks</h2>
 
-        <DTaskCard v-for="task in tasks" :key="task.id" :task="task" :is-teacher-view="true" @delete="deleteTask"
-          @edit="handleEditTask" />
+        <DTaskCard
+          v-for="task in tasks"
+          :key="task.id"
+          :task="task"
+          :is-teacher-view="true"
+          @delete="deleteTask"
+          @edit="handleEditTask"
+        />
       </div>
 
       <div v-else class="bg-white p-6 rounded-lg shadow text-center">
@@ -343,57 +357,91 @@ function isAnswerCorrect(taskId: string): boolean {
           <div class="flex justify-between items-center mb-4">
             <div class="flex items-center space-x-2">
               <span class="text-gray-700">Filter by:</span>
-              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'course'
-                ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-                : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-                ">
+              <DButton
+                @click="toggleFilterType"
+                variant="secondary"
+                :class="
+                  filterType === 'course'
+                    ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
+                    : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                "
+              >
                 Course
               </DButton>
-              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'document'
-                ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-                : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-                ">
+              <DButton
+                @click="toggleFilterType"
+                variant="secondary"
+                :class="
+                  filterType === 'document'
+                    ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
+                    : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+                "
+              >
                 Document
               </DButton>
             </div>
-            <DButton @click="resetFilters" variant="secondary"
-              class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
+            <DButton
+              @click="resetFilters"
+              variant="secondary"
+              class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
+            >
               Reset
             </DButton>
           </div>
 
           <div v-if="filterType === 'course'">
             <DLabel>Select Course</DLabel>
-            <DSearchableDropdown v-model="selectedCourseId" :options="[
-              { value: '', label: 'All Courses' },
-              ...coursesList.map((course) => ({
-                value: course.id,
-                label: course.name,
-              })),
-            ]" placeholder="All Courses" search-placeholder="Search courses..." class="mt-1 w-full" />
+            <DSearchableDropdown
+              v-model="selectedCourseId"
+              :options="[
+                { value: '', label: 'All Courses' },
+                ...coursesList.map((course) => ({
+                  value: course.id,
+                  label: course.name,
+                })),
+              ]"
+              placeholder="All Courses"
+              search-placeholder="Search courses..."
+              class="mt-1 w-full"
+            />
           </div>
 
           <div v-else-if="filterType === 'document'">
             <DLabel>Select Document</DLabel>
-            <DSearchableDropdown v-model="selectedDocumentId" :options="[
-              { value: '', label: 'All Documents' },
-              ...documentsList,
-            ]" placeholder="All Documents" search-placeholder="Search documents..." class="mt-1 w-full" />
+            <DSearchableDropdown
+              v-model="selectedDocumentId"
+              :options="[
+                { value: '', label: 'All Documents' },
+                ...documentsList,
+              ]"
+              placeholder="All Documents"
+              search-placeholder="Search documents..."
+              class="mt-1 w-full"
+            />
           </div>
         </div>
 
         <h2 class="text-xl font-bold mb-4">Answer Tasks</h2>
 
-        <div v-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center">
+        <div
+          v-if="filteredTasks.length === 0"
+          class="bg-white p-6 rounded-lg shadow text-center"
+        >
           <p class="text-gray-500">
             No tasks available for the selected filters.
           </p>
         </div>
 
         <div v-else class="space-y-6">
-          <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index"
-            :model-value="studentAnswers[task.id] || ''" :disabled="showResults"
-            @update:model-value="(val) => (studentAnswers[task.id] = val)" />
+          <DTaskAnswer
+            v-for="(task, index) in filteredTasks"
+            :key="task.id"
+            :task="task"
+            :index="index"
+            :model-value="studentAnswers[task.id] || ''"
+            :disabled="showResults"
+            @update:model-value="(val) => (studentAnswers[task.id] = val)"
+          />
         </div>
       </div>
     </div>

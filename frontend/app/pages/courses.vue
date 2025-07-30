@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { PlusIcon } from 'lucide-vue-next';
+import { ref, onMounted } from "vue";
+import { PlusIcon } from "lucide-vue-next";
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
-
 
 interface Course {
   id: string;
@@ -30,13 +29,13 @@ onMounted(async () => {
 async function fetchCourses() {
   loading.value = true;
   try {
-    console.log("fetching courses")
+    console.log("fetching courses");
     const response = await fetch(`${apiUrl}/courses/`);
-    console.log("response", response)
+    console.log("response", response);
     courses.value = (await response.json()).courses;
   } catch (error) {
-    console.error('Error fetching courses:', error);
-    alert('Failed to load courses. Please try again. ' + error);
+    console.error("Error fetching courses:", error);
+    alert("Failed to load courses. Please try again. " + error);
   } finally {
     loading.value = false;
   }
@@ -45,67 +44,67 @@ async function fetchCourses() {
 async function createCourse(courseData: Partial<Course>) {
   try {
     const response = await fetch(`${apiUrl}/courses/`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(courseData),
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to create course. ' + response.statusText);
+      throw new Error("Failed to create course. " + response.statusText);
     }
-    
+
     const newCourse = await response.json();
     courses.value.push(newCourse);
     showForm.value = false;
   } catch (error) {
-    console.error('Error creating course:', error);
-    alert('Failed to create course. Please try again. ' + error);
+    console.error("Error creating course:", error);
+    alert("Failed to create course. Please try again. " + error);
   }
 }
 
 async function updateCourse(courseData: Course) {
   try {
     const response = await fetch(`${apiUrl}/courses/${courseData.id}/`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(courseData),
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to update course');
+      throw new Error("Failed to update course");
     }
-    
+
     const updatedCourse = await response.json();
-    const index = courses.value.findIndex(c => c.id === updatedCourse.id);
+    const index = courses.value.findIndex((c) => c.id === updatedCourse.id);
     if (index !== -1) {
       courses.value[index] = updatedCourse;
     }
-    
+
     editingCourse.value = null;
   } catch (error) {
-    console.error('Error updating course:', error);
-    alert('Failed to update course. Please try again. ' + error);
+    console.error("Error updating course:", error);
+    alert("Failed to update course. Please try again. " + error);
   }
 }
 
 async function deleteCourse(id: string) {
   try {
     const response = await fetch(`${apiUrl}/courses/${id}/`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to delete course');
+      throw new Error("Failed to delete course");
     }
-    
-    courses.value = courses.value.filter(c => c.id !== id);
+
+    courses.value = courses.value.filter((c) => c.id !== id);
   } catch (error) {
-    console.error('Error deleting course:', error);
-    alert('Failed to delete course. Please try again. ' + error);
+    console.error("Error deleting course:", error);
+    alert("Failed to delete course. Please try again. " + error);
   }
 }
 
@@ -134,24 +133,24 @@ function cancelEdit() {
       <h1 class="text-3xl font-bold">Courses</h1>
       <DViewToggle v-model="isTeacherView" />
     </div>
-    
+
     <div v-if="loading" class="py-20 text-center">
       <div class="text-xl">Loading courses...</div>
     </div>
-    
+
     <div v-else class="space-y-8">
       <!-- Teacher View Form -->
       <div v-if="isTeacherView && !showForm" class="flex">
-        <DButton 
-          @click="showForm = true" 
+        <DButton
+          @click="showForm = true"
           variant="primary"
           :iconLeft="PlusIcon"
         >
           New Course
         </DButton>
       </div>
-      
-      <DItemForm 
+
+      <DItemForm
         v-if="isTeacherView && showForm"
         :title="editingCourse ? 'Edit Course' : 'Create New Course'"
         :item="editingCourse || undefined"
@@ -159,19 +158,19 @@ function cancelEdit() {
         @save="handleSave"
         @cancel="cancelEdit"
       />
-      
+
       <!-- Courses List -->
       <div v-if="courses.length > 0" class="space-y-4">
-        <DItemCard 
-          v-for="course in courses" 
-          :key="course.id" 
-          :item="course" 
+        <DItemCard
+          v-for="course in courses"
+          :key="course.id"
+          :item="course"
           :is-teacher-view="isTeacherView"
           @delete="deleteCourse"
           @edit="editCourse"
         />
       </div>
-      
+
       <div v-else class="bg-white p-6 rounded-lg shadow text-center">
         <p class="text-gray-500">No courses have been created yet.</p>
       </div>

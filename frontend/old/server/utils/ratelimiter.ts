@@ -1,33 +1,35 @@
 interface RateLimitConfig {
-  key: string
-  limit: number
-  ttl?: number // in seconds
+  key: string;
+  limit: number;
+  ttl?: number; // in seconds
 }
 
 export function useRateLimiter() {
-  const storage = useStorage("limiter")
+  const storage = useStorage("limiter");
 
   async function checkLimit({ key, limit, ttl = 3600 }: RateLimitConfig) {
-    const now = Date.now()
-    const windowStart = now - ttl * 1000
+    const now = Date.now();
+    const windowStart = now - ttl * 1000;
 
     // Get stored requests as array of timestamps
-    const storedValue = await storage.getItem(key)
-    const requests: number[] = Array.isArray(storedValue) ? storedValue : []
+    const storedValue = await storage.getItem(key);
+    const requests: number[] = Array.isArray(storedValue) ? storedValue : [];
 
     // Filter out expired timestamps
-    const validRequests = requests.filter((timestamp) => timestamp > windowStart)
+    const validRequests = requests.filter(
+      (timestamp) => timestamp > windowStart,
+    );
 
-    if (validRequests.length >= limit) return false
+    if (validRequests.length >= limit) return false;
 
     // Add current timestamp and store
-    validRequests.push(now)
-    await storage.setItem(key, validRequests, { ttl })
+    validRequests.push(now);
+    await storage.setItem(key, validRequests, { ttl });
 
-    return true
+    return true;
   }
 
   return {
     checkLimit,
-  }
+  };
 }

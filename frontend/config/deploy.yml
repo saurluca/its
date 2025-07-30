@@ -26,7 +26,7 @@ proxy:
 # Credentials for your image host.
 registry:
   # Specify the registry server, if you're not using Docker Hub
-  # server: ghcr.io 
+  # server: ghcr.io
   username: lucasaur
 
   # Always use an access token rather than real password (pulled from .kamal/secrets).
@@ -61,7 +61,7 @@ env:
 # Use a persistent storage volume.
 
 # volumes:
-  # - "app_storage:/app/storage"
+# - "app_storage:/app/storage"
 
 # Bridge fingerprinted assets, like JS and CSS, between versions to avoid
 # hitting 404 on in-flight requests. Combines all files from new and old

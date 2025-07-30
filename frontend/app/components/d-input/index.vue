@@ -1,12 +1,12 @@
 <script setup lang="ts">
 interface Props {
-  type?: string
-  placeholder?: string | undefined
+  type?: string;
+  placeholder?: string | undefined;
 }
 
-const { type = "text", placeholder = undefined } = defineProps<Props>()
+const { type = "text", placeholder = undefined } = defineProps<Props>();
 
-const model = defineModel()
+const model = defineModel();
 </script>
 
 <template>

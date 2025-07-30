@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { FileIcon, LogOutIcon, PanelLeftClose, PanelRightClose, HomeIcon, BookOpenIcon, ClipboardCheck, Lightbulb } from "lucide-vue-next"
-import { useSessionStorage } from "@vueuse/core"
+import {
+  FileIcon,
+  LogOutIcon,
+  PanelLeftClose,
+  PanelRightClose,
+  HomeIcon,
+  BookOpenIcon,
+  ClipboardCheck,
+  Lightbulb,
+} from "lucide-vue-next";
+import { useSessionStorage } from "@vueuse/core";
 
-
-const route = useRoute()
+const route = useRoute();
 
 const links = [
   // {
@@ -31,8 +39,7 @@ const links = [
   //   to: "/study",
   //   icon: Lightbulb,
   // },
-
-]
+];
 
 const footerLinks = [
   // {
@@ -45,25 +52,29 @@ const footerLinks = [
     to: "/logout",
     icon: LogOutIcon,
   },
-]
+];
 
-const collapsed = useSessionStorage("collapsed", false)
+const collapsed = useSessionStorage("collapsed", false);
 
-const organisationName = ref("ITS")
+const organisationName = ref("ITS");
 
-const emit = defineEmits(["close"])
+const emit = defineEmits(["close"]);
 
 function close() {
-  emit("close")
+  emit("close");
 }
 </script>
 
 <template>
   <nav class="flex flex-col gap-0.5 p-2">
-    <div class="group flex h-9 cursor-default items-center justify-between gap-2 rounded-md text-sm text-gray-700">
+    <div
+      class="group flex h-9 cursor-default items-center justify-between gap-2 rounded-md text-sm text-gray-700"
+    >
       <div v-show="!collapsed" class="flex items-center gap-2 px-2 py-2">
         <!-- <img src="/file_folder_color.svg" class="size-5" /> -->
-        <div class="line-clamp-1 leading-[1em] font-medium">{{ organisationName }}</div>
+        <div class="line-clamp-1 leading-[1em] font-medium">
+          {{ organisationName }}
+        </div>
       </div>
       <div
         class="hidden items-center rounded-md p-2 hover:bg-gray-200 sm:flex"
@@ -104,5 +115,4 @@ function close() {
       <div v-show="!collapsed">{{ link.name }}</div>
     </NuxtLink>
   </nav>
-
 </template>

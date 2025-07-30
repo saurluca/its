@@ -1,4 +1,12 @@
-const publicRoutes = ["/login", "/logout", "/offline", "/register", "/up", "/forgot-password", "/reset-password"]
+const publicRoutes = [
+  "/login",
+  "/logout",
+  "/offline",
+  "/register",
+  "/up",
+  "/forgot-password",
+  "/reset-password",
+];
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   // if (to.path === "/logout") {
@@ -11,8 +19,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   //     return navigateTo("/login")
   //   }
   // }
-  
+
   if (to.path === "/") {
-    return navigateTo("/documents")
+    return navigateTo("/documents");
   }
-})
+});

@@ -1,10 +1,10 @@
 export default defineEventHandler(async (event) => {
   try {
-    await requireUserSession(event)
-    await clearUserSession(event)
+    await requireUserSession(event);
+    await clearUserSession(event);
   } catch (_) {
-    console.error("logout failed")
+    console.error("logout failed");
   } finally {
-    await sendRedirect(event, "/login", 302)
+    await sendRedirect(event, "/login", 302);
   }
-})
+});

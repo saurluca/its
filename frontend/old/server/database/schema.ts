@@ -1,28 +1,35 @@
-import { pgTable, timestamp, text, primaryKey, uuid, integer } from "drizzle-orm/pg-core"
-import { uuidv7 } from "uuidv7"
+import {
+  pgTable,
+  timestamp,
+  text,
+  primaryKey,
+  uuid,
+  integer,
+} from "drizzle-orm/pg-core";
+import { uuidv7 } from "uuidv7";
 
 // Types
-export type UserRole = "admin" | "user"
-export type TaskType = "true_false" | "multiple_choice" | "free_text"
+export type UserRole = "admin" | "user";
+export type TaskType = "true_false" | "multiple_choice" | "free_text";
 
 // Helpers
 const timestamps = {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp({ withTimezone: true }),
-}
+};
 
 const organisationId = {
   organisationId: uuid()
     .notNull()
     .references(() => organisations.id),
-}
+};
 
 export const organisations = pgTable("organisations", {
   id: uuid().primaryKey().$defaultFn(uuidv7),
   name: text().notNull(),
   ...timestamps,
-})
+});
 
 // Tables
 export const users = pgTable("users", {
@@ -35,7 +42,7 @@ export const users = pgTable("users", {
   resetPasswordExpiresAt: timestamp({ withTimezone: true }),
   ...organisationId,
   ...timestamps,
-})
+});
 
 export const sessions = pgTable(
   "sessions",
@@ -47,14 +54,14 @@ export const sessions = pgTable(
     ...timestamps,
   },
   (t: any) => [primaryKey({ columns: [t.token, t.userId] })],
-)
+);
 
 export const courses = pgTable("courses", {
   id: uuid().primaryKey().$defaultFn(uuidv7),
   name: text().notNull(),
   ...organisationId,
   ...timestamps,
-})
+});
 
 export const tasks = pgTable("tasks", {
   id: uuid().primaryKey().$defaultFn(uuidv7),
@@ -68,5 +75,4 @@ export const tasks = pgTable("tasks", {
     .references(() => courses.id),
   ...organisationId,
   ...timestamps,
-})
-
+});

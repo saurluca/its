@@ -1,68 +1,72 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { MenuIcon } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted } from "vue";
+import { MenuIcon } from "lucide-vue-next";
 
 interface Props {
-  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
-  size?: 'sm' | 'md' | 'lg'
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
+  size?: "sm" | "md" | "lg";
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  position: 'top-right',
-  size: 'md'
-})
+  position: "top-right",
+  size: "md",
+});
 
-const isOpen = ref(false)
-const menuRef = ref<HTMLDivElement>()
-const buttonRef = ref<HTMLButtonElement>()
+const isOpen = ref(false);
+const menuRef = ref<HTMLDivElement>();
+const buttonRef = ref<HTMLButtonElement>();
 
 // Close menu when clicking outside
 const handleClickOutside = (event: Event) => {
-  if (menuRef.value && !menuRef.value.contains(event.target as Node) &&
-      buttonRef.value && !buttonRef.value.contains(event.target as Node)) {
-    isOpen.value = false
+  if (
+    menuRef.value &&
+    !menuRef.value.contains(event.target as Node) &&
+    buttonRef.value &&
+    !buttonRef.value.contains(event.target as Node)
+  ) {
+    isOpen.value = false;
   }
-}
+};
 
 // Close menu on escape key
 const handleEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') {
-    isOpen.value = false
+  if (event.key === "Escape") {
+    isOpen.value = false;
   }
-}
+};
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleEscape)
-})
+  document.addEventListener("click", handleClickOutside);
+  document.addEventListener("keydown", handleEscape);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleEscape)
-})
+  document.removeEventListener("click", handleClickOutside);
+  document.removeEventListener("keydown", handleEscape);
+});
 
 const toggleMenu = () => {
-  isOpen.value = !isOpen.value
-}
+  isOpen.value = !isOpen.value;
+};
 
 const closeMenu = () => {
-  isOpen.value = false
-}
+  isOpen.value = false;
+};
 
 // Position classes based on prop
 const positionClasses = {
-  'top-right': 'top-0 right-0',
-  'top-left': 'top-0 left-0',
-  'bottom-right': 'bottom-0 right-0',
-  'bottom-left': 'bottom-0 left-0'
-}
+  "top-right": "top-0 right-0",
+  "top-left": "top-0 left-0",
+  "bottom-right": "bottom-0 right-0",
+  "bottom-left": "bottom-0 left-0",
+};
 
 // Size classes for the button
 const sizeClasses = {
-  'sm': 'p-1',
-  'md': 'p-2',
-  'lg': 'p-3'
-}
+  sm: "p-1",
+  md: "p-2",
+  lg: "p-3",
+};
 </script>
 
 <template>
@@ -73,7 +77,7 @@ const sizeClasses = {
       @click="toggleMenu"
       :class="[
         'flex items-center justify-center rounded-md bg-gray-100 hover:bg-gray-200 transition-colors duration-200',
-        sizeClasses[size]
+        sizeClasses[size],
       ]"
       aria-label="Toggle menu"
       aria-expanded="false"
@@ -88,7 +92,7 @@ const sizeClasses = {
       ref="menuRef"
       :class="[
         'absolute z-50 mt-2 min-w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5',
-        positionClasses[position]
+        positionClasses[position],
       ]"
       role="menu"
       aria-orientation="vertical"
@@ -99,4 +103,4 @@ const sizeClasses = {
       </div>
     </div>
   </div>
-</template> 
+</template>

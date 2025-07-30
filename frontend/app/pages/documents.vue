@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { TrashIcon, PencilIcon, CheckIcon, UploadIcon, BookCheckIcon, FileQuestion, EyeIcon, BookOpenIcon, PlusIcon } from 'lucide-vue-next';
+import { ref, onMounted } from "vue";
+import {
+  TrashIcon,
+  PencilIcon,
+  CheckIcon,
+  UploadIcon,
+  BookCheckIcon,
+  FileQuestion,
+  EyeIcon,
+  BookOpenIcon,
+  PlusIcon,
+} from "lucide-vue-next";
 
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
@@ -18,7 +28,7 @@ const numTasksToGenerate = ref(1);
 const deleteDocumentId = ref<string | null>(null);
 const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
-const editingTitle = ref('');
+const editingTitle = ref("");
 
 async function fetchDocuments() {
   loadingDocuments.value = true;
@@ -31,8 +41,8 @@ async function fetchDocuments() {
       title,
     }));
   } catch (error) {
-    console.error('Error fetching documents:', error);
-    alert('Failed to load documents. Please try again. ' + error);
+    console.error("Error fetching documents:", error);
+    alert("Failed to load documents. Please try again. " + error);
   } finally {
     loadingDocuments.value = false;
   }
@@ -65,7 +75,7 @@ async function uploadDocumentFromInput(event: Event) {
     // Refresh the document list
     await fetchDocuments();
   } catch (error) {
-    alert('Failed to upload document. Please try again. ' + error);
+    alert("Failed to upload document. Please try again. " + error);
   } finally {
     uploadingDocument.value = false;
   }
@@ -74,10 +84,10 @@ async function uploadDocumentFromInput(event: Event) {
 function triggerFilePicker() {
   console.log("Triggering file picker");
   if (uploadingDocument.value) return;
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '*/*';
-  input.addEventListener('change', uploadDocumentFromInput, { once: true });
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "*/*";
+  input.addEventListener("change", uploadDocumentFromInput, { once: true });
   input.click();
 }
 
@@ -91,8 +101,8 @@ async function deleteDocument(documentId: string) {
     // Refresh the document list
     await fetchDocuments();
   } catch (error) {
-    console.error('Error deleting document:', error);
-    alert('Failed to delete document. Please try again. ' + error);
+    console.error("Error deleting document:", error);
+    alert("Failed to delete document. Please try again. " + error);
   } finally {
     deletingDocument.value = false;
   }
@@ -129,14 +139,17 @@ async function confirmGenerateTasks() {
   generatingTasks.value = true;
   try {
     // Call the API to generate tasks
-    await fetch(`${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`, {
-      method: "POST",
-      headers: { 'Content-Type': 'application/json' },
-    });
+    await fetch(
+      `${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
     closeGenerateTasksModal();
     // Optionally refresh documents or show a success message
   } catch (error) {
-    alert('Failed to generate tasks. Please try again. ' + error);
+    alert("Failed to generate tasks. Please try again. " + error);
   } finally {
     generatingTasks.value = false;
   }
@@ -157,27 +170,30 @@ function openEditTitleModal(documentId: string, currentTitle: string) {
 function closeEditTitleModal() {
   showEditTitleModal.value = false;
   editingDocumentId.value = null;
-  editingTitle.value = '';
+  editingTitle.value = "";
 }
 
 async function confirmEditTitle() {
   if (!editingDocumentId.value || !editingTitle.value.trim()) return;
 
   try {
-    const response = await fetch(`${apiUrl}/documents/${editingDocumentId.value}/?title=${encodeURIComponent(editingTitle.value.trim())}`, {
-      method: 'PATCH',
-    });
+    const response = await fetch(
+      `${apiUrl}/documents/${editingDocumentId.value}/?title=${encodeURIComponent(editingTitle.value.trim())}`,
+      {
+        method: "PATCH",
+      },
+    );
 
     if (response.ok) {
       // Refresh the document list to show the updated title
       await fetchDocuments();
       closeEditTitleModal();
     } else {
-      alert('Failed to update title. Please try again.');
+      alert("Failed to update title. Please try again.");
     }
   } catch (error) {
-    console.error('Error updating title:', error);
-    alert('Failed to update title. Please try again. ' + error);
+    console.error("Error updating title:", error);
+    alert("Failed to update title. Please try again. " + error);
   }
 }
 </script>
@@ -189,7 +205,11 @@ async function confirmEditTitle() {
     </div>
 
     <div class="flex items-center gap-4 mb-8">
-      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
+      <DButton
+        @click="triggerFilePicker"
+        :loading="uploadingDocument"
+        :iconLeft="UploadIcon"
+      >
         New Document
       </DButton>
       <div v-if="uploadingDocument">
@@ -206,34 +226,56 @@ async function confirmEditTitle() {
       <div v-else class="space-y-4 w-full">
         <div v-for="document in documents" :key="document.id">
           <div class="flex justify-between items-center gap-2">
-            <div class="flex flex-col ">
+            <div class="flex flex-col">
               <p>{{ document.title }}</p>
               <p class="text-md text-gray-500">{{ document.id }}</p>
             </div>
             <div class="flex gap-2">
-              <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
-
+              <DButton
+                @click="navigateToStudy(document.id)"
+                variant="primary"
+                :iconLeft="BookOpenIcon"
+              >
               </DButton>
-              <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon">
-
+              <DButton
+                @click="openGenerateTasksModal(document.id)"
+                :disabled="generatingTasks"
+                :loading="generatingTasks"
+                variant="tertiary"
+                :iconLeft="PlusIcon"
+              >
               </DButton>
 
               <DHamburgerMenu>
                 <template #default="{ close }">
-                  <button @click="openEditTitleModal(document.id, document.title); close()"
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <button
+                    @click="
+                      openEditTitleModal(document.id, document.title);
+                      close();
+                    "
+                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
                     <PencilIcon class="h-4 w-4" />
                     Edit Title
                   </button>
-                  <button @click="navigateToTasks(document.id); close()"
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <button
+                    @click="
+                      navigateToTasks(document.id);
+                      close();
+                    "
+                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
                     <EyeIcon class="h-4 w-4" />
                     View Tasks
                   </button>
                   <div class="border-t border-gray-200 my-1"></div>
-                  <button @click="openDeleteModal(document.id); close()"
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                  <button
+                    @click="
+                      openDeleteModal(document.id);
+                      close();
+                    "
+                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
                     <TrashIcon class="h-4 w-4" />
                     Delete
                   </button>
@@ -246,29 +288,60 @@ async function confirmEditTitle() {
     </div>
   </div>
 
-  <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-    :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
-    @confirm="confirmGenerateTasks">
+  <DModal
+    v-if="showGenerateTasksModal"
+    titel="Generate Tasks"
+    :confirmText="generatingTasks ? 'Generating...' : 'Generate'"
+    @close="closeGenerateTasksModal"
+    @confirm="confirmGenerateTasks"
+  >
     <div class="p-4">
-      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
-      <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
-        class="border rounded px-2 py-1 w-24" />
+      <label for="num-tasks" class="block mb-2 font-medium"
+        >Number of tasks to generate:</label
+      >
+      <input
+        id="num-tasks"
+        type="number"
+        min="1"
+        v-model.number="numTasksToGenerate"
+        class="border rounded px-2 py-1 w-24"
+      />
     </div>
   </DModal>
-  <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
-    @close="closeDeleteModal" @confirm="confirmDelete">
+  <DModal
+    v-if="showDeleteModal"
+    titel="Delete Document"
+    :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
+    @close="closeDeleteModal"
+    @confirm="confirmDelete"
+  >
     <div class="p-4">
-      <p>Are you sure you want to delete the document "{{ deleteDocumentId }}"?</p>
+      <p>
+        Are you sure you want to delete the document "{{ deleteDocumentId }}"?
+      </p>
       <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
     </div>
   </DModal>
 
-  <DModal v-if="showEditTitleModal" titel="Edit Document Title" confirmText="Save" @close="closeEditTitleModal"
-    @confirm="confirmEditTitle">
+  <DModal
+    v-if="showEditTitleModal"
+    titel="Edit Document Title"
+    confirmText="Save"
+    @close="closeEditTitleModal"
+    @confirm="confirmEditTitle"
+  >
     <div class="p-4">
-      <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>
-      <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
-        placeholder="Enter new title" @keyup.enter="confirmEditTitle" />
+      <label for="edit-title" class="block mb-2 font-medium"
+        >Document Title:</label
+      >
+      <input
+        id="edit-title"
+        type="text"
+        v-model="editingTitle"
+        class="w-full border rounded px-3 py-2 text-sm"
+        placeholder="Enter new title"
+        @keyup.enter="confirmEditTitle"
+      />
     </div>
   </DModal>
 </template>

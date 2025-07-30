@@ -1,19 +1,22 @@
-import { z } from "zod"
-import { organisations, users } from "../database/schema"
+import { z } from "zod";
+import { organisations, users } from "../database/schema";
 
 const bodySchema = z.object({
   name: z.string(),
   email: z.string().email(),
   password: z.string().min(8),
   organisationName: z.string(),
-})
+});
 
 export default defineEventHandler(async (event) => {
-  const body = await readValidatedBody(event, bodySchema.parse)
+  const body = await readValidatedBody(event, bodySchema.parse);
 
   // check if the user already exists
-  const existing = await useDrizzle().select().from(users).where(eq(users.email, body.email))
-  if (existing.length > 0) return {}
+  const existing = await useDrizzle()
+    .select()
+    .from(users)
+    .where(eq(users.email, body.email));
+  if (existing.length > 0) return {};
 
   // Create organisation
   const createdOrgs = await useDrizzle()
@@ -21,12 +24,12 @@ export default defineEventHandler(async (event) => {
     .values({
       name: body.organisationName,
     })
-    .returning()
+    .returning();
 
-  const org = createdOrgs[0]
+  const org = createdOrgs[0];
 
-  console.log(body)
-  const hashedPassword = await hashPassword(body.password)
+  console.log(body);
+  const hashedPassword = await hashPassword(body.password);
 
   const user = await useDrizzle()
     .insert(users)
@@ -37,9 +40,9 @@ export default defineEventHandler(async (event) => {
       role: "admin",
       organisationId: org.id,
     })
-    .returning()
+    .returning();
 
   // TODO: log in the user immediately
 
-  return {}
-})
+  return {};
+});

@@ -8,6 +8,7 @@ import {
   BookOpenIcon,
   PlusIcon,
   ClipboardIcon,
+  FileTextIcon,
 } from "lucide-vue-next";
 
 const runtimeConfig = useRuntimeConfig();
@@ -124,6 +125,10 @@ function navigateToStudy(documentId: string) {
   navigateTo(`/study?documentId=${documentId}`);
 }
 
+function navigateToOriginal(documentId: string) {
+  navigateTo(`/custom-html?documentId=${documentId}`);
+}
+
 function openDeleteModal(documentId: string) {
   showDeleteModal.value = true;
   deleteDocumentId.value = documentId;
@@ -211,6 +216,14 @@ async function copyToClipboard(text: string) {
     document.body.removeChild(textArea);
   }
 }
+
+
+async function viewDocument(documentId: string) {
+  const response = await fetch(`${apiUrl}/documents/${documentId}/`);
+  const data = await response.json();
+
+
+}
 </script>
 
 <template>
@@ -256,12 +269,21 @@ async function copyToClipboard(text: string) {
                     <PencilIcon class="h-4 w-4" />
                     Edit Title
                   </button>
+
+
                   <button @click="
                     navigateToTasks(document.id);
                   close();
                   " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <EyeIcon class="h-4 w-4" />
                     View Tasks
+                  </button>
+                  <button @click="
+                    navigateToOriginal(document.id);
+                  close();
+                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    <FileTextIcon class="h-4 w-4" />
+                    View Original
                   </button>
                   <button @click="
                     copyToClipboard(document.id);

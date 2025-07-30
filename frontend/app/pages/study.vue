@@ -188,7 +188,7 @@ function restart() {
     <div :class="showHtmlViewer ? 'w-1/2 p-6 overflow-y-auto' : 'w-full flex justify-center px-6'">
       <div :class="showHtmlViewer ? 'max-w-4xl mx-auto' : 'max-w-2xl w-full'">
 
-        <DPageHeader title="Study Mode" />
+        <DPageHeader title="Study Mode" class="mt-4" />
         <div class="mx-auto max-w-2xl">
           <!-- Studying State: Displaying Questions -->
           <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-2">

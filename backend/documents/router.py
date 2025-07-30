@@ -8,6 +8,7 @@ from documents.service import (
     extract_text_from_file_and_chunk,
     delete_document_from_db,
     generate_document_title,
+    update_document_title_in_db,
 )
 from documents.schemas import (
     DocumentUploadResponse,
@@ -15,52 +16,12 @@ from documents.schemas import (
     DocumentListResponse,
     DocumentChunksResponse,
     DocumentDeleteResponse,
+    DocumentUpdateResponse,
 )
 from exceptions import DocumentNotFoundError
+from uuid import UUID
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-@router.post("/to_chunks", response_model=DocumentUploadResponse)
-def document_to_chunks(file: UploadFile = File(...)) -> dict:
-    """
-    Converts an uploaded file to text and stores it in the database.
-    Extracts text and chunks, saves them, and returns the document ID.
-    """
-    try:
-        result = extract_text_from_file_and_chunk(
-            file.file, mime_type=file.content_type
-        )
-
-        title_context = "\n".join(
-            [chunk["chunk_text"] for chunk in result["chunks"][:4]]
-        )
-
-        # create title for document based on first chunk
-        title = generate_document_title(title_context)
-
-        # save document and chunks to db
-        document_id = save_document_to_db(result["full_text"], title=title)
-        save_chunks_to_db(document_id, result["chunks"])
-        return {"document_id": document_id}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/chunks/{doc_id}", response_model=DocumentChunksResponse)
-def get_document_chunks(doc_id: str):
-    """
-    Retrieves all text chunks for a given document ID from the database.
-    Returns the chunks as a list.
-    Useful for accessing segmented document content for further processing or review.
-    """
-    try:
-        chunks = get_chunks_by_document_id(doc_id)
-        return {"chunks": chunks}
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/", response_model=DocumentListResponse)
@@ -100,6 +61,65 @@ def delete_document(doc_id: str):
     try:
         delete_document_from_db(doc_id)
         return {"message": "Document deleted successfully"}
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/{doc_id}", response_model=DocumentUpdateResponse)
+def update_document_title(doc_id: str, title: str):
+    """
+    Updates the title of a document by its ID in the database.
+    """
+    try:
+        document_uuid = UUID(doc_id)
+        update_document_title_in_db(document_uuid, title)
+        return {"message": "Document title updated successfully"}
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/to_chunks", response_model=DocumentUploadResponse)
+def document_to_chunks(file: UploadFile = File(...)) -> dict:
+    """
+    Converts an uploaded file to text and stores it in the database.
+    Extracts text and chunks, saves them, and returns the document ID.
+    """
+    try:
+        result = extract_text_from_file_and_chunk(
+            file.file, mime_type=file.content_type
+        )
+
+        title_context = "\n".join(
+            [chunk["chunk_text"] for chunk in result["chunks"][:4]]
+        )
+
+        # create title for document based on first chunk
+        title = generate_document_title(title_context)
+
+        # save document and chunks to db
+        document_id = save_document_to_db(result["full_text"], title=title)
+        save_chunks_to_db(document_id, result["chunks"])
+        return {"document_id": document_id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/chunks/{doc_id}", response_model=DocumentChunksResponse)
+def get_document_chunks(doc_id: str):
+    """
+    Retrieves all text chunks for a given document ID from the database.
+    Returns the chunks as a list.
+    Useful for accessing segmented document content for further processing or review.
+    """
+    try:
+        chunks = get_chunks_by_document_id(doc_id)
+        return {"chunks": chunks}
     except DocumentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

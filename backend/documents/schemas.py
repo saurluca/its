@@ -29,3 +29,7 @@ class ChunkResponse(BaseModel):
 
 class DocumentChunksResponse(BaseModel):
     chunks: List[ChunkResponse]
+
+
+class DocumentUpdateResponse(BaseModel):
+    message: str

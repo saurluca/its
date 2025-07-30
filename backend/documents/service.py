@@ -332,10 +332,12 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     for chunk in chunks:
         if len(chunk["chunk_text"]) < MIN_CHUNK_LENGTH:
             count_too_short += 1
-    print(f"Number of chunks too short: {count_too_short}")
 
+    print(f"Number of chunks too short: {count_too_short}")
     print(f"Number of chunks after merging small chunks: {len(chunks)}")
-    print(f"Number of chunks merged: {n_merged}")
+    print(
+        f"Number of chunks merged: {n_merged} ({n_merged / og_num_chunks * 100:.2f}%)"
+    )
 
     return {"full_text": full_text, "name": name, "chunks": chunks}
 
@@ -363,14 +365,31 @@ def generate_document_title(document_start: str) -> str:
                 description="The first characters of the document."
             )
             document_title: str = dspy.OutputField(
-                description="A short title for the document based on the first characters of the document. The document is part of a lecture course, so try to come a with a title for this course based on the short snippet of the document. Provide a single sentence as the title."
+                description=f"A short title for the document based on the first characters of the document. The document is part of a lecture course. Max length: {MAX_TITLE_LENGTH} characters."
             )
 
         model = dspy.ChainOfThought(DocumentTitle)
-        print(f"Document start: {document_start}")
         result = model(document_start=document_start)
-        print(f"Document title: {result.document_title}")
         return result.document_title
     except Exception as e:
         print(f"Error generating document title: {e}")
         return "Untitled Document"
+
+
+def update_document_title_in_db(doc_id: UUID, title: str):
+    """
+    Update the title of a document by its ID in the database.
+    """
+    if len(title) > MAX_TITLE_LENGTH:
+        raise ValueError("Title is too long")
+
+    with get_session() as session:
+        statement = select(Document).where(Document.id == doc_id)
+        document = session.exec(statement).first()
+
+        if document:
+            document.title = title
+            session.add(document)
+            session.commit()
+        else:
+            raise DocumentNotFoundError(f"No document found with id: {doc_id}")

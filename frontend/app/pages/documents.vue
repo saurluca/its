@@ -3,13 +3,11 @@ import { ref, onMounted } from "vue";
 import {
   TrashIcon,
   PencilIcon,
-  CheckIcon,
   UploadIcon,
-  BookCheckIcon,
-  FileQuestion,
   EyeIcon,
   BookOpenIcon,
   PlusIcon,
+  ClipboardIcon,
 } from "lucide-vue-next";
 
 const runtimeConfig = useRuntimeConfig();
@@ -196,6 +194,23 @@ async function confirmEditTitle() {
     alert("Failed to update title. Please try again. " + error);
   }
 }
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    // Optional: Show a success message
+    console.log("Copied to clipboard:", text);
+  } catch (error) {
+    console.error("Failed to copy to clipboard:", error);
+    // Fallback for older browsers
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  }
+}
 </script>
 
 <template>
@@ -219,24 +234,18 @@ async function confirmEditTitle() {
         <div class="text-xl">Loading documents...</div>
       </div>
 
-      <div v-else class="space-y-4 w-full">
+      <div v-else class="space-y-3 w-full">
         <div v-for="document in documents" :key="document.id">
           <div class="flex justify-between items-center gap-2">
-            <div class="flex flex-col">
-              <p>{{ document.title }}</p>
-              <p class="text-md text-gray-500">{{ document.id }}</p>
-            </div>
-            <div class="flex gap-2">
-              <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
-              </DButton>
-              <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon">
-              </DButton>
 
-              <div>
-                I think
-                foramting is wa ss
-              </div>
+            <div class="flex flex-col cursor-pointer" @click="navigateToStudy(document.id)">
+              <p>{{ document.title }}</p>
+            </div>
+
+            <div class="flex gap-2">
+              <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon" class="!p-2" />
+              <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
+                :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
 
               <DHamburgerMenu>
                 <template #default="{ close }">
@@ -253,6 +262,13 @@ async function confirmEditTitle() {
                   " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <EyeIcon class="h-4 w-4" />
                     View Tasks
+                  </button>
+                  <button @click="
+                    copyToClipboard(document.id);
+                  close();
+                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    <ClipboardIcon class="h-4 w-4" />
+                    Copy ID
                   </button>
                   <div class="border-t border-gray-200 my-1"></div>
                   <button @click="

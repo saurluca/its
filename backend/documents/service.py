@@ -211,14 +211,16 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     if hasattr(docling_doc, "tables"):
         print(f"Document has {len(docling_doc.tables)} tables")
     else:
-        print("Document does not contain any tables.")
+        print("Document has 0 tables.")
     if hasattr(docling_doc, "images"):
         print(f"Document has {len(docling_doc.images)} images")
     else:
-        print("Document does not contain any images.")
+        print("Document has 0 images.")
 
     # Get full text for document saving to db
-    full_text = docling_doc.export_to_text()
+    full_text = docling_doc.export_to_html()
+    # remove newlines
+    full_text = full_text.replace("\n", "")
 
     print(f"Time taken to convert: {time.time() - start_time} seconds")
 
@@ -265,12 +267,9 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     if len(chunks) <= 1:
         return {"full_text": full_text, "name": name, "chunks": chunks}
 
-    print("Post-processing chunks: merging small chunks")
     og_num_chunks = len(chunks)
-    print(f"Number of chunks before post-processing: {og_num_chunks}")
 
-    # Delete a chunk if the next chunk starts with the current chunk text (i.e. it's a duplicate, or slides adding more text)
-    print("Deleting duplicate chunks")
+    # Delete a chunk if the next chunk contains the current chunk text (i.e. it's a duplicate, or slides adding more text)
     try:
         for i in range(len(chunks) - 2):
             chunk_text = chunks[i]["chunk_text"]
@@ -286,7 +285,6 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     except Exception as e:
         print(f"Error deleting duplicate chunks: {e}")
 
-    print("Merging chunks")
     # Merge chunks with neighbours until all chunks are above MIN_CHUNK_LENGTH
     i = 0
     n_merged = 0
@@ -327,16 +325,8 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     for chunk in chunks:
         chunk["chunk_length"] = len(chunk["chunk_text"])
 
-    # assert length of all chunks is greater than MIN_CHUNK_LENGTH
-    count_too_short = 0
-    for chunk in chunks:
-        if len(chunk["chunk_text"]) < MIN_CHUNK_LENGTH:
-            count_too_short += 1
-
-    print(f"Number of chunks too short: {count_too_short}")
-    print(f"Number of chunks after merging small chunks: {len(chunks)}")
-    print(
-        f"Number of chunks merged: {n_merged} ({n_merged / og_num_chunks * 100:.2f}%)"
+    assert all(len(chunk["chunk_text"]) >= MIN_CHUNK_LENGTH for chunk in chunks), (
+        "Not all chunks are long enough after merging"
     )
 
     return {"full_text": full_text, "name": name, "chunks": chunks}

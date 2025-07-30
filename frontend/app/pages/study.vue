@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import type { Task } from '~/types/models'
 
 const route = useRoute()
-const pageState = ref<'initial' | 'studying' | 'finished'>('initial')
+const pageState = ref<'studying' | 'finished'>('studying')
 const fileId = ref('')
 const tasks = ref<Task[]>([])
 const currentTaskIndex = ref(0)
@@ -14,7 +14,7 @@ const score = ref(0)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const feedback = ref<string | null>(null)
-
+const router = useRouter()
 const runtimeConfig = useRuntimeConfig()
 const apiUrl = runtimeConfig.public.apiBase
 
@@ -106,7 +106,7 @@ function nextQuestion() {
 }
 
 function restart() {
-  pageState.value = 'initial'
+  pageState.value = 'studying'
   fileId.value = ''
   tasks.value = []
   currentTaskIndex.value = 0
@@ -115,6 +115,9 @@ function restart() {
   isCorrect.value = null
   score.value = 0
   error.value = null
+  feedback.value = null
+  
+  router.push('/documents')
 }
 </script>
 
@@ -123,14 +126,6 @@ function restart() {
     <DPageHeader title="Study Mode" />
     <DPageContent>
       <div class="mx-auto max-w-2xl">
-        <!-- Initial State: Enter Document ID -->
-        <div v-if="pageState === 'initial'" class="space-y-4">
-          <h2 class="text-lg font-medium">Enter Document ID to Start</h2>
-          <DInput v-model="fileId" placeholder="e.g., 1234-abcd-5678" @keyup.enter="startStudy"/>
-          <DButton @click="startStudy" :loading="loading">Start Study Session</DButton>
-          <p v-if="error" class="text-red-500">{{ error }}</p>
-        </div>
-
         <!-- Studying State: Displaying Questions -->
         <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-2">
           <DTaskAnswer

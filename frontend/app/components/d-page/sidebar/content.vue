@@ -26,11 +26,11 @@ const links = [
     to: "/courses",
     icon: BookOpenIcon,
   },
-  {
-    name: "Study",
-    to: "/study",
-    icon: Lightbulb,
-  },
+  // {
+  //   name: "Study",
+  //   to: "/study",
+  //   icon: Lightbulb,
+  // },
 
 ]
 

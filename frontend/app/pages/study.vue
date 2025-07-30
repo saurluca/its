@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useSessionStorage } from "@vueuse/core";
 import type { Task } from "~/types/models";
 
 const route = useRoute();
@@ -19,6 +20,15 @@ const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
+
+// HTML viewer state
+const showHtmlViewer = ref(false);
+const htmlContent = ref("");
+const loadingHtml = ref(false);
+const htmlError = ref("");
+
+// Sidebar state
+const collapsed = useSessionStorage("collapsed", false);
 
 onMounted(() => {
   // Check if documentId is provided in URL parameters
@@ -111,11 +121,44 @@ function nextQuestion() {
     currentAnswer.value = "";
     isCorrect.value = null;
     showEvaluation.value = false;
+    // Hide HTML viewer when moving to next question
+    closeHtmlViewer();
     console.log("Moving to question:", currentTaskIndex.value + 1);
   } else {
     console.log("Study session finished");
     pageState.value = "finished";
   }
+}
+
+async function showSource() {
+  if (!fileId.value) return;
+
+  loadingHtml.value = true;
+  htmlError.value = "";
+  showHtmlViewer.value = true;
+
+  // Collapse sidebar to give more space
+  collapsed.value = true;
+
+  try {
+    const response = await fetch(`${apiUrl}/documents/${fileId.value}/`);
+    const data = await response.json();
+
+    if (data.content) {
+      htmlContent.value = data.content;
+    } else {
+      htmlError.value = "Document content not found";
+    }
+  } catch (err) {
+    console.error("Error fetching document content:", err);
+    htmlError.value = "Failed to load document content";
+  } finally {
+    loadingHtml.value = false;
+  }
+}
+
+function closeHtmlViewer() {
+  showHtmlViewer.value = false;
 }
 
 function restart() {
@@ -130,62 +173,71 @@ function restart() {
   error.value = null;
   feedback.value = null;
 
+  // Reset HTML viewer state
+  showHtmlViewer.value = false;
+  htmlContent.value = "";
+  htmlError.value = "";
+
   router.push("/documents");
 }
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <DPageHeader title="Study Mode" />
-    <DPageContent>
-      <div class="mx-auto max-w-2xl">
-        <!-- Studying State: Displaying Questions -->
-        <div
-          v-if="pageState === 'studying' && tasks.length > 0"
-          class="space-y-2"
-        >
-          <DTaskAnswer
-            :task="currentTask"
-            :index="currentTaskIndex"
-            v-model="currentAnswer"
-            :disabled="showEvaluation"
-          />
+  <div class="h-full flex">
+    <!-- Study content - centered when no HTML viewer, left-aligned when HTML viewer is shown -->
+    <div :class="showHtmlViewer ? 'w-1/2 p-6 overflow-y-auto' : 'w-full flex justify-center px-6'">
+      <div :class="showHtmlViewer ? 'max-w-4xl mx-auto' : 'max-w-2xl w-full'">
 
-          <div v-if="showEvaluation">
-            <DTaskResult
-              :task="currentTask"
-              :index="currentTaskIndex"
-              :userAnswer="currentAnswer"
-              :isCorrect="isCorrect ?? false"
-              :feedback="feedback ?? ''"
-              class="mt-4"
-            />
-            <div class="flex justify-end">
-              <DButton @click="nextQuestion" class="mt-4">
-                {{
-                  currentTaskIndex < tasks.length - 1
-                    ? "Next Question"
-                    : "Show Results"
-                }}
-              </DButton>
+        <DPageHeader title="Study Mode" />
+        <div class="mx-auto max-w-2xl">
+          <!-- Studying State: Displaying Questions -->
+          <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-2">
+            <DTaskAnswer :task="currentTask" :index="currentTaskIndex" v-model="currentAnswer"
+              :disabled="showEvaluation" />
+
+            <div v-if="showEvaluation">
+              <DTaskResult :task="currentTask" :index="currentTaskIndex" :userAnswer="currentAnswer"
+                :isCorrect="isCorrect ?? false" :feedback="feedback ?? ''" class="mt-4" />
+              <div class="flex flex-wrap justify-end gap-2">
+                <DButton @click="showSource" variant="secondary" class="mt-4">
+                  Show Source
+                </DButton>
+                <DButton @click="nextQuestion" class="mt-4">
+                  {{
+                    currentTaskIndex < tasks.length - 1 ? "Next Question" : "Show Results" }} </DButton>
+              </div>
+            </div>
+            <div v-else class="flex justify-end">
+              <DButton @click="evaluateAnswer">Evaluate</DButton>
             </div>
           </div>
-          <div v-else class="flex justify-end">
-            <DButton @click="evaluateAnswer">Evaluate</DButton>
+
+          <!-- Finished State: Show Score -->
+          <div v-if="pageState === 'finished'" class="text-center space-y-4">
+            <h2 class="text-2xl font-bold">Study Session Complete!</h2>
+            <p class="text-lg">
+              You scored <span class="font-bold">{{ score }}</span> out of
+              <span class="font-bold">{{ tasks.length }}</span>.
+            </p>
+            <DButton @click="restart">Study Another Document</DButton>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Finished State: Show Score -->
-        <div v-if="pageState === 'finished'" class="text-center space-y-4">
-          <h2 class="text-2xl font-bold">Study Session Complete!</h2>
-          <p class="text-lg">
-            You scored <span class="font-bold">{{ score }}</span> out of
-            <span class="font-bold">{{ tasks.length }}</span
-            >.
-          </p>
-          <DButton @click="restart">Study Another Document</DButton>
+    <!-- Right side - HTML viewer -->
+    <div v-if="showHtmlViewer" class="w-1/2 border-l border-gray-200">
+      <div class="h-full p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold">Document Source</h2>
+          <DButton @click="closeHtmlViewer" variant="secondary" class="!p-2">
+            Close
+          </DButton>
+        </div>
+        <div class="h-[calc(100%-4rem)]">
+          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
         </div>
       </div>
-    </DPageContent>
+    </div>
   </div>
 </template>

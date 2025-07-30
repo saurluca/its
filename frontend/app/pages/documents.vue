@@ -346,9 +346,9 @@ async function viewDocument(documentId: string) {
             Close
           </DButton>
         </div>
-        <div class="h-[calc(100%-4rem)]">
-          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-        </div>
+        <!-- <div class="h-[calc(100%-4rem)]"> -->
+        <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+        <!-- </div> -->
       </div>
       <div v-else class="h-full flex items-center justify-center text-gray-500">
         <div class="text-center">

@@ -353,7 +353,7 @@ async function viewDocument(documentId: string) {
       <div v-else class="h-full flex items-center justify-center text-gray-500">
         <div class="text-center">
           <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>Select "View Original" to preview document content</p>
+          <p>Select a Document by clicking on it to preview its content</p>
         </div>
       </div>
     </div>

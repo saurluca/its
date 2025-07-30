@@ -4,7 +4,7 @@ import { useSessionStorage } from "@vueuse/core";
 import type { Task } from "~/types/models";
 
 const route = useRoute();
-const pageState = ref<"studying" | "finished">("studying");
+const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
 const fileId = ref("");
 const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
@@ -18,6 +18,11 @@ const feedback = ref<string | null>(null);
 const router = useRouter();
 const runtimeConfig = useRuntimeConfig();
 const apiUrl = runtimeConfig.public.apiBase;
+
+// Task generation state
+const showGenerateTasksModal = ref(false);
+const generatingTasks = ref(false);
+const numTasksToGenerate = ref(5);
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
 
@@ -67,13 +72,43 @@ async function startStudy() {
       console.log("First task structure:", fetchedTasks[0]);
       pageState.value = "studying";
     } else {
-      error.value =
-        "No tasks found for this document, or the document is empty.";
+      pageState.value = "no-tasks";
     }
   } catch (e: any) {
     error.value = e.message;
   } finally {
     loading.value = false;
+  }
+}
+
+function openGenerateTasksModal() {
+  numTasksToGenerate.value = 1;
+  showGenerateTasksModal.value = true;
+}
+
+function closeGenerateTasksModal() {
+  showGenerateTasksModal.value = false;
+}
+
+async function confirmGenerateTasks() {
+  if (!fileId.value) return;
+  generatingTasks.value = true;
+  try {
+    // Call the API to generate tasks
+    await fetch(
+      `${apiUrl}/tasks/generate/${fileId.value}/?num_tasks=${numTasksToGenerate.value}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    closeGenerateTasksModal();
+    // Reload the page to start the study session
+    await startStudy();
+  } catch (err: any) {
+    error.value = "Failed to generate tasks. Please try again. " + err;
+  } finally {
+    generatingTasks.value = false;
   }
 }
 
@@ -222,8 +257,31 @@ function restart() {
 
         <DPageHeader title="Study Mode" class="mt-4" />
         <div class="mx-auto max-w-2xl">
+          <!-- Loading State -->
+          <div v-if="loading" class="text-center space-y-4">
+            <div class="text-xl">Loading tasks...</div>
+          </div>
+
+          <!-- No Tasks State -->
+          <div v-else-if="pageState === 'no-tasks'" class="text-center space-y-6">
+            <div class="space-y-4">
+              <h2 class="text-2xl font-bold">No Tasks Found</h2>
+              <p class="text-lg text-gray-600">
+                No study tasks have been generated for this document yet.
+              </p>
+              <p class="text-gray-500">
+                Generate some tasks to start studying this document.
+              </p>
+            </div>
+            <div class="flex justify-center">
+              <DButton @click="openGenerateTasksModal" variant="primary">
+                Generate Tasks
+              </DButton>
+            </div>
+          </div>
+
           <!-- Studying State: Displaying Questions -->
-          <div v-if="pageState === 'studying' && tasks.length > 0 && currentTask" class="space-y-2">
+          <div v-else-if="pageState === 'studying' && tasks.length > 0 && currentTask" class="space-y-2">
             <DTaskAnswer :task="currentTask" :index="currentTaskIndex" v-model="currentAnswer"
               :disabled="showEvaluation" />
 
@@ -245,7 +303,7 @@ function restart() {
           </div>
 
           <!-- Finished State: Show Score -->
-          <div v-if="pageState === 'finished'" class="text-center space-y-4">
+          <div v-else-if="pageState === 'finished'" class="text-center space-y-4">
             <h2 class="text-2xl font-bold">Study Session Complete!</h2>
             <p class="text-lg">
               You scored <span class="font-bold">{{ score }}</span> out of
@@ -273,4 +331,15 @@ function restart() {
       </div>
     </div>
   </div>
+
+  <!-- Generate Tasks Modal -->
+  <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+    :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
+    @confirm="confirmGenerateTasks">
+    <div class="p-4">
+      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
+      <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
+        class="border rounded px-2 py-1 w-24" />
+    </div>
+  </DModal>
 </template>

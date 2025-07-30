@@ -3,6 +3,7 @@ from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.chunking import HybridChunker
 from io import BytesIO
+from documents.schemas import DocumentResponse
 from documents.models import Document, DocumentCreate, Chunk, ChunkCreate
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
@@ -90,7 +91,7 @@ def save_chunks_to_db(document_id: str, chunks: List[Dict[str, Any]]) -> List[st
     return chunk_ids
 
 
-def get_document_content_from_db(doc_id: str) -> str:
+def get_document(doc_id: str) -> DocumentResponse:
     """
     Get document content by ID
 
@@ -112,7 +113,11 @@ def get_document_content_from_db(doc_id: str) -> str:
         if not document:
             raise DocumentNotFoundError(f"No document found with id: {doc_id}")
 
-        return document.content
+        return DocumentResponse(
+            title=document.title,
+            content=document.content,
+            total_chunks=document.total_chunks,
+        )
 
 
 def get_document_titles_and_ids_from_db() -> Tuple[List[str], List[str]]:

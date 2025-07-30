@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List
 
 
 # Response schemas
@@ -8,7 +8,9 @@ class DocumentUploadResponse(BaseModel):
 
 
 class DocumentResponse(BaseModel):
+    title: str
     content: str
+    total_chunks: int
 
 
 class DocumentDeleteResponse(BaseModel):

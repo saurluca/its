@@ -305,21 +305,12 @@ async function viewDocument(documentId: string) {
                         <PencilIcon class="h-4 w-4" />
                         Edit Title
                       </button>
-
-
                       <button @click="
                         navigateToTasks(document.id);
                       close();
                       " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <EyeIcon class="h-4 w-4" />
                         View Tasks
-                      </button>
-                      <button @click="
-                        viewDocument(document.id);
-                      close();
-                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <FileTextIcon class="h-4 w-4" />
-                        View Original
                       </button>
                       <button @click="
                         copyToClipboard(document.id);

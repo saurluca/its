@@ -26,6 +26,7 @@ const showHtmlViewer = ref(false);
 const htmlContent = ref("");
 const loadingHtml = ref(false);
 const htmlError = ref("");
+const highlightedChunkText = ref("");
 
 // Sidebar state
 const collapsed = useSessionStorage("collapsed", false);
@@ -63,6 +64,7 @@ async function startStudy() {
     if (fetchedTasks && fetchedTasks.length > 0) {
       tasks.value = fetchedTasks;
       console.log("Loaded tasks:", fetchedTasks.length, fetchedTasks);
+      console.log("First task structure:", fetchedTasks[0]);
       pageState.value = "studying";
     } else {
       error.value =
@@ -83,7 +85,7 @@ async function evaluateAnswer() {
 
   feedback.value = "Evaluating...";
 
-  const correct = currentAnswer.value === currentTask.value.correct_answer;
+  const correct = currentAnswer.value === currentTask.value?.correct_answer;
   isCorrect.value = correct;
 
   showEvaluation.value = true;
@@ -93,7 +95,7 @@ async function evaluateAnswer() {
   } else {
     const { data: responseData, error: fetchError } = await useFetch<{
       feedback: string;
-    }>(`${apiUrl}/tasks/evaluate_answer/${currentTask.value.id}`, {
+    }>(`${apiUrl}/tasks/evaluate_answer/${currentTask.value?.id}`, {
       method: "POST",
       body: {
         student_answer: currentAnswer.value,
@@ -105,7 +107,7 @@ async function evaluateAnswer() {
         fetchError.value.data?.message || "Failed to evaluate answer.";
       return;
     }
-    feedback.value = responseData.value?.feedback;
+    feedback.value = responseData.value?.feedback || null;
   }
 }
 
@@ -131,7 +133,14 @@ function nextQuestion() {
 }
 
 async function showSource() {
-  if (!fileId.value) return;
+  console.log("Showing source for chunk:", currentTask.value?.chunk_id);
+  console.log("Current task:", currentTask.value);
+  console.log("File ID:", fileId.value);
+
+  if (!fileId.value || !currentTask.value?.chunk_id) {
+    console.error("Missing fileId or chunk_id:", { fileId: fileId.value, chunkId: currentTask.value?.chunk_id });
+    return;
+  }
 
   loadingHtml.value = true;
   htmlError.value = "";
@@ -141,11 +150,32 @@ async function showSource() {
   collapsed.value = true;
 
   try {
+    // First, fetch the specific chunk data
+    const chunkUrl = `${apiUrl}/documents/chunks/${currentTask.value.chunk_id}`;
+    console.log("Fetching chunk from:", chunkUrl);
+
+    const chunkResponse = await fetch(chunkUrl);
+
+    if (!chunkResponse.ok) {
+      const errorData = await chunkResponse.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to fetch chunk: ${chunkResponse.status}`);
+    }
+
+    const chunkData = await chunkResponse.json();
+    console.log("Chunk data received:", chunkData);
+
+    if (!chunkData.chunk_text) {
+      throw new Error("Chunk data not found");
+    }
+
+    // Then fetch the full document content
     const response = await fetch(`${apiUrl}/documents/${fileId.value}/`);
     const data = await response.json();
 
     if (data.content) {
       htmlContent.value = data.content;
+      // Pass chunk data to the HTML viewer for highlighting
+      highlightedChunkText.value = chunkData.chunk_text;
     } else {
       htmlError.value = "Document content not found";
     }
@@ -159,6 +189,7 @@ async function showSource() {
 
 function closeHtmlViewer() {
   showHtmlViewer.value = false;
+  highlightedChunkText.value = "";
 }
 
 function restart() {
@@ -177,6 +208,7 @@ function restart() {
   showHtmlViewer.value = false;
   htmlContent.value = "";
   htmlError.value = "";
+  highlightedChunkText.value = "";
 
   router.push("/documents");
 }
@@ -191,7 +223,7 @@ function restart() {
         <DPageHeader title="Study Mode" class="mt-4" />
         <div class="mx-auto max-w-2xl">
           <!-- Studying State: Displaying Questions -->
-          <div v-if="pageState === 'studying' && tasks.length > 0" class="space-y-2">
+          <div v-if="pageState === 'studying' && tasks.length > 0 && currentTask" class="space-y-2">
             <DTaskAnswer :task="currentTask" :index="currentTaskIndex" v-model="currentAnswer"
               :disabled="showEvaluation" />
 
@@ -235,7 +267,8 @@ function restart() {
           </DButton>
         </div>
         <div class="h-[calc(100%-4rem)]">
-          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError"
+            :highlighted-chunk-text="highlightedChunkText" />
         </div>
       </div>
     </div>

@@ -4,13 +4,13 @@ export interface Task {
   type: "true_false" | "multiple_choice" | "free_text";
   question: string;
   options?: string[];
-  correctAnswer: string;
-  courseId: string;
-  documentId?: string;
-  chunkId?: string;
+  correct_answer: string;
+  course_id?: string;
+  document_id?: string;
+  chunk_id?: string;
   organisationId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   deletedAt?: Date | null;
 }
 
@@ -41,10 +41,10 @@ export interface NewTaskForm {
   type: "true_false" | "multiple_choice" | "free_text";
   question: string;
   options?: string[];
-  correctAnswer: string;
-  courseId: string;
-  documentId?: string;
-  chunkId?: string;
+  correct_answer: string;
+  course_id?: string;
+  document_id?: string;
+  chunk_id?: string;
 }
 
 export interface NewCourseForm {

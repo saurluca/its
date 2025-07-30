@@ -205,11 +205,7 @@ async function confirmEditTitle() {
     </div>
 
     <div class="flex items-center gap-4 mb-8">
-      <DButton
-        @click="triggerFilePicker"
-        :loading="uploadingDocument"
-        :iconLeft="UploadIcon"
-      >
+      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
         New Document
       </DButton>
       <div v-if="uploadingDocument">
@@ -231,51 +227,38 @@ async function confirmEditTitle() {
               <p class="text-md text-gray-500">{{ document.id }}</p>
             </div>
             <div class="flex gap-2">
-              <DButton
-                @click="navigateToStudy(document.id)"
-                variant="primary"
-                :iconLeft="BookOpenIcon"
-              >
+              <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
               </DButton>
-              <DButton
-                @click="openGenerateTasksModal(document.id)"
-                :disabled="generatingTasks"
-                :loading="generatingTasks"
-                variant="tertiary"
-                :iconLeft="PlusIcon"
-              >
+              <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
+                :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon">
               </DButton>
+
+              <div>
+                I think
+                foramting is wa ss
+              </div>
 
               <DHamburgerMenu>
                 <template #default="{ close }">
-                  <button
-                    @click="
-                      openEditTitleModal(document.id, document.title);
-                      close();
-                    "
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
+                  <button @click="
+                    openEditTitleModal(document.id, document.title);
+                  close();
+                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <PencilIcon class="h-4 w-4" />
                     Edit Title
                   </button>
-                  <button
-                    @click="
-                      navigateToTasks(document.id);
-                      close();
-                    "
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
+                  <button @click="
+                    navigateToTasks(document.id);
+                  close();
+                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <EyeIcon class="h-4 w-4" />
                     View Tasks
                   </button>
                   <div class="border-t border-gray-200 my-1"></div>
-                  <button
-                    @click="
-                      openDeleteModal(document.id);
-                      close();
-                    "
-                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
+                  <button @click="
+                    openDeleteModal(document.id);
+                  close();
+                  " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
                     <TrashIcon class="h-4 w-4" />
                     Delete
                   </button>
@@ -288,33 +271,17 @@ async function confirmEditTitle() {
     </div>
   </div>
 
-  <DModal
-    v-if="showGenerateTasksModal"
-    titel="Generate Tasks"
-    :confirmText="generatingTasks ? 'Generating...' : 'Generate'"
-    @close="closeGenerateTasksModal"
-    @confirm="confirmGenerateTasks"
-  >
+  <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+    :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
+    @confirm="confirmGenerateTasks">
     <div class="p-4">
-      <label for="num-tasks" class="block mb-2 font-medium"
-        >Number of tasks to generate:</label
-      >
-      <input
-        id="num-tasks"
-        type="number"
-        min="1"
-        v-model.number="numTasksToGenerate"
-        class="border rounded px-2 py-1 w-24"
-      />
+      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
+      <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
+        class="border rounded px-2 py-1 w-24" />
     </div>
   </DModal>
-  <DModal
-    v-if="showDeleteModal"
-    titel="Delete Document"
-    :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
-    @close="closeDeleteModal"
-    @confirm="confirmDelete"
-  >
+  <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
+    @close="closeDeleteModal" @confirm="confirmDelete">
     <div class="p-4">
       <p>
         Are you sure you want to delete the document "{{ deleteDocumentId }}"?
@@ -323,25 +290,12 @@ async function confirmEditTitle() {
     </div>
   </DModal>
 
-  <DModal
-    v-if="showEditTitleModal"
-    titel="Edit Document Title"
-    confirmText="Save"
-    @close="closeEditTitleModal"
-    @confirm="confirmEditTitle"
-  >
+  <DModal v-if="showEditTitleModal" titel="Edit Document Title" confirmText="Save" @close="closeEditTitleModal"
+    @confirm="confirmEditTitle">
     <div class="p-4">
-      <label for="edit-title" class="block mb-2 font-medium"
-        >Document Title:</label
-      >
-      <input
-        id="edit-title"
-        type="text"
-        v-model="editingTitle"
-        class="w-full border rounded px-3 py-2 text-sm"
-        placeholder="Enter new title"
-        @keyup.enter="confirmEditTitle"
-      />
+      <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>
+      <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
+        placeholder="Enter new title" @keyup.enter="confirmEditTitle" />
     </div>
   </DModal>
 </template>

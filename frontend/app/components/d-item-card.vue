@@ -8,14 +8,14 @@ interface Item {
   [key: string]: any;
 }
 
-  const props = defineProps<{
-    item: Item;
-    isTeacherView: boolean;
-  }>();
+const props = defineProps<{
+  item: Item;
+  isTeacherView: boolean;
+}>();
 
 const emit = defineEmits<{
-  (e: "delete", id: string): void;
-  (e: "edit", item: Item): void;
+(e: "delete", id: string): void;
+(e: "edit", item: Item): void;
 }>();
 
 const hasDescription = computed(() => {

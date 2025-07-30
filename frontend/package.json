@@ -53,5 +53,8 @@
     "@parcel/watcher",
     "esbuild",
     "vue-demi"
-  ]
+  ],
+  "simple-git-hooks": {
+    "pre-commit": "bun pretty-quick --staged"
+  }
 }

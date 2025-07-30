@@ -132,10 +132,6 @@ function navigateToStudy(documentId: string) {
   navigateTo(`/study?documentId=${documentId}`);
 }
 
-function navigateToOriginal(documentId: string) {
-  navigateTo(`/custom-html?documentId=${documentId}`);
-}
-
 function openDeleteModal(documentId: string) {
   showDeleteModal.value = true;
   deleteDocumentId.value = documentId;

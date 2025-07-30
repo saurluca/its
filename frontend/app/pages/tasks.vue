@@ -364,13 +364,13 @@ function isAnswerCorrect(taskId: string): boolean {
 
           <div v-if="filterType === 'course'">
             <DLabel>Select Course</DLabel>
-            <DDropdown v-model="selectedCourseId" :options="[
+            <DSearchableDropdown v-model="selectedCourseId" :options="[
               { value: '', label: 'All Courses' },
               ...coursesList.map((course) => ({
                 value: course.id,
                 label: course.name,
               })),
-            ]" placeholder="All Courses" class="mt-1 w-full" />
+            ]" placeholder="All Courses" search-placeholder="Search courses..." class="mt-1 w-full" />
           </div>
 
           <div v-else-if="filterType === 'document'">

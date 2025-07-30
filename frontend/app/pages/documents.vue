@@ -150,20 +150,18 @@ async function confirmDelete() {
       <h1 class="text-3xl font-bold">Documents</h1>
     </div>
 
-    <div class="flex justify-between items-center mb-8">
-      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">New Document</DButton>
-    </div>
-    
-    <div v-if="uploadedDocumentId" class="py-20 text-center">
-      <div class="text-xl">Document uploaded successfully. ID: {{ uploadedDocumentId }}</div>
+    <div class="flex items-center gap-4 mb-8">
+      <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
+        New Document
+      </DButton>
+      <div v-if="uploadingDocument">
+        <DSpinner />
+        <p>Uploading document and extracting text, this may take a while...</p>
+      </div>
     </div>
 
-    <div v-else-if="uploadingDocument" class="py-20 text-center">
-      <div class="text-xl">Uploading document...</div>
-    </div>
-    
     <div class="border border-gray-200 rounded-md p-4">
-        <div v-if="loadingDocuments" class="py-20 text-center">
+        <div v-if="loadingDocuments" class="py-8 text-center">
             <div class="text-xl">Loading documents...</div>
         </div>
 
@@ -194,6 +192,7 @@ async function confirmDelete() {
         </div>
     </div>
   </div>
+  
   <DModal
     v-if="showGenerateTasksModal"
     titel="Generate Tasks"

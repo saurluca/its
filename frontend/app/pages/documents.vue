@@ -25,6 +25,7 @@ const showDeleteModal = ref(false);
 const generateTasksDocumentId = ref<string | null>(null);
 const numTasksToGenerate = ref(1);
 const deleteDocumentId = ref<string | null>(null);
+const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
@@ -132,13 +133,16 @@ function navigateToStudy(documentId: string) {
   navigateTo(`/study?documentId=${documentId}`);
 }
 
-function openDeleteModal(documentId: string) {
+function openDeleteModal(documentId: string, documentTitle: string) {
   showDeleteModal.value = true;
   deleteDocumentId.value = documentId;
+  deleteDocumentTitle.value = documentTitle;
 }
 
 function closeDeleteModal() {
   showDeleteModal.value = false;
+  deleteDocumentId.value = null;
+  deleteDocumentTitle.value = null;
 }
 async function confirmGenerateTasks() {
   if (!generateTasksDocumentId.value) return;
@@ -344,7 +348,7 @@ async function viewDocument(documentId: string) {
                       <div class="border-t border-gray-200 my-1"></div>
                       <button
                         @click="
-                          openDeleteModal(document.id);
+                          openDeleteModal(document.id, document.title);
                           close();
                         "
                         class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -421,7 +425,7 @@ async function viewDocument(documentId: string) {
   >
     <div class="p-4">
       <p>
-        Are you sure you want to delete the document "{{ deleteDocumentId }}"?
+        Are you sure you want to delete the document "{{ deleteDocumentTitle }}"?
       </p>
       <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
     </div>

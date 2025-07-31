@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useSessionStorage } from "@vueuse/core";
 import type { Task } from "~/types/models";
 
@@ -36,6 +36,20 @@ const highlightedChunkText = ref("");
 // Sidebar state
 const collapsed = useSessionStorage("collapsed", false);
 
+// Keyboard handler for Enter key
+function handleKeyPress(event: KeyboardEvent) {
+  // Handle Enter key when evaluation is shown
+  if (event.key === 'Enter' && showEvaluation.value) {
+    event.preventDefault();
+    nextQuestion();
+  }
+  // Handle Enter key when study session is finished
+  else if (event.key === 'Enter' && pageState.value === 'finished') {
+    event.preventDefault();
+    restart();
+  }
+}
+
 onMounted(() => {
   // Check if documentId is provided in URL parameters
   const documentId = route.query.documentId as string;
@@ -43,6 +57,14 @@ onMounted(() => {
     fileId.value = documentId;
     startStudy();
   }
+  
+  // Add keyboard event listener
+  document.addEventListener('keydown', handleKeyPress);
+});
+
+onUnmounted(() => {
+  // Clean up keyboard event listener
+  document.removeEventListener('keydown', handleKeyPress);
 });
 
 async function startStudy() {
@@ -305,6 +327,7 @@ function restart() {
               :index="currentTaskIndex"
               v-model="currentAnswer"
               :disabled="showEvaluation"
+              @evaluate="evaluateAnswer"
             />
 
             <div v-if="showEvaluation">
@@ -328,6 +351,9 @@ function restart() {
                   }}
                 </DButton>
               </div>
+              <div class="text-xs text-gray-500 text-center mt-2">
+                💡 Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
+              </div>
             </div>
             <div v-else class="flex justify-end">
               <DButton @click="evaluateAnswer">Evaluate</DButton>
@@ -345,7 +371,12 @@ function restart() {
               <span class="font-bold">{{ tasks.length }}</span
               >.
             </p>
-            <DButton @click="restart">Study Another Document</DButton>
+            <div class="flex justify-center">
+              <DButton @click="restart">Study Another Document</DButton>
+            </div>
+            <div class="text-xs text-gray-500 text-center mt-2">
+              💡 Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
+            </div>
           </div>
         </div>
       </div>

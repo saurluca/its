@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import type { Task } from "~/types/models";
 
 const props = defineProps<{
@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
+  (e: "evaluate"): void;
 }>();
 
 // Create a computed property with getter and setter
@@ -35,6 +36,35 @@ const shuffledOptions = computed(() => {
     return shuffleArray(props.task.options);
   }
   return props.task.options || [];
+});
+
+// Hotkey handler function
+function handleKeyPress(event: KeyboardEvent) {
+  // Only handle hotkeys if not disabled and task is multiple choice
+  if (props.disabled || props.task.type !== 'multiple_choice') {
+    return;
+  }
+
+  const key = event.key;
+  const optionIndex = parseInt(key) - 1; // Convert 1-4 to 0-3
+
+  // Check if it's a valid number key (1-4) and within range of available options
+  if (key >= '1' && key <= '4' && optionIndex < shuffledOptions.value.length) {
+    // Select the answer
+    answer.value = shuffledOptions.value[optionIndex];
+    
+    // Automatically evaluate the answer
+    emit("evaluate");
+  }
+}
+
+// Set up and clean up event listeners
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyPress);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyPress);
 });
 
 console.log("task", props.task);
@@ -69,12 +99,18 @@ console.log("task", props.task);
 
     <!-- Multiple Choice Answer -->
     <div v-else-if="task.type === 'multiple_choice'" class="mt-4">
-      <DButtonRadio
-        v-model="answer"
-        :name="`answer-${task.id}`"
-        :options="shuffledOptions"
-        :disabled="disabled"
-      />
+      <div class="space-y-2">
+        <DButtonRadio
+          v-model="answer"
+          :name="`answer-${task.id}`"
+          :options="shuffledOptions"
+          :disabled="disabled"
+        />
+        <!-- Hotkey hint -->
+        <div class="text-xs text-gray-500 mt-2">
+          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">1</kbd> - <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">{{ shuffledOptions.length }}</kbd> to quickly select and evaluate answers
+        </div>
+      </div>
     </div>
 
     <!-- Free Text Answer -->

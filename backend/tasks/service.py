@@ -166,7 +166,7 @@ class QuestionSingle(dspy.Signature):
         description="A single multiple choice question generated from the key points. It should foster a deep understanding of the material. The question should be short and concise."
     )
     answer_options: list[str] = dspy.OutputField(
-        description="A list of 4 answer options for each question. Exactly one answer option is correct. The correct answer should always be in the first position."
+        description="A list of 4 answer options for each question. Exactly one answer option is correct. The correct answer should always be in the first position. Do not enumerate the answer options, no numbering or alphabet."
     )
 
 

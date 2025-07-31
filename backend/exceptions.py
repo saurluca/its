@@ -1,34 +1,43 @@
-class DocumentNotFoundError(ValueError):
+from fastapi import HTTPException
+
+
+class DocumentNotFoundError(HTTPException):
     """Raised when a document with the given ID is not found"""
 
-    pass
+    def __init__(self, detail: str = "Document not found"):
+        super().__init__(status_code=404, detail=detail)
 
 
-class QuestionNotFoundError(ValueError):
+class QuestionNotFoundError(HTTPException):
     """Raised when a question with the given ID is not found"""
 
-    pass
+    def __init__(self, detail: str = "Question not found"):
+        super().__init__(status_code=404, detail=detail)
 
 
-class InvalidFileFormatError(ValueError):
+class InvalidFileFormatError(HTTPException):
     """Raised when an uploaded file has an unsupported format"""
 
-    pass
+    def __init__(self, detail: str = "Invalid file format"):
+        super().__init__(status_code=400, detail=detail)
 
 
-class InvalidAnswerOptionsError(ValueError):
+class InvalidAnswerOptionsError(HTTPException):
     """Raised when answer options don't meet the required format"""
 
-    pass
+    def __init__(self, detail: str = "Invalid answer options format"):
+        super().__init__(status_code=400, detail=detail)
 
 
-class DocumentProcessingError(Exception):
+class DocumentProcessingError(HTTPException):
     """Raised when document processing fails"""
 
-    pass
+    def __init__(self, detail: str = "Document processing failed"):
+        super().__init__(status_code=422, detail=detail)
 
 
-class QuestionGenerationError(Exception):
+class QuestionGenerationError(HTTPException):
     """Raised when question generation fails"""
 
-    pass
+    def __init__(self, detail: str = "Question generation failed"):
+        super().__init__(status_code=422, detail=detail)

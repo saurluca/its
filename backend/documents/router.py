@@ -20,7 +20,7 @@ from documents.schemas import (
     DocumentUpdateResponse,
     ChunkResponse,
 )
-from exceptions import DocumentNotFoundError
+from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from uuid import UUID
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -49,8 +49,8 @@ def get_document_endpoint(doc_id: str):
     try:
         response = get_document(doc_id)
         return response
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -63,8 +63,8 @@ def delete_document_endpoint(doc_id: str):
     try:
         delete_document_from_db(doc_id)
         return {"message": "Document deleted successfully"}
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -78,8 +78,8 @@ def update_document_title_endpoint(doc_id: str, title: str):
         document_uuid = UUID(doc_id)
         update_document_title_in_db(document_uuid, title)
         return {"message": "Document title updated successfully"}
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid document ID")
     except Exception as e:
@@ -108,6 +108,8 @@ def document_to_chunks_endpoint(file: UploadFile = File(...)) -> dict:
         document_id = save_document_to_db(result["full_text"], title=title)
         save_chunks_to_db(document_id, result["chunks"])
         return {"document_id": document_id}
+    except (DocumentNotFoundError, InvalidFileFormatError):
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -122,8 +124,8 @@ def get_document_chunks_endpoint(doc_id: str):
     try:
         chunks = get_chunks_by_document_id(doc_id)
         return {"chunks": chunks}
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -138,8 +140,8 @@ def get_chunk_endpoint(chunk_id: str):
         chunk_uuid = UUID(chunk_id)
         chunk = get_chunk(chunk_uuid)
         return chunk
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid chunk ID")
     except Exception as e:

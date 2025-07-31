@@ -77,8 +77,8 @@ def get_course(course_id: UUID):
             created_at=course.created_at,
             updated_at=course.updated_at,
         )
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -101,8 +101,8 @@ def update_existing_course(course_id: UUID, course_request: CourseUpdateRequest)
             created_at=course.created_at,
             updated_at=course.updated_at,
         )
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -116,7 +116,7 @@ def delete_existing_course(course_id: UUID):
     try:
         course = delete_course(course_id)
         return CourseDeleteResponse(success=True, id=course.id)
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

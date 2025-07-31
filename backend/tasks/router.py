@@ -32,7 +32,7 @@ from documents.service import (
     extract_text_from_file_and_chunk,
     get_chunks_by_document_id,
 )
-from exceptions import DocumentNotFoundError
+from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from constants import DEFAULT_NUM_QUESTIONS
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -68,6 +68,8 @@ def get_tasks(
             for task in tasks
         ]
         return TasksListResponse(tasks=task_responses)
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -104,7 +106,7 @@ def get_tasks_by_document_id_endpoint(document_id: str):
         ]
         return TasksListResponse(tasks=task_responses)
     except DocumentNotFoundError:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -167,8 +169,8 @@ def get_task(task_id: UUID):
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -204,8 +206,8 @@ def update_existing_task(task_id: UUID, task_request: TaskUpdateRequest):
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -219,8 +221,8 @@ def delete_existing_task(task_id: UUID):
     try:
         task = delete_task(task_id)
         return TaskDeleteResponse(success=True, id=task.id)
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -264,6 +266,8 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
             "questions": questions,
             "answer_options": answer_options,
         }
+    except (DocumentNotFoundError, InvalidFileFormatError):
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -286,8 +290,8 @@ def generate_tasks_from_document(doc_id: str, num_tasks: int = DEFAULT_NUM_QUEST
             "questions": questions,
             "answer_options": answer_options,
         }
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -312,8 +316,8 @@ def generate_tasks_batch_from_document(
             "questions": questions,
             "answer_options": answer_options,
         }
-    except DocumentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -328,5 +332,7 @@ def evaluate_answer(question_id: UUID, body: EvaluateAnswerRequest) -> dict:
             question, answer_options, student_answer, correct_answer
         )
         return {"feedback": feedback}
+    except DocumentNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

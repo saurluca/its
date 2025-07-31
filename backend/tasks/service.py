@@ -158,7 +158,7 @@ def delete_task(task_id: UUID) -> Task:
 
 # Question generation signatures
 class QuestionSingle(dspy.Signature):
-    """Generate a single multiple choice question, answer options, and correct answer indices from key points."""
+    """Generate a single multiple choice question, answer options, and correct answer indices from a text chunk."""
 
     text: str = dspy.InputField(description="The text to generate a question from.")
 
@@ -298,8 +298,8 @@ def generate_questions(
     start_time = time.time()
 
     if num_questions != len(chunks):
-        # randomly select num_questions chunks
-        chunks = random.sample(chunks, num_questions)
+        # randomly select num_questions chunks with replacement
+        chunks = [random.choice(chunks) for _ in range(num_questions)]
 
     for chunk in tqdm(chunks):
         try:
@@ -348,7 +348,7 @@ def generate_questions_batch(
         f"Batch-generating questions for document {document_id} with {len(chunks)} chunks"
     )
     if num_questions != len(chunks):
-        chunks = random.sample(chunks, num_questions)
+        chunks = [random.choice(chunks) for _ in range(num_questions)]
 
     chunk_texts = [chunk["chunk_text"] for chunk in chunks]
     chunk_ids = [chunk["id"] for chunk in chunks]

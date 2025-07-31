@@ -20,6 +20,7 @@ from tasks.service import (
     update_task,
     delete_task,
     generate_questions,
+    generate_questions_batch,
     evaluate_student_answer,
     save_questions_to_db,
     get_question_by_id,
@@ -278,6 +279,32 @@ def generate_tasks_from_document(doc_id: str, num_tasks: int = DEFAULT_NUM_QUEST
     try:
         chunks = get_chunks_by_document_id(doc_id)
         questions, answer_options, chunk_ids = generate_questions(
+            doc_id, chunks, num_tasks
+        )
+        save_questions_to_db(doc_id, questions, answer_options, chunk_ids)
+        return {
+            "questions": questions,
+            "answer_options": answer_options,
+        }
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/generate_batch/{doc_id}", response_model=dict)
+def generate_tasks_batch_from_document(
+    doc_id: str, num_tasks: int = DEFAULT_NUM_QUESTIONS
+):
+    """
+    Generates a specified number of questions for a given document ID using batch processing.
+    Uses the document's chunks to create questions and answer options in a more efficient batch mode.
+    Returns the generated questions and answer options.
+    This endpoint is optimized for better performance when generating multiple questions.
+    """
+    try:
+        chunks = get_chunks_by_document_id(doc_id)
+        questions, answer_options, chunk_ids = generate_questions_batch(
             doc_id, chunks, num_tasks
         )
         save_questions_to_db(doc_id, questions, answer_options, chunk_ids)

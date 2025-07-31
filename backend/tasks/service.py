@@ -290,7 +290,9 @@ def generate_questions(
     if num_questions == 0:
         num_questions = len(chunks)
 
-    print(f"Generating questions for document {document_id} with {len(chunks)} chunks")
+    print(
+        f"Generating {num_questions} questions for document {document_id} with {len(chunks)} chunks"
+    )
     questions = []
     answer_options = []
     chunk_ids = []
@@ -345,7 +347,7 @@ def generate_questions_batch(
         Tuple of (questions, answer_options, chunk_ids)
     """
     print(
-        f"Batch-generating questions for document {document_id} with {len(chunks)} chunks"
+        f"Batch-generating {num_questions} questions for document {document_id} with {len(chunks)} chunks"
     )
     if num_questions != len(chunks):
         chunks = [random.choice(chunks) for _ in range(num_questions)]

@@ -19,6 +19,24 @@ const answer = computed({
   set: (value: string) => emit("update:modelValue", value),
 });
 
+// Shuffle function for randomizing options
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Computed property for shuffled multiple choice options
+const shuffledOptions = computed(() => {
+  if (props.task.type === 'multiple_choice' && props.task.options) {
+    return shuffleArray(props.task.options);
+  }
+  return props.task.options || [];
+});
+
 console.log("task", props.task);
 </script>
 
@@ -54,7 +72,7 @@ console.log("task", props.task);
       <DButtonRadio
         v-model="answer"
         :name="`answer-${task.id}`"
-        :options="task.options || []"
+        :options="shuffledOptions"
         :disabled="disabled"
       />
     </div>

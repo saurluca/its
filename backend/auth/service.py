@@ -16,6 +16,11 @@ from dependencies import get_db_session
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required")
+if len(SECRET_KEY) < 32:
+    raise ValueError("SECRET_KEY must be at least 32 characters long")
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")

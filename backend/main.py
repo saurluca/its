@@ -43,11 +43,6 @@ app.include_router(tasks_router)
 app.include_router(documents_router)
 
 
-@app.get("/test")
-async def test(number: int):
-    return {"message": f"Hello, World! {number}"}
-
-
 if __name__ == "__main__":
     import uvicorn
 

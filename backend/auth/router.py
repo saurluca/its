@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, fake_users_db
 
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/token")

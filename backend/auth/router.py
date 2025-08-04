@@ -1,8 +1,8 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Response
 from auth.service import (
     authenticate_user,
     create_access_token,
-    get_current_active_user,
+    get_current_active_user_from_cookie,
     create_user,
     get_user_by_id,
     get_user_by_username,
@@ -11,7 +11,6 @@ from auth.service import (
     get_users,
 )
 from auth.schemas import (
-    Token,
     User,
     UserCreate,
     UserUpdate,
@@ -32,9 +31,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/token")
 async def login_for_access_token(
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db_session),
-) -> Token:
+) -> dict:
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -46,12 +46,31 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return Token(access_token=access_token, token_type="bearer")
+
+    # Set HTTP-only cookie with the access token
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert minutes to seconds
+        path="/",
+    )
+
+    return {"message": "Login successful"}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout by clearing the access token cookie"""
+    response.delete_cookie(key="access_token", path="/")
+    return {"message": "Logout successful"}
 
 
 @router.get("/users/me/", response_model=UserResponse)
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user_from_cookie)],
     db: Session = Depends(get_db_session),
 ):
     """Get current user information"""
@@ -65,7 +84,7 @@ async def read_users_me(
 
 @router.get("/users/me/items/")
 async def read_own_items(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user_from_cookie)],
 ):
     """Get current user's items"""
     return [{"item_id": "Foo", "owner": current_user.username}]

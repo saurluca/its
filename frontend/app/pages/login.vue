@@ -3,30 +3,28 @@ definePageMeta({
   layout: false,
 });
 
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
 const email = ref("");
 const password = ref("");
 const errorMsg = ref("");
 const loading = ref(false);
 
-const { fetch: refresh } = useUserSession();
+const authStore = useAuthStore();
 
 async function login() {
   try {
     loading.value = true;
     errorMsg.value = "";
-    await $fetch(`${apiUrl}/login/`, {
-      method: "POST",
-      body: {
-        email: email.value,
-        password: password.value,
-      },
-    });
-    await refresh();
-    await navigateTo("/");
+    
+    // Use email as username for the FastAPI backend
+    const result = await authStore.login(email.value, password.value);
+    
+    if (result.success) {
+      await navigateTo("/");
+    } else {
+      errorMsg.value = result.error || "Invalid credentials";
+    }
   } catch (e) {
-    errorMsg.value = "Ungültige Anmeldedaten";
+    errorMsg.value = "Login failed";
   } finally {
     loading.value = false;
   }
@@ -67,12 +65,12 @@ async function login() {
 
         <div class="flex flex-col gap-2">
           <DButton :loading type="submit" text-center>Login</DButton>
+          <DButton to="/register" variant="secondary" text-center
+            >No account yet?</DButton>
           <DButton to="/forgot-password" variant="secondary" text-center
             >Forgot Password?</DButton
           >
-          <DButton to="/register" variant="secondary" text-center
-            >No account yet?</DButton
-          >
+        
         </div>
 
         <div

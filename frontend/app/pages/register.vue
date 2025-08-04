@@ -3,15 +3,11 @@ definePageMeta({
   layout: false,
 });
 
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
-
-const orgName = ref("");
 const name = ref("");
 const email = ref("");
 const password = ref("");
 
-const { loggedIn, user, session, fetch: refresh, clear } = useUserSession();
+const authStore = useAuthStore();
 
 // Sleep utility function
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,18 +20,21 @@ async function register() {
   try {
     loading.value = true;
     errorMsg.value = "";
-    await $fetch(`${apiUrl}/register/`, {
-      method: "POST",
-      body: {
-        organisationName: orgName.value,
-        name: name.value,
-        email: email.value,
-        password: password.value,
-      },
+    
+    const result = await authStore.register({
+      username: email.value, // Use email as username
+      email: email.value,
+      password: password.value,
+      full_name: name.value,
     });
-    success.value = true;
-    await sleep(1000);
-    navigateTo("/login");
+    
+    if (result.success) {
+      success.value = true;
+      await sleep(1000);
+      navigateTo("/login");
+    } else {
+      errorMsg.value = result.error || "Registration failed";
+    }
   } catch (e) {
     errorMsg.value = "Registration failed";
   } finally {
@@ -61,18 +60,6 @@ async function register() {
       </div>
 
       <form v-else @submit.prevent="register" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <d-label for="orgName">Organization</d-label>
-          <d-input
-            v-model="orgName"
-            type="text"
-            id="orgName"
-            name="orgName"
-            required
-            placeholder="Name of your organization"
-          />
-        </div>
-
         <div class="flex flex-col gap-1">
           <d-label for="name">Name</d-label>
           <d-input

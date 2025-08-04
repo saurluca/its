@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from router import router
 from courses.router import router as courses_router
@@ -7,7 +7,7 @@ from documents.router import router as documents_router
 from auth.router import router as auth_router
 from database import create_db_and_tables
 from config import LLMConfig, AppConfig
-
+from auth.dependencies import get_current_user_from_request
 
 app = FastAPI(
     title="ITS Backend",
@@ -38,9 +38,13 @@ LLMConfig.configure_dspy()
 # Include all routers
 app.include_router(router)
 app.include_router(auth_router)
-app.include_router(courses_router)
-app.include_router(tasks_router)
-app.include_router(documents_router)
+app.include_router(
+    courses_router, dependencies=[Depends(get_current_user_from_request)]
+)
+app.include_router(tasks_router, dependencies=[Depends(get_current_user_from_request)])
+app.include_router(
+    documents_router, dependencies=[Depends(get_current_user_from_request)]
+)
 
 
 if __name__ == "__main__":

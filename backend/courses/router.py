@@ -44,7 +44,9 @@ def get_courses():
 
 
 @router.post("/", response_model=CourseResponse, status_code=status.HTTP_201_CREATED)
-def create_new_course(course_request: CourseCreateRequest):
+def create_new_course(
+    course_request: CourseCreateRequest,
+):
     """
     Create a new course.
     Requires a course name in the request body.
@@ -64,7 +66,9 @@ def create_new_course(course_request: CourseCreateRequest):
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
-def get_course(course_id: UUID):
+def get_course(
+    course_id: UUID,
+):
     """
     Retrieve a specific course by its ID.
     Returns course details if found.
@@ -84,7 +88,10 @@ def get_course(course_id: UUID):
 
 
 @router.put("/{course_id}", response_model=CourseResponse)
-def update_existing_course(course_id: UUID, course_request: CourseUpdateRequest):
+def update_existing_course(
+    course_id: UUID,
+    course_request: CourseUpdateRequest,
+):
     """
     Update an existing course by ID.
     Only provided fields will be updated.
@@ -108,7 +115,9 @@ def update_existing_course(course_id: UUID, course_request: CourseUpdateRequest)
 
 
 @router.delete("/{course_id}", response_model=CourseDeleteResponse)
-def delete_existing_course(course_id: UUID):
+def delete_existing_course(
+    course_id: UUID,
+):
     """
     Delete a course by ID.
     Returns success status and the deleted course ID.

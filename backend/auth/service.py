@@ -2,15 +2,16 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 import jwt
-from auth.schemas import UserInDB, UserCreate, UserUpdate, UserResponse
+from auth.schemas import UserCreate, UserUpdate, UserResponse
 import os
 from typing import Annotated, List, Optional
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
 from auth.schemas import TokenData, User
 from sqlmodel import Session, select
 from auth.models import User as UserModel
 from dependencies import get_db_session
+from auth.dependencies import get_current_user_from_request
 
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -34,25 +35,15 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def get_user_from_db(db: Session, username: str):
-    """Get user from database by username"""
+def get_user_model_from_db(db: Session, username: str):
+    """Get user model from database by username"""
     user = db.exec(select(UserModel).where(UserModel.username == username)).first()
-    if not user:
-        return None
-    return UserInDB(
-        username=user.username,
-        email=user.email,
-        full_name=user.full_name,
-        disabled=user.disabled,
-        hashed_password=user.hashed_password,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-    )
+    return user
 
 
 def authenticate_user(db: Session, username: str, password: str):
     """Authenticate user with database"""
-    user = get_user_from_db(db, username)
+    user = get_user_model_from_db(db, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -87,7 +78,7 @@ async def get_current_user(
         token_data = TokenData(username=username)
     except InvalidTokenError:
         raise credentials_exception
-    user = get_user_from_db(db, username=token_data.username)
+    user = get_user_model_from_db(db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -101,38 +92,8 @@ async def get_current_active_user(
     return current_user
 
 
-async def get_current_user_from_cookie(
-    request: Request, db: Session = Depends(get_db_session)
-):
-    """Get current user from HTTP-only cookie"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    # Get token from cookie
-    token = request.cookies.get("access_token")
-    if not token:
-        raise credentials_exception
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
-        raise credentials_exception
-
-    user = get_user_from_db(db, username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
 async def get_current_active_user_from_cookie(
-    current_user: Annotated[User, Depends(get_current_user_from_cookie)],
+    current_user: Annotated[User, Depends(get_current_user_from_request)],
 ):
     """Get current active user from cookie"""
     if current_user.disabled:

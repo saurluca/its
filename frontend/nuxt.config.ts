@@ -10,13 +10,11 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   css: ["@/app.css"],
-  modules: ["@vueuse/nuxt", "nuxt-auth-utils", "@nuxt/fonts", "@pinia/nuxt"],
+  modules: ["@vueuse/nuxt", "@nuxt/fonts", "@pinia/nuxt"],
 
   fonts: { experimental: { processCSSVariables: true } },
 
   runtimeConfig: {
-    // Postmark credentials
-    postmarkServerToken: "temp",
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || "http://localhost:8000", // Default for dev
     },

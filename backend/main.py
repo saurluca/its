@@ -5,7 +5,7 @@ from courses.router import router as courses_router
 from tasks.router import router as tasks_router
 from documents.router import router as documents_router
 from auth.router import router as auth_router
-from utils import create_db_and_tables
+from database import create_db_and_tables
 from config import LLMConfig, AppConfig
 
 

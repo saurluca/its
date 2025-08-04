@@ -6,7 +6,7 @@ from sqlalchemy import desc
 
 from courses.models import Course, CourseCreate, CourseUpdate
 from exceptions import DocumentNotFoundError
-from utils import get_session
+from database import get_session
 
 
 def create_course(course_data: CourseCreate) -> Course:

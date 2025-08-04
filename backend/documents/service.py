@@ -9,7 +9,7 @@ from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import DocumentNotFoundError, InvalidFileFormatError
 from typing import List, Tuple, Dict, Any, Optional
 from uuid import UUID
-from utils import get_session
+from database import get_session
 from sqlalchemy import desc
 import time
 import dspy

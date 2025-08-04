@@ -14,7 +14,7 @@ from exceptions import (
     DocumentNotFoundError,
 )
 from constants import DEFAULT_NUM_QUESTIONS, REQUIRED_ANSWER_OPTIONS
-from utils import get_session
+from database import get_session
 
 
 def create_task(task_data: TaskCreate) -> Task:

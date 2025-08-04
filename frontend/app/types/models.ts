@@ -14,25 +14,24 @@ export interface Task {
   deletedAt?: Date | null;
 }
 
-// User type
+// User type matching backend API structure
 export interface User {
   id: string;
-  name: string;
-  role: "admin" | "user";
-  email: string;
-  organisationId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date | null;
+  username: string;
+  email?: string;
+  full_name?: string;
+  disabled: boolean;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Course type
+// Course type matching backend API structure
 export interface Course {
   id: string;
   name: string;
   organisationId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   deletedAt?: Date | null;
 }
 
@@ -49,4 +48,21 @@ export interface NewTaskForm {
 
 export interface NewCourseForm {
   name: string;
+}
+
+// User creation form matching backend UserCreate schema
+export interface UserCreateForm {
+  username: string;
+  email?: string;
+  full_name?: string;
+  password: string;
+}
+
+// User update form matching backend UserUpdate schema
+export interface UserUpdateForm {
+  username?: string;
+  email?: string;
+  full_name?: string;
+  password?: string;
+  disabled?: boolean;
 }

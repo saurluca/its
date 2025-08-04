@@ -1,11 +1,30 @@
 from fastapi import Depends, HTTPException, status
-from auth.service import authenticate_user, create_access_token, get_current_active_user
-from auth.schemas import Token, User
+from auth.service import (
+    authenticate_user,
+    create_access_token,
+    get_current_active_user,
+    create_user,
+    get_user_by_id,
+    get_user_by_username,
+    update_user,
+    delete_user,
+    get_users,
+)
+from auth.schemas import (
+    Token,
+    User,
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    UserListResponse,
+)
 from typing import Annotated
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import APIRouter
-from auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, fake_users_db
+from auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES
+from dependencies import get_db_session
+from sqlmodel import Session
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -14,8 +33,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Session = Depends(get_db_session),
 ) -> Token:
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,15 +49,91 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@router.get("/users/me/", response_model=User)
+@router.get("/users/me/", response_model=UserResponse)
 async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db_session),
 ):
-    return current_user
+    """Get current user information"""
+    user = await get_user_by_username(current_user.username, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
 
 
 @router.get("/users/me/items/")
 async def read_own_items(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    """Get current user's items"""
     return [{"item_id": "Foo", "owner": current_user.username}]
+
+
+@router.post(
+    "/users/", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_user_endpoint(
+    user_data: UserCreate, db: Session = Depends(get_db_session)
+):
+    """Create a new user"""
+    return await create_user(user_data, db)
+
+
+@router.get("/users/", response_model=UserListResponse)
+async def get_users_endpoint(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)
+):
+    """Get all users with pagination"""
+    users = await get_users(skip=skip, limit=limit, db=db)
+    total = len(users)  # In a real app, you'd want to get total count from DB
+    return UserListResponse(users=users, total=total)
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user_endpoint(user_id: str, db: Session = Depends(get_db_session)):
+    """Get user by ID"""
+    user = await get_user_by_id(user_id, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.get("/users/username/{username}", response_model=UserResponse)
+async def get_user_by_username_endpoint(
+    username: str, db: Session = Depends(get_db_session)
+):
+    """Get user by username"""
+    user = await get_user_by_username(username, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user_endpoint(
+    user_id: str, user_data: UserUpdate, db: Session = Depends(get_db_session)
+):
+    """Update user by ID"""
+    user = await update_user(user_id, user_data, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_endpoint(user_id: str, db: Session = Depends(get_db_session)):
+    """Delete user by ID"""
+    success = await delete_user(user_id, db)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return None

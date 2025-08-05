@@ -47,6 +47,12 @@ bun run dev
 docker-compose up -d
 ```
 
+### Pre commit hooks
+
+```bash
+uvx pre-commit install
+```
+
 ## 🔒 Privacy Features
 
 - **Local Processing**: Option to run AI models locally via Ollama

@@ -21,6 +21,8 @@ if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is required")
 if len(SECRET_KEY) < 32:
     raise ValueError("SECRET_KEY must be at least 32 characters long")
+if not ALGORITHM:
+    raise ValueError("ALGORITHM environment variable is required")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 

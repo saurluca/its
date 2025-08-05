@@ -90,7 +90,6 @@ async def read_users_me(
 )
 async def create_user_endpoint(
     user_data: UserCreate,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Create a new user"""

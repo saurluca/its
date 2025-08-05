@@ -11,8 +11,7 @@ import {
   FileTextIcon,
 } from "lucide-vue-next";
 
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
+const { $authFetch } = useAuthenticatedFetch();
 
 const documents = ref<{ id: string; title: string }[]>([]);
 const loadingDocuments = ref(true);
@@ -40,8 +39,7 @@ const selectedDocumentId = ref<string | null>(null);
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
-    const response = await fetch(`${apiUrl}/documents/`);
-    const data = await response.json();
+    const data = await $authFetch("/documents/");
     // Transform the API response to an array of objects with id and title
     documents.value = data.titles.map((title: string, idx: number) => ({
       id: data.ids[idx],
@@ -73,11 +71,10 @@ async function uploadDocumentFromInput(event: Event) {
       formData.append("file", input.files[0]);
     }
 
-    const response = await fetch(`${apiUrl}/documents/to_chunks/`, {
+    const data = await $authFetch("/documents/to_chunks/", {
       method: "POST",
       body: formData,
     });
-    const data = await response.json();
     uploadedDocumentId.value = data.document_id;
     // Refresh the document list
     await fetchDocuments();
@@ -102,7 +99,7 @@ async function deleteDocument(documentId: string) {
   deletingDocument.value = true;
   console.log("Deleting document:", documentId);
   try {
-    const response = await fetch(`${apiUrl}/documents/${documentId}/`, {
+    await $authFetch(`/documents/${documentId}/`, {
       method: "DELETE",
     });
     // Refresh the document list
@@ -149,11 +146,10 @@ async function confirmGenerateTasks() {
   generatingTasks.value = true;
   try {
     // Call the API to generate tasks
-    await fetch(
-      `${apiUrl}/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
+    await $authFetch(
+      `/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
       },
     );
     closeGenerateTasksModal();
@@ -187,20 +183,16 @@ async function confirmEditTitle() {
   if (!editingDocumentId.value || !editingTitle.value.trim()) return;
 
   try {
-    const response = await fetch(
-      `${apiUrl}/documents/${editingDocumentId.value}/?title=${encodeURIComponent(editingTitle.value.trim())}`,
+    await $authFetch(
+      `/documents/${editingDocumentId.value}/?title=${encodeURIComponent(editingTitle.value.trim())}`,
       {
         method: "PATCH",
       },
     );
 
-    if (response.ok) {
-      // Refresh the document list to show the updated title
-      await fetchDocuments();
-      closeEditTitleModal();
-    } else {
-      alert("Failed to update title. Please try again.");
-    }
+    // Refresh the document list to show the updated title
+    await fetchDocuments();
+    closeEditTitleModal();
   } catch (error) {
     console.error("Error updating title:", error);
     alert("Failed to update title. Please try again. " + error);
@@ -239,8 +231,7 @@ async function viewDocument(documentId: string) {
   showHtmlViewer.value = true;
 
   try {
-    const response = await fetch(`${apiUrl}/documents/${documentId}/`);
-    const data = await response.json();
+    const data = await $authFetch(`/documents/${documentId}/`);
 
     if (data.content) {
       htmlContent.value = data.content;
@@ -266,11 +257,7 @@ async function viewDocument(documentId: string) {
         </div>
 
         <div class="flex items-center gap-4 mb-8">
-          <DButton
-            @click="triggerFilePicker"
-            :loading="uploadingDocument"
-            :iconLeft="UploadIcon"
-          >
+          <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
             New Document
           </DButton>
           <div v-if="uploadingDocument">
@@ -289,70 +276,45 @@ async function viewDocument(documentId: string) {
           <div v-else class="space-y-3 w-full">
             <div v-for="document in documents" :key="document.id">
               <div class="flex justify-between items-center gap-2">
-                <div
-                  class="flex flex-col cursor-pointer"
-                  @click="viewDocument(document.id)"
-                >
+                <div class="flex flex-col cursor-pointer" @click="viewDocument(document.id)">
                   <p>{{ document.title }}</p>
                 </div>
 
                 <div class="flex gap-2">
-                  <DButton
-                    @click="navigateToStudy(document.id)"
-                    variant="primary"
-                    :iconLeft="BookOpenIcon"
-                  >
+                  <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
                     Study
                   </DButton>
-                  <DButton
-                    @click="openGenerateTasksModal(document.id)"
-                    :disabled="generatingTasks"
-                    :loading="generatingTasks"
-                    variant="tertiary"
-                    :iconLeft="PlusIcon"
-                    class="!p-2"
-                  />
+                  <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
+                    :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
 
                   <DHamburgerMenu>
                     <template #default="{ close }">
-                      <button
-                        @click="
-                          openEditTitleModal(document.id, document.title);
-                          close();
-                        "
-                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
+                      <button @click="
+                        openEditTitleModal(document.id, document.title);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <PencilIcon class="h-4 w-4" />
                         Edit Title
                       </button>
-                      <button
-                        @click="
-                          navigateToTasks(document.id);
-                          close();
-                        "
-                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
+                      <button @click="
+                        navigateToTasks(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <EyeIcon class="h-4 w-4" />
                         View Tasks
                       </button>
-                      <button
-                        @click="
-                          copyToClipboard(document.id);
-                          close();
-                        "
-                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
+                      <button @click="
+                        copyToClipboard(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         <ClipboardIcon class="h-4 w-4" />
                         Copy ID
                       </button>
                       <div class="border-t border-gray-200 my-1"></div>
-                      <button
-                        @click="
-                          openDeleteModal(document.id, document.title);
-                          close();
-                        "
-                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
+                      <button @click="
+                        openDeleteModal(document.id, document.title);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
                         <TrashIcon class="h-4 w-4" />
                         Delete
                       </button>
@@ -371,20 +333,12 @@ async function viewDocument(documentId: string) {
       <div v-if="showHtmlViewer" class="h-full p-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Document Preview</h2>
-          <DButton
-            @click="showHtmlViewer = false"
-            variant="secondary"
-            class="!p-2"
-          >
+          <DButton @click="showHtmlViewer = false" variant="secondary" class="!p-2">
             Close
           </DButton>
         </div>
         <!-- <div class="h-[calc(100%-4rem)]"> -->
-        <DHtmlViewer
-          :html-content="htmlContent"
-          :loading="loadingHtml"
-          :error="htmlError"
-        />
+        <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
         <!-- </div> -->
       </div>
       <div v-else class="h-full flex items-center justify-center text-gray-500">
@@ -396,33 +350,17 @@ async function viewDocument(documentId: string) {
     </div>
   </div>
 
-  <DModal
-    v-if="showGenerateTasksModal"
-    titel="Generate Tasks"
-    :confirmText="generatingTasks ? 'Generating...' : 'Generate'"
-    @close="closeGenerateTasksModal"
-    @confirm="confirmGenerateTasks"
-  >
+  <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+    :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
+    @confirm="confirmGenerateTasks">
     <div class="p-4">
-      <label for="num-tasks" class="block mb-2 font-medium"
-        >Number of tasks to generate:</label
-      >
-      <input
-        id="num-tasks"
-        type="number"
-        min="1"
-        v-model.number="numTasksToGenerate"
-        class="border rounded px-2 py-1 w-24"
-      />
+      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
+      <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
+        class="border rounded px-2 py-1 w-24" />
     </div>
   </DModal>
-  <DModal
-    v-if="showDeleteModal"
-    titel="Delete Document"
-    :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
-    @close="closeDeleteModal"
-    @confirm="confirmDelete"
-  >
+  <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
+    @close="closeDeleteModal" @confirm="confirmDelete">
     <div class="p-4">
       <p>
         Are you sure you want to delete the document "{{ deleteDocumentTitle }}"?
@@ -431,25 +369,12 @@ async function viewDocument(documentId: string) {
     </div>
   </DModal>
 
-  <DModal
-    v-if="showEditTitleModal"
-    titel="Edit Document Title"
-    confirmText="Save"
-    @close="closeEditTitleModal"
-    @confirm="confirmEditTitle"
-  >
+  <DModal v-if="showEditTitleModal" titel="Edit Document Title" confirmText="Save" @close="closeEditTitleModal"
+    @confirm="confirmEditTitle">
     <div class="p-4">
-      <label for="edit-title" class="block mb-2 font-medium"
-        >Document Title:</label
-      >
-      <input
-        id="edit-title"
-        type="text"
-        v-model="editingTitle"
-        class="w-full border rounded px-3 py-2 text-sm"
-        placeholder="Enter new title"
-        @keyup.enter="confirmEditTitle"
-      />
+      <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>
+      <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
+        placeholder="Enter new title" @keyup.enter="confirmEditTitle" />
     </div>
   </DModal>
 </template>

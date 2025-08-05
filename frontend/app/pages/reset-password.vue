@@ -3,8 +3,7 @@ definePageMeta({
   layout: false,
 });
 
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
+const { $authFetch } = useAuthenticatedFetch();
 
 const route = useRoute();
 
@@ -17,7 +16,7 @@ const success = ref(false);
 async function requestPasswordReset() {
   loading.value = true;
   try {
-    await $fetch(`${apiUrl}/reset-password/`, {
+    await $authFetch("/reset-password/", {
       method: "POST",
       body: {
         password: password.value,
@@ -42,39 +41,24 @@ async function requestPasswordReset() {
 
 <template>
   <div class="min-h-screen bg-gray-100 px-8 pt-24">
-    <div
-      class="mx-auto max-w-sm rounded-lg border border-gray-50 bg-white p-8 shadow"
-    >
+    <div class="mx-auto max-w-sm rounded-lg border border-gray-50 bg-white p-8 shadow">
       <h1 class="mb-4 text-center text-2xl font-semibold text-gray-900">
         New Password
       </h1>
 
-      <form
-        v-if="!success"
-        @submit.prevent="requestPasswordReset"
-        class="flex flex-col gap-4"
-      >
+      <form v-if="!success" @submit.prevent="requestPasswordReset" class="flex flex-col gap-4">
         <p class="mb-2 text-sm text-gray-700">
           It must be at least 8 characters long.
         </p>
 
         <div class="flex flex-col gap-1">
           <DLabel for="email">Password</DLabel>
-          <DInput
-            v-model="password"
-            type="password"
-            autocomplete="off"
-            id="password"
-            name="password"
-            required
-            placeholder="Your new password"
-          />
+          <DInput v-model="password" type="password" autocomplete="off" id="password" name="password" required
+            placeholder="Your new password" />
         </div>
         <div class="flex flex-col gap-2">
           <DButton type="submit" text-center>Reset Password</DButton>
-          <DButton to="/login" variant="secondary" text-center
-            >Back to Login</DButton
-          >
+          <DButton to="/login" variant="secondary" text-center>Back to Login</DButton>
         </div>
       </form>
       <div v-else class="flex flex-col gap-2">

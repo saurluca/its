@@ -2,8 +2,7 @@
 import { ref, onMounted } from "vue";
 import { PlusIcon } from "lucide-vue-next";
 
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
+const { $authFetch } = useAuthenticatedFetch();
 
 interface Course {
   id: string;
@@ -30,9 +29,9 @@ async function fetchCourses() {
   loading.value = true;
   try {
     console.log("fetching courses");
-    const response = await fetch(`${apiUrl}/courses/`);
+    const response = await $authFetch("/courses/");
     console.log("response", response);
-    courses.value = (await response.json()).courses;
+    courses.value = response.courses;
   } catch (error) {
     console.error("Error fetching courses:", error);
     alert("Failed to load courses. Please try again. " + error);
@@ -43,19 +42,11 @@ async function fetchCourses() {
 
 async function createCourse(courseData: Partial<Course>) {
   try {
-    const response = await fetch(`${apiUrl}/courses/`, {
+    const newCourse = await $authFetch("/courses/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(courseData),
+      body: courseData,
     });
 
-    if (!response.ok) {
-      throw new Error("Failed to create course. " + response.statusText);
-    }
-
-    const newCourse = await response.json();
     courses.value.push(newCourse);
     showForm.value = false;
   } catch (error) {
@@ -66,19 +57,11 @@ async function createCourse(courseData: Partial<Course>) {
 
 async function updateCourse(courseData: Course) {
   try {
-    const response = await fetch(`${apiUrl}/courses/${courseData.id}/`, {
+    const updatedCourse = await $authFetch(`/courses/${courseData.id}/`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(courseData),
+      body: courseData,
     });
 
-    if (!response.ok) {
-      throw new Error("Failed to update course");
-    }
-
-    const updatedCourse = await response.json();
     const index = courses.value.findIndex((c) => c.id === updatedCourse.id);
     if (index !== -1) {
       courses.value[index] = updatedCourse;
@@ -93,13 +76,9 @@ async function updateCourse(courseData: Course) {
 
 async function deleteCourse(id: string) {
   try {
-    const response = await fetch(`${apiUrl}/courses/${id}/`, {
+    await $authFetch(`/courses/${id}/`, {
       method: "DELETE",
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to delete course");
-    }
 
     courses.value = courses.value.filter((c) => c.id !== id);
   } catch (error) {
@@ -141,34 +120,18 @@ function cancelEdit() {
     <div v-else class="space-y-8">
       <!-- Teacher View Form -->
       <div v-if="isTeacherView && !showForm" class="flex">
-        <DButton
-          @click="showForm = true"
-          variant="primary"
-          :iconLeft="PlusIcon"
-        >
+        <DButton @click="showForm = true" variant="primary" :iconLeft="PlusIcon">
           New Course
         </DButton>
       </div>
 
-      <DItemForm
-        v-if="isTeacherView && showForm"
-        :title="editingCourse ? 'Edit Course' : 'Create New Course'"
-        :item="editingCourse || undefined"
-        :is-edit="!!editingCourse"
-        @save="handleSave"
-        @cancel="cancelEdit"
-      />
+      <DItemForm v-if="isTeacherView && showForm" :title="editingCourse ? 'Edit Course' : 'Create New Course'"
+        :item="editingCourse || undefined" :is-edit="!!editingCourse" @save="handleSave" @cancel="cancelEdit" />
 
       <!-- Courses List -->
       <div v-if="courses.length > 0" class="space-y-4">
-        <DItemCard
-          v-for="course in courses"
-          :key="course.id"
-          :item="course"
-          :is-teacher-view="isTeacherView"
-          @delete="deleteCourse"
-          @edit="editCourse"
-        />
+        <DItemCard v-for="course in courses" :key="course.id" :item="course" :is-teacher-view="isTeacherView"
+          @delete="deleteCourse" @edit="editCourse" />
       </div>
 
       <div v-else class="bg-white p-6 rounded-lg shadow text-center">

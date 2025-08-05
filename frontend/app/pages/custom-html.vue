@@ -2,8 +2,7 @@
 import { ref, onMounted } from "vue";
 
 const route = useRoute();
-const runtimeConfig = useRuntimeConfig();
-const apiUrl = runtimeConfig.public.apiBase;
+const { $authFetch } = useAuthenticatedFetch();
 
 const htmlContent = ref("");
 const loading = ref(true);
@@ -20,8 +19,7 @@ async function fetchDocumentContent() {
   }
 
   try {
-    const response = await fetch(`${apiUrl}/documents/${documentId}/`);
-    const data = await response.json();
+    const data = await $authFetch(`/documents/${documentId}/`);
 
     if (data.content) {
       htmlContent.value = data.content;
@@ -59,12 +57,7 @@ definePageMeta({
     </div>
 
     <div v-else-if="iframeSrc" class="h-full w-full">
-      <iframe
-        :src="iframeSrc"
-        class="w-full h-full border-0"
-        frameborder="0"
-        allowfullscreen
-      ></iframe>
+      <iframe :src="iframeSrc" class="w-full h-full border-0" frameborder="0" allowfullscreen></iframe>
     </div>
 
     <div v-else class="text-center py-8">

@@ -1,7 +1,9 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
+from typing import TYPE_CHECKING
+
+from repositories.models import Repository, RepositoryDocumentLink
 
 if TYPE_CHECKING:
     from tasks.models import Task
@@ -10,17 +12,22 @@ if TYPE_CHECKING:
 class DocumentBase(SQLModel):
     title: str
     content: str
-    source_file: Optional[str] = None
-    total_chunks: int = 0
+    source_file: str | None = None
 
 
 class Document(DocumentBase, table=True):
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    id: UUID | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
 
     # Relationships
-    chunks: List["Chunk"] = Relationship(back_populates="document", cascade_delete=True)
-    tasks: List["Task"] = Relationship(back_populates="document")
+    chunks: list["Chunk"] = Relationship(
+        back_populates="documents", cascade_delete=True
+    )
+    repositories: list["Repository"] = Relationship(
+        back_populates="documents",
+        link_model=RepositoryDocumentLink,
+    )
 
 
 class DocumentCreate(DocumentBase):
@@ -33,41 +40,47 @@ class DocumentRead(DocumentBase):
 
 
 class DocumentUpdate(SQLModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    source_file: Optional[str] = None
-    total_chunks: Optional[int] = None
+    title: str | None = None
+    content: str | None = None
+    source_file: str | None = None
+    total_chunks: int | None = None
 
 
 class DocumentDelete(SQLModel):
     pass
 
 
-class DocumentDeleteResponse(SQLModel):
-    message: str
-
-
 class ChunkBase(SQLModel):
-    document_id: UUID = Field(foreign_key="document.id")
+    document_id: UUID | None = Field(default=None, foreign_key="document.id")
     chunk_index: int
     chunk_text: str
-    chunk_length: int
+
+
+class ChunkTaskLink(SQLModel, table=True):
+    chunk_id: UUID | None = Field(
+        default=None, foreign_key="chunk.id", primary_key=True
+    )
+    task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
 
 
 class Chunk(ChunkBase, table=True):
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    id: UUID | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
+    chunk_length: int
 
     # Relationships
-    document: Optional[Document] = Relationship(back_populates="chunks")
-    tasks: List["Task"] = Relationship(back_populates="chunk")
-
-    # Ensure unique combination of document_id and chunk_index
-    __table_args__ = {"sqlite_autoincrement": True}
+    document: Document | None = Relationship(back_populates="chunks")
+    tasks: list["Task"] = Relationship(
+        back_populates="chunk",
+        link_model=ChunkTaskLink,
+    )
 
 
 class ChunkCreate(ChunkBase):
-    pass
+    chunk_length: int
 
 
 class ChunkRead(ChunkBase):
@@ -76,5 +89,9 @@ class ChunkRead(ChunkBase):
 
 
 class ChunkUpdate(SQLModel):
-    chunk_text: Optional[str] = None
-    chunk_length: Optional[int] = None
+    chunk_text: str | None = None
+    chunk_length: int | None = None
+
+
+class ChunkDelete(SQLModel):
+    pass

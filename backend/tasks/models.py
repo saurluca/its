@@ -1,19 +1,16 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 from enum import Enum
-import json
 
+from documents.models import ChunkTaskLink
 
 if TYPE_CHECKING:
-    from courses.models import Course
-    from documents.models import Document
     from documents.models import Chunk
 
 
 class TaskType(str, Enum):
-    TRUE_FALSE = "true_false"
     MULTIPLE_CHOICE = "multiple_choice"
     FREE_TEXT = "free_text"
 
@@ -21,42 +18,22 @@ class TaskType(str, Enum):
 class TaskBase(SQLModel):
     type: TaskType
     question: str
-    options_json: Optional[str] = None
     correct_answer: str
-    course_id: Optional[UUID] = Field(None, foreign_key="course.id")
-    document_id: Optional[UUID] = Field(
-        None, description="Document task was created from", foreign_key="document.id"
-    )
-    chunk_id: Optional[UUID] = Field(
-        None, description="Chunk task was created from", foreign_key="chunk.id"
-    )
 
 
 class Task(TaskBase, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
 
     # Relationships
-    course: Optional["Course"] = Relationship(back_populates="tasks")
-    document: Optional["Document"] = Relationship(back_populates="tasks")
-    chunk: Optional["Chunk"] = Relationship(back_populates="tasks")
-
-    def get_options_list(self) -> List[str]:
-        """Convert options_json string to list"""
-        if self.options_json:
-            try:
-                return json.loads(self.options_json)
-            except json.JSONDecodeError:
-                return []
-        return []
-
-    def set_options_list(self, options: Optional[List[str]]):
-        """Convert list to options_json string"""
-        if options:
-            self.options_json = json.dumps(options)
-        else:
-            self.options_json = None
+    chunk: list["Chunk"] = Relationship(
+        back_populates="tasks",
+        link_model=ChunkTaskLink,
+    )
+    answer_options: list["AnswerOption"] = Relationship(
+        back_populates="task",
+    )
 
 
 class TaskCreate(TaskBase):
@@ -64,18 +41,16 @@ class TaskCreate(TaskBase):
 
 
 class TaskUpdate(SQLModel):
-    type: Optional[TaskType] = None
-    question: Optional[str] = None
-    options_json: Optional[str] = None
-    correct_answer: Optional[str] = None
-    course_id: Optional[UUID] = None
-    document_id: Optional[UUID] = None
-    chunk_id: Optional[UUID] = None
+    question: str | None = None
+    # TODO correct_answer: str | None = None
+    chunk_id: UUID | None = None
 
 
-class EvaluateAnswerRequest(SQLModel):
-    student_answer: str
+class TaskDelete(SQLModel):
+    pass
 
 
-class EvaluateAnswerResponse(SQLModel):
-    feedback: str
+class AnswerOption(SQLModel, table=True):
+    task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
+    answer: str
+    is_correct: bool

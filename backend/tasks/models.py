@@ -33,9 +33,9 @@ class TaskBase(SQLModel):
 
 
 class Task(TaskBase, table=True):
-    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     course: Optional["Course"] = Relationship(back_populates="tasks")
@@ -63,15 +63,19 @@ class TaskCreate(TaskBase):
     pass
 
 
-class TaskRead(TaskBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-
-
 class TaskUpdate(SQLModel):
     type: Optional[TaskType] = None
     question: Optional[str] = None
     options_json: Optional[str] = None
     correct_answer: Optional[str] = None
     course_id: Optional[UUID] = None
+    document_id: Optional[UUID] = None
+    chunk_id: Optional[UUID] = None
+
+
+class EvaluateAnswerRequest(SQLModel):
+    student_answer: str
+
+
+class EvaluateAnswerResponse(SQLModel):
+    feedback: str

@@ -1,163 +1,16 @@
-from typing import List, Tuple, Dict, Any
+from typing import List
 from uuid import UUID
-from sqlmodel import select
-from datetime import datetime
 import dspy
 import time
 from tqdm import tqdm
 import random
 import json
-from sqlalchemy import desc
 
-from tasks.models import Task, TaskCreate, TaskUpdate
-from exceptions import (
-    DocumentNotFoundError,
-)
 from constants import REQUIRED_ANSWER_OPTIONS
-from database import get_session
+from tasks.models import Task, TaskType
 
 
-def create_task(task_data: TaskCreate) -> Task:
-    """
-    Create a new task
-
-    Args:
-        task_data: Task creation data
-
-    Returns:
-        Created task
-    """
-    with get_session() as session:
-        task = Task.model_validate(task_data.model_dump())
-        session.add(task)
-        session.commit()
-        session.refresh(task)
-        return task
-
-
-def get_task_by_id(task_id: UUID) -> Task:
-    """
-    Get task by ID
-
-    Args:
-        task_id: Task UUID
-
-    Returns:
-        Task object
-
-    Raises:
-        DocumentNotFoundError: If task not found
-    """
-    with get_session() as session:
-        statement = select(Task).where(Task.id == task_id)
-        task = session.exec(statement).first()
-
-        if not task:
-            raise DocumentNotFoundError(f"Task not found with id: {task_id}")
-
-        return task
-
-
-def get_all_tasks(limit: int = 100) -> List[Task]:
-    """
-    Get all tasks with limit
-
-    Args:
-        limit: Maximum number of tasks to return
-
-    Returns:
-        List of tasks
-    """
-    with get_session() as session:
-        statement = select(Task).order_by(desc(Task.created_at)).limit(limit)
-        tasks = session.exec(statement).all()
-        return list(tasks)
-
-
-def get_tasks_by_course_id(course_id: UUID, limit: int = 100) -> List[Task]:
-    """
-    Get tasks by course ID
-
-    Args:
-        course_id: Course UUID
-        limit: Maximum number of tasks to return
-
-    Returns:
-        List of tasks for the course
-    """
-    with get_session() as session:
-        statement = (
-            select(Task)
-            .where(Task.course_id == course_id)
-            .order_by(desc(Task.created_at))
-            .limit(limit)
-        )
-        tasks = session.exec(statement).all()
-        return list(tasks)
-
-
-def update_task(task_id: UUID, task_update: TaskUpdate) -> Task:
-    """
-    Update task by ID
-
-    Args:
-        task_id: Task UUID
-        task_update: Task update data
-
-    Returns:
-        Updated task
-
-    Raises:
-        DocumentNotFoundError: If task not found
-    """
-    with get_session() as session:
-        statement = select(Task).where(Task.id == task_id)
-        task = session.exec(statement).first()
-
-        if not task:
-            raise DocumentNotFoundError(f"Task not found with id: {task_id}")
-
-        # Update fields that are not None
-        update_data = task_update.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(task, field, value)
-
-        task.updated_at = datetime.utcnow()
-        session.add(task)
-        session.commit()
-        session.refresh(task)
-
-        return task
-
-
-def delete_task(task_id: UUID) -> Task:
-    """
-    Delete task by ID
-
-    Args:
-        task_id: Task UUID
-
-    Returns:
-        Deleted task
-
-    Raises:
-        DocumentNotFoundError: If task not found
-    """
-    with get_session() as session:
-        statement = select(Task).where(Task.id == task_id)
-        task = session.exec(statement).first()
-
-        if not task:
-            raise DocumentNotFoundError(f"Task not found with id: {task_id}")
-
-        session.delete(task)
-        session.commit()
-
-        return task
-
-
-# Question generation signatures
-class QuestionSingle(dspy.Signature):
+class QuestionMultipleChoice(dspy.Signature):
     """Generate a single multiple choice question, answer options, and correct answer indices from a text chunk."""
 
     text: str = dspy.InputField(description="The text to generate a question from.")
@@ -170,7 +23,7 @@ class QuestionSingle(dspy.Signature):
     )
 
 
-class OpenQuestion(dspy.Signature):
+class QuestionOpen(dspy.Signature):
     """Generate a single open question from a text chunk and an ideal answer."""
 
     text: str = dspy.InputField(description="The text to generate a question from.")
@@ -187,7 +40,6 @@ class OpenQuestion(dspy.Signature):
     )
 
 
-# Teacher evaluation signature
 class Teacher(dspy.Signature):
     """Evaluate the student's answer, and provide feedback."""
 
@@ -211,68 +63,52 @@ class Teacher(dspy.Signature):
     )
 
 
-# Question-related service functions
-def save_questions_to_db(
-    doc_id: str,
-    questions: List[str],
-    answer_options: List[List[str]],
-    chunk_ids: List[UUID] = None,
-):
-    """
-    Save a list of questions and their answer options to the database, linked to the given document ID.
-    """
-    if len(questions) != len(answer_options):
-        raise ValueError("questions and answer_options must have the same length")
-
-    if chunk_ids and len(questions) != len(chunk_ids):
-        raise ValueError("questions and chunk_ids must have the same length")
-
-    document_uuid = UUID(doc_id)
-
-    with get_session() as session:
-        for i, (question_text, options) in enumerate(zip(questions, answer_options)):
-            chunk_id = chunk_ids[i] if chunk_ids else None
-            task_create = TaskCreate(
-                question=question_text,
-                type="multiple_choice",
-                options_json=json.dumps(options),
-                correct_answer=options[0],
-                document_id=document_uuid,
-                chunk_id=chunk_id,
-            )
-            task = Task.model_validate(task_create.model_dump())
-            session.add(task)
-        session.commit()
+def _get_question_generator(question_type: str):
+    """Get the appropriate question generator based on question type."""
+    if question_type == "multiple_choice":
+        return dspy.ChainOfThought(QuestionMultipleChoice)
+    elif question_type == "open":
+        return dspy.ChainOfThought(QuestionOpen)
+    else:
+        raise ValueError(f"Invalid question type: {question_type}")
 
 
-def get_questions_by_document_id(doc_id: str) -> List[Dict[str, Any]]:
-    """
-    Retrieve all tasks (questions), their IDs, and answer options for a given document ID.
-    """
-    document_uuid = UUID(doc_id)
-    with get_session() as session:
-        statement = select(Task).where(Task.document_id == document_uuid)
-        tasks = session.exec(statement).all()
-        return [
-            {
-                "id": str(task.id),
-                "question": task.question,
-                "answer_options": task.get_options_list(),
-            }
-            for task in tasks
-        ]
+def _generate_single_question(chunk: dict, question_generator, question_type: str):
+    """Generate a single question from a chunk."""
+    try:
+        qg_response = question_generator(text=chunk["chunk_text"])
+
+        # Validate multiple choice questions have the correct number of answer options
+        if (
+            question_type == "multiple_choice"
+            and len(qg_response.answer) != REQUIRED_ANSWER_OPTIONS
+        ):
+            return None
+
+        return qg_response
+    except Exception as e:
+        print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
+        return None
 
 
-def get_question_by_id(question_id: UUID) -> Tuple[str, List[str]]:
-    """
-    Get question and answer options by task ID
-    """
-    with get_session() as session:
-        statement = select(Task).where(Task.id == question_id)
-        task = session.exec(statement).first()
-        if not task:
-            raise Exception(f"No task found with id: {question_id}")
-        return task.question, task.get_options_list()
+def _create_task_from_response(
+    qg_response, question_type: str, document_id: str, chunk_id: UUID
+) -> Task:
+    """Create a Task object from a question generation response."""
+    return Task(
+        type=TaskType.MULTIPLE_CHOICE
+        if question_type == "multiple_choice"
+        else TaskType.FREE_TEXT,
+        question=qg_response.question,
+        options_json=json.dumps(qg_response.answer)
+        if question_type == "multiple_choice"
+        else None,
+        correct_answer=qg_response.answer[0]
+        if question_type == "multiple_choice"
+        else qg_response.answer,
+        document_id=UUID(document_id),
+        chunk_id=chunk_id,
+    )
 
 
 def generate_questions(
@@ -280,7 +116,7 @@ def generate_questions(
     chunks: List[dict],
     num_questions: int = 3,
     question_type: str = "multiple_choice",
-) -> Tuple[List[str], List[List[str]], List[UUID]]:
+) -> List[Task]:
     """
     Generate questions from document chunks
 
@@ -291,71 +127,43 @@ def generate_questions(
         question_type: Type of question to generate
 
     Returns:
-        Tuple of (questions, answer_options, chunk_ids)
+        List of Task objects
     """
-    if question_type == "multiple_choice":
-        question_generator = dspy.ChainOfThought(QuestionSingle)
-    elif question_type == "open":
-        question_generator = dspy.ChainOfThought(OpenQuestion)
-    else:
-        raise ValueError(f"Invalid question type: {question_type}")
+    question_generator = _get_question_generator(question_type)
 
     print(
         f"Generating {num_questions} questions for document {document_id} with {len(chunks)} chunks"
     )
 
-    questions = []
-    answers = []
-    chunk_ids = []
-
+    tasks = []
     start_time = time.time()
 
-    # randomly select num_questions chunks with replacement
-    chunks = [random.choice(chunks) for _ in range(num_questions)]
+    # Randomly select num_questions chunks with replacement
+    selected_chunks = [random.choice(chunks) for _ in range(num_questions)]
 
-    for chunk in tqdm(chunks):
-        try:
-            qg_response = question_generator(text=chunk["chunk_text"])
+    for chunk in tqdm(selected_chunks):
+        qg_response = _generate_single_question(
+            chunk, question_generator, question_type
+        )
 
-            # assert multiple choice questions have the correct number of answer options
-            if (
-                question_type == "multiple_choice"
-                and len(qg_response.answer_options) != REQUIRED_ANSWER_OPTIONS
-            ):
-                continue
-
-            questions.append(qg_response.question)
-            answers.append(qg_response.answer)
-            chunk_ids.append(chunk["id"])
-        except Exception as e:
-            print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
-            continue
+        if qg_response is not None:
+            task = _create_task_from_response(
+                qg_response, question_type, document_id, chunk["id"]
+            )
+            tasks.append(task)
 
     end_time = time.time()
-    print(
-        f"Generated {len(questions)} questions and {len(answers)} answers in {end_time - start_time} seconds"
-    )
+    print(f"Generated {len(tasks)} tasks in {end_time - start_time} seconds")
 
-    if not questions:
+    if not tasks:
         raise Exception("No questions could be generated from the provided chunks")
 
-    return questions, answers, chunk_ids
+    return tasks
 
 
 def evaluate_student_answer(
     question: str, answer_options: List[str], student_answer: str, correct_answer: str
 ) -> str:
-    """
-    Evaluate a student's answer and provide feedback
-
-    Args:
-        question: The question text
-        answer_options: List of answer options
-        student_answer: Student's selected answer
-
-    Returns:
-        Feedback text
-    """
     teacher = dspy.ChainOfThought(Teacher)
 
     try:

@@ -1,234 +1,88 @@
-from fastapi import APIRouter, HTTPException, status, Query, UploadFile, File
-from uuid import UUID
-from typing import Optional
-import json
-import time
-
-from tasks.schemas import (
-    TaskCreateRequest,
-    TaskUpdateRequest,
-    TaskResponse,
-    TasksListResponse,
-    TaskDeleteResponse,
+from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, File
+from dependencies import get_db_session
+from documents.models import Chunk
+from tasks.models import (
+    Task,
+    TaskCreate,
+    TaskUpdate,
     EvaluateAnswerRequest,
+    EvaluateAnswerResponse,
 )
-from tasks.service import (
-    create_task,
-    get_task_by_id,
-    get_all_tasks,
-    get_tasks_by_course_id,
-    update_task,
-    delete_task,
-    generate_questions,
-    evaluate_student_answer,
-    save_questions_to_db,
-    get_question_by_id,
-)
-from tasks.models import TaskCreate, TaskUpdate, Task
+from uuid import UUID
+from sqlmodel import select, Session
 from documents.service import (
+    extract_text_from_file_and_chunk,
     save_document_to_db,
     save_chunks_to_db,
-    extract_text_from_file_and_chunk,
-    get_chunks_by_document_id,
 )
-from exceptions import DocumentNotFoundError, InvalidFileFormatError
+from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
+
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-@router.get("/", response_model=TasksListResponse)
-def get_tasks(
-    course_id: Optional[UUID] = Query(None, description="Filter tasks by course ID"),
+@router.get("/", response_model=list[Task])
+def get_tasks(session: Session = Depends(get_db_session)):
+    db_tasks = session.exec(select(Task)).all()
+    return db_tasks
+
+
+@router.get("/{task_id}", response_model=Task)
+def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
+    db_task = session.get(Task, task_id)
+    if not db_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        )
+    return db_task
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=Task)
+def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
+    db_task = Task.model_validate(task)
+    session.add(db_task)
+    session.commit()
+    session.refresh(db_task)
+    return db_task
+
+
+@router.put("/{task_id}", response_model=Task)
+def update_task(
+    task_id: UUID,
+    task: TaskUpdate,
+    session: Session = Depends(get_db_session),
 ):
-    """
-    Retrieve all tasks with optional course filtering.
-    Returns a list of tasks ordered by creation date.
-    """
-    try:
-        if course_id:
-            tasks = get_tasks_by_course_id(course_id, limit=100)
-        else:
-            tasks = get_all_tasks(limit=100)
-
-        task_responses = [
-            TaskResponse(
-                id=task.id,
-                question=task.question,
-                type=task.type,
-                options=task.get_options_list(),
-                correct_answer=task.correct_answer,
-                course_id=task.course_id,
-                document_id=task.document_id,
-                chunk_id=task.chunk_id,
-                created_at=task.created_at,
-                updated_at=task.updated_at,
-            )
-            for task in tasks
-        ]
-        return TasksListResponse(tasks=task_responses)
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/document/{document_id}", response_model=TasksListResponse)
-def get_tasks_by_document_id_endpoint(document_id: str):
-    """
-    Retrieve all tasks associated with a given document ID.
-    """
-    try:
-        # Get the actual Task objects from the database
-        document_uuid = UUID(document_id)
-        from tasks.service import get_session
-        from sqlmodel import select
-
-        with get_session() as session:
-            statement = select(Task).where(Task.document_id == document_uuid)
-            tasks = session.exec(statement).all()
-
-        task_responses = [
-            TaskResponse(
-                id=task.id,
-                question=task.question,
-                type=task.type,
-                options=task.get_options_list(),
-                correct_answer=task.correct_answer,
-                course_id=task.course_id,
-                document_id=task.document_id,
-                chunk_id=task.chunk_id,
-                created_at=task.created_at,
-                updated_at=task.updated_at,
-            )
-            for task in tasks
-        ]
-        return TasksListResponse(tasks=task_responses)
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
-def create_new_task(task_request: TaskCreateRequest):
-    """
-    Create a new task.
-    Requires task details including question, type, options, correct answer, and course ID.
-    """
-    try:
-        task_data = TaskCreate(
-            question=task_request.question,
-            type=task_request.type,
-            options_json=None,  # Will be set after task creation
-            correct_answer=task_request.correct_answer,
-            course_id=task_request.course_id,
+    db_task = session.get(Task, task_id)
+    if not db_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
-        task = create_task(task_data)
+    task_data = task.model_dump(exclude_unset=True)
+    db_task.sqlmodel_update(task_data)
+    session.add(db_task)
+    session.commit()
+    session.refresh(db_task)
+    return db_task
 
-        # Set options using the helper method
-        if task_request.options:
-            task.set_options_list(task_request.options)
-            # Persist the options to the database
-            task = update_task(task.id, TaskUpdate(options_json=task.options_json))
 
-        return TaskResponse(
-            id=task.id,
-            question=task.question,
-            type=task.type,
-            options=task.get_options_list(),
-            correct_answer=task.correct_answer,
-            course_id=task.course_id,
-            document_id=task.document_id,
-            chunk_id=task.chunk_id,
-            created_at=task.created_at,
-            updated_at=task.updated_at,
+@router.delete("/{task_id}")
+def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
+    db_task = session.get(Task, task_id)
+    if not db_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/{task_id}", response_model=TaskResponse)
-def get_task(task_id: UUID):
-    """
-    Retrieve a specific task by its ID.
-    Returns task details if found.
-    """
-    try:
-        task = get_task_by_id(task_id)
-        return TaskResponse(
-            id=task.id,
-            question=task.question,
-            type=task.type,
-            options=task.get_options_list(),
-            correct_answer=task.correct_answer,
-            course_id=task.course_id,
-            document_id=task.document_id,
-            chunk_id=task.chunk_id,
-            created_at=task.created_at,
-            updated_at=task.updated_at,
-        )
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.put("/{task_id}", response_model=TaskResponse)
-def update_existing_task(task_id: UUID, task_request: TaskUpdateRequest):
-    """
-    Update an existing task by ID.
-    Only provided fields will be updated.
-    """
-    try:
-        # Handle options conversion for update
-        update_data = task_request.model_dump(exclude_unset=True)
-        if "options" in update_data:
-            options = update_data.pop("options")
-            if options is not None:
-                update_data["options_json"] = json.dumps(options)
-            else:
-                update_data["options_json"] = None
-
-        task_update_data = TaskUpdate(**update_data)
-        task = update_task(task_id, task_update_data)
-
-        return TaskResponse(
-            id=task.id,
-            question=task.question,
-            type=task.type,
-            options=task.get_options_list(),
-            correct_answer=task.correct_answer,
-            course_id=task.course_id,
-            document_id=task.document_id,
-            chunk_id=task.chunk_id,
-            created_at=task.created_at,
-            updated_at=task.updated_at,
-        )
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete("/{task_id}", response_model=TaskDeleteResponse)
-def delete_existing_task(task_id: UUID):
-    """
-    Delete a task by ID.
-    Returns success status and the deleted task ID.
-    """
-    try:
-        task = delete_task(task_id)
-        return TaskDeleteResponse(success=True, id=task.id)
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    session.delete(db_task)
+    session.commit()
+    return {"ok": True}
 
 
 # Question-related endpoints
 @router.post("/document_to_questions", response_model=dict)
-def document_to_questions(file: UploadFile = File(...)) -> dict:
+def document_to_questions(
+    file: UploadFile = File(...), session: Session = Depends(get_db_session)
+) -> dict:
     """
     Full pipeline endpoint for document processing.
     1. Extracts text and chunks from the uploaded file and saves them to the database.
@@ -237,75 +91,76 @@ def document_to_questions(file: UploadFile = File(...)) -> dict:
     4. Returns the document ID, generated questions, and answer options.
     This endpoint orchestrates the main workflow for document ingestion and question generation.
     """
-    try:
-        start_time = time.time()
-        # Step 1: Extract text, chunks and save to db
-        print("Extracting text and chunks")
-        result = extract_text_from_file_and_chunk(
-            file.file, mime_type=file.content_type
-        )
-        print("Saving document metadata and chunks")
-        # Step 1.1: Save document metadata and get document_id
-        document_id = save_document_to_db(result["full_text"], title=result["name"])
-        # Step 1.2: Save chunks to database
-        save_chunks_to_db(document_id, result["chunks"])
-        print("Generating questions")
-        # Step 2: Generate questions (stores questions in DB)
-        questions, answer_options, chunk_ids = generate_questions(
-            document_id, result["chunks"]
-        )
-        print("Saving questions")
-        # Step 2.1: Save questions to database
-        save_questions_to_db(document_id, questions, answer_options, chunk_ids)
-        end_time = time.time()
-        print(f"Time taken: {end_time - start_time} seconds")
-        # Step 3: Return questions and related info
-        return {
-            "document_id": document_id,
-            "questions": questions,
-            "answer_options": answer_options,
-        }
-    except (DocumentNotFoundError, InvalidFileFormatError):
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    result = extract_text_from_file_and_chunk(file.file, mime_type=file.content_type)
+    document_id = save_document_to_db(result["full_text"], title=result["name"])
+    save_chunks_to_db(document_id, result["chunks"])
+    print("Generating questions")
+    tasks = generate_questions(document_id, result["chunks"])
+
+    # Save tasks to database
+    for task in tasks:
+        session.add(task)
+    session.commit()
+
+    return {
+        "document_id": document_id,
+        "tasks_created": len(tasks),
+    }
 
 
 @router.post("/generate/{doc_id}", response_model=dict)
-def generate_tasks_from_document(doc_id: str, num_tasks: int = DEFAULT_NUM_QUESTIONS):
+def generate_tasks_from_document(
+    doc_id: str,
+    num_tasks: int = DEFAULT_NUM_QUESTIONS,
+    session: Session = Depends(get_db_session),
+):
     """
     Generates a specified number of questions for a given document ID.
     Uses the document's chunks to create questions and answer options.
     Returns the generated questions and answer options.
     Useful for on-demand question generation for existing documents.
     """
-    try:
-        chunks = get_chunks_by_document_id(doc_id)
-        questions, answer_options, chunk_ids = generate_questions(
-            doc_id, chunks, num_tasks
+    # TODO retrieve chunks from document model instead of search all chunks
+    chunks = session.exec(select(Chunk).where(Chunk.document_id == doc_id)).all()
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
         )
-        save_questions_to_db(doc_id, questions, answer_options, chunk_ids)
-        return {
-            "questions": questions,
-            "answer_options": answer_options,
-        }
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+    tasks = generate_questions(doc_id, chunks, num_tasks)
+
+    # Save tasks to database
+    for task in tasks:
+        session.add(task)
+    session.commit()
+
+    return {
+        "tasks_created": len(tasks),
+    }
 
 
-@router.post("/evaluate_answer/{question_id}", response_model=dict)
-def evaluate_answer(question_id: UUID, body: EvaluateAnswerRequest) -> dict:
-    student_answer = body.student_answer
-    try:
-        question, answer_options = get_question_by_id(question_id)
-        correct_answer = answer_options[0]
-        feedback = evaluate_student_answer(
-            question, answer_options, student_answer, correct_answer
+@router.post("/evaluate_answer/{task_id}", response_model=EvaluateAnswerResponse)
+def evaluate_answer(
+    task_id: UUID,
+    body: EvaluateAnswerRequest,
+    session: Session = Depends(get_db_session),
+) -> EvaluateAnswerResponse:
+    """
+    Evaluate a student's answer for a specific task.
+    Returns feedback on the student's answer.
+    """
+    db_task = session.get(Task, task_id)
+    if not db_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
-        return {"feedback": feedback}
-    except DocumentNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+    answer_options = db_task.get_options_list()
+    feedback = evaluate_student_answer(
+        db_task.question,
+        answer_options,
+        body.student_answer,
+        db_task.correct_answer,
+    )
+
+    return EvaluateAnswerResponse(feedback=feedback)

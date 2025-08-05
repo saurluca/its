@@ -16,7 +16,7 @@ class DocumentBase(SQLModel):
 
 class Document(DocumentBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     chunks: List["Chunk"] = Relationship(back_populates="document", cascade_delete=True)
@@ -56,7 +56,7 @@ class ChunkBase(SQLModel):
 
 class Chunk(ChunkBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     document: Optional[Document] = Relationship(back_populates="chunks")
@@ -73,3 +73,8 @@ class ChunkCreate(ChunkBase):
 class ChunkRead(ChunkBase):
     id: UUID
     created_at: datetime
+
+
+class ChunkUpdate(SQLModel):
+    chunk_text: Optional[str] = None
+    chunk_length: Optional[int] = None

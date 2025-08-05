@@ -4,8 +4,6 @@ from datetime import datetime
 from uuid import UUID
 from enum import Enum
 
-from documents.models import ChunkTaskLink
-
 if TYPE_CHECKING:
     from documents.models import Chunk
 
@@ -27,9 +25,9 @@ class Task(TaskBase, table=True):
     deleted_at: datetime | None = None
 
     # Relationships
-    chunk: list["Chunk"] = Relationship(
+    chunks: list["Chunk"] = Relationship(
         back_populates="tasks",
-        link_model=ChunkTaskLink,
+        link_model="ChunkTaskLink",
     )
     answer_options: list["AnswerOption"] = Relationship(
         back_populates="task",
@@ -52,5 +50,8 @@ class TaskDelete(SQLModel):
 
 class AnswerOption(SQLModel, table=True):
     task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
-    answer: str
+    answer: str = Field(primary_key=True)  # Make answer part of composite primary key
     is_correct: bool
+
+    # Relationships
+    task: "Task" = Relationship(back_populates="answer_options")

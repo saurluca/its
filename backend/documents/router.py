@@ -1,148 +1,132 @@
-# from fastapi import APIRouter, UploadFile, File, HTTPException
-# from documents.service import (
-#     get_document_titles_and_ids_from_db,
-#     get_document,
-#     get_chunks_by_document_id,
-#     save_document_to_db,
-#     save_chunks_to_db,
-#     extract_text_from_file_and_chunk,
-#     delete_document_from_db,
-#     generate_document_title,
-#     update_document_title_in_db,
-#     get_chunk,
-# )
-# from documents.schemas import (
-#     DocumentUploadResponse,
-#     DocumentResponse,
-#     DocumentListResponse,
-#     DocumentChunksResponse,
-#     DocumentDeleteResponse,
-#     DocumentUpdateResponse,
-#     ChunkResponse,
-# )
-# from exceptions import DocumentNotFoundError, InvalidFileFormatError
-# from uuid import UUID
+from click import File
+from fastapi import APIRouter, status, Depends, HTTPException, UploadFile
+from database import get_session
+from documents.models import (
+    Chunk,
+    Document,
+    DocumentCreate,
+    DocumentUpdate,
+    DocumentPublic,
+)
+from uuid import UUID
+from sqlmodel import select, Session
+from documents.service import extract_text_from_file_and_chunk, generate_document_title
 
-# router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-# @router.get("/", response_model=DocumentListResponse)
-# def get_documents_endpoint():
-#     """
-#     Retrieves all document titles and their corresponding IDs from the database.
-#     Returns a list of titles and IDs for document selection or overview.
-#     """
-#     try:
-#         titles, ids = get_document_titles_and_ids_from_db()
-#         return {"titles": titles, "ids": ids}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@router.get("/", response_model=list[DocumentPublic])
+def get_documents(session: Session = Depends(get_session)):
+    db_documents = session.exec(select(Document)).all()
+    return [DocumentPublic.model_validate(doc) for doc in db_documents]
 
 
-# @router.get("/{doc_id}", response_model=DocumentResponse)
-# def get_document_endpoint(doc_id: str):
-#     """
-#     Retrieves the full content of a document by its ID from the database.
-#     Returns the document content as a string.
-#     Useful for displaying or processing the original document text.
-#     """
-#     try:
-#         response = get_document(doc_id)
-#         return response
-#     except DocumentNotFoundError:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.get("/{document_id}", response_model=Document)
+def get_document(document_id: UUID, session: Session = Depends(get_session)):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    return db_document
 
 
-# @router.delete("/{doc_id}", response_model=DocumentDeleteResponse)
-# def delete_document_endpoint(doc_id: str):
-#     """
-#     Deletes a document by its ID from the database.
-#     """
-#     try:
-#         delete_document_from_db(doc_id)
-#         return {"message": "Document deleted successfully"}
-#     except DocumentNotFoundError:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=Document)
+def create_document(document: DocumentCreate, session: Session = Depends(get_session)):
+    db_document = Document.model_validate(document)
+    session.add(db_document)
+    session.commit()
+    session.refresh(db_document)
+    return db_document
 
 
-# @router.patch("/{doc_id}", response_model=DocumentUpdateResponse)
-# def update_document_title_endpoint(doc_id: str, title: str):
-#     """
-#     Updates the title of a document by its ID in the database.
-#     """
-#     try:
-#         document_uuid = UUID(doc_id)
-#         update_document_title_in_db(document_uuid, title)
-#         return {"message": "Document title updated successfully"}
-#     except DocumentNotFoundError:
-#         raise
-#     except ValueError:
-#         raise HTTPException(status_code=400, detail="Invalid document ID")
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.put("/{document_id}", response_model=Document)
+def update_document(
+    document_id: UUID,
+    document: DocumentUpdate,
+    session: Session = Depends(get_session),
+):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    document_data = document.model_dump(exclude_unset=True)
+    db_document.sqlmodel_update(document_data)
+    session.add(db_document)
+    session.commit()
+    session.refresh(db_document)
+    return db_document
 
 
-# @router.post("/to_chunks", response_model=DocumentUploadResponse)
-# def document_to_chunks_endpoint(file: UploadFile = File(...)) -> dict:
-#     """
-#     Converts an uploaded file to text and stores it in the database.
-#     Extracts text and chunks, saves them, and returns the document ID.
-#     """
-#     try:
-#         result = extract_text_from_file_and_chunk(
-#             file.file, mime_type=file.content_type
-#         )
-
-#         title_context = "\n".join(
-#             [chunk["chunk_text"] for chunk in result["chunks"][:4]]
-#         )
-
-#         # create title for document based on first chunk
-#         title = generate_document_title(title_context)
-
-#         # save document and chunks to db
-#         document_id = save_document_to_db(result["full_text"], title=title)
-#         save_chunks_to_db(document_id, result["chunks"])
-#         return {"document_id": document_id}
-#     except (DocumentNotFoundError, InvalidFileFormatError):
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.delete("/{document_id}")
+def delete_document(document_id: UUID, session: Session = Depends(get_session)):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    session.delete(db_document)
+    session.commit()
+    return {"ok": True}
 
 
-# @router.get("/chunks/document/{doc_id}", response_model=DocumentChunksResponse)
-# def get_document_chunks_endpoint(doc_id: str):
-#     """
-#     Retrieves all text chunks for a given document ID from the database.
-#     Returns the chunks as a list.
-#     Useful for accessing segmented document content for further processing or review.
-#     """
-#     try:
-#         chunks = get_chunks_by_document_id(doc_id)
-#         return {"chunks": chunks}
-#     except DocumentNotFoundError:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.post("/upload", response_model=Document)
+def upload_and_chunk_document(
+    file: UploadFile = File(...), session: Session = Depends(get_session)
+):
+    document, chunks = extract_text_from_file_and_chunk(
+        file.file, mime_type=file.content_type
+    )
+
+    title_context = "\n".join([chunk.chunk_text for chunk in chunks[:4]])
+
+    # create title for document based on first chunk
+    title = generate_document_title(title_context)
+
+    # Update document with generated title
+    document.title = title
+    document.source_file = file.filename
+    session.add(document)
+    session.commit()
+    session.refresh(document)
+
+    # Add chunks with document_id reference
+    for chunk in chunks:
+        chunk.document_id = document.id
+        session.add(chunk)
+
+    session.commit()
+    session.refresh(document)
+    return document
 
 
-# @router.get("/chunks/{chunk_id}", response_model=ChunkResponse)
-# def get_chunk_endpoint(chunk_id: str):
-#     """
-#     Retrieves a specific chunk by its ID from the database.
-#     Returns the chunk as a dictionary.
-#     """
-#     try:
-#         chunk_uuid = UUID(chunk_id)
-#         chunk = get_chunk(chunk_uuid)
-#         return chunk
-#     except DocumentNotFoundError:
-#         raise
-#     except ValueError:
-#         raise HTTPException(status_code=400, detail="Invalid chunk ID")
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+@router.get("/{document_id}/chunks", response_model=list[Chunk])
+def get_document_chunks(document_id: UUID, session: Session = Depends(get_session)):
+    # First check if document exists
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    # Query chunks by document_id
+    chunks = session.exec(select(Chunk).where(Chunk.document_id == document_id)).all()
+    return chunks
+
+
+@router.get("/{document_id}/chunks/{chunk_id}", response_model=Chunk)
+def get_chunk(
+    document_id: UUID, chunk_id: UUID, session: Session = Depends(get_session)
+):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    db_chunk = session.get(Chunk, chunk_id)
+    if not db_chunk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
+        )
+    return db_chunk

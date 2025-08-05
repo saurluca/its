@@ -13,7 +13,7 @@ from tasks.models import Task, TaskCreate, TaskUpdate
 from exceptions import (
     DocumentNotFoundError,
 )
-from constants import DEFAULT_NUM_QUESTIONS, REQUIRED_ANSWER_OPTIONS
+from constants import REQUIRED_ANSWER_OPTIONS
 from database import get_session
 
 
@@ -165,23 +165,25 @@ class QuestionSingle(dspy.Signature):
     question: str = dspy.OutputField(
         description="A single multiple choice question generated from the key points. It should foster a deep understanding of the material. The question should be short and concise."
     )
-    answer_options: list[str] = dspy.OutputField(
+    answer: list[str] = dspy.OutputField(
         description="A list of 4 answer options for each question. Exactly one answer option is correct. The correct answer should always be in the first position. Do not enumerate the answer options, no numbering or alphabet."
     )
 
 
-class QuestionBatch(dspy.Signature):
-    """Generate multiple multiple-choice questions and answer options from a list of key points."""
+class OpenQuestion(dspy.Signature):
+    """Generate a single open question from a text chunk and an ideal answer."""
 
-    texts: list[str] = dspy.InputField(
-        description="A list of texts to generate questions from."
-    )
+    text: str = dspy.InputField(description="The text to generate a question from.")
 
-    questions: list[str] = dspy.OutputField(
-        description="A list of multiple choice questions, one per input text. Each question should be short and concise."
+    question: str = dspy.OutputField(
+        description="""
+        A single question generated from the text, that is answerable in 1 to 3 sentences, based on the provided text.
+        The question should be relevant to the text and require a deep understanding of the material to answer.
+        The question should be short and concise.
+        """
     )
-    answer_options: list[list[str]] = dspy.OutputField(
-        description="A list of answer options for each question. Each should be a list of 4 options, with the correct answer always in the first position."
+    answer: str = dspy.OutputField(
+        description="The ideal, correct answer to the question. The user's answer will be compared to this answer."
     )
 
 
@@ -274,7 +276,10 @@ def get_question_by_id(question_id: UUID) -> Tuple[str, List[str]]:
 
 
 def generate_questions(
-    document_id: str, chunks: List[dict], num_questions: int = 0
+    document_id: str,
+    chunks: List[dict],
+    num_questions: int = 3,
+    question_type: str = "multiple_choice",
 ) -> Tuple[List[str], List[List[str]], List[UUID]]:
     """
     Generate questions from document chunks
@@ -283,111 +288,58 @@ def generate_questions(
         document_id: Document ID
         chunks: List of document chunks
         num_questions: Number of questions to generate
+        question_type: Type of question to generate
 
     Returns:
         Tuple of (questions, answer_options, chunk_ids)
     """
-    if num_questions == 0:
-        num_questions = len(chunks)
+    if question_type == "multiple_choice":
+        question_generator = dspy.ChainOfThought(QuestionSingle)
+    elif question_type == "open":
+        question_generator = dspy.ChainOfThought(OpenQuestion)
+    else:
+        raise ValueError(f"Invalid question type: {question_type}")
 
     print(
         f"Generating {num_questions} questions for document {document_id} with {len(chunks)} chunks"
     )
+
     questions = []
-    answer_options = []
+    answers = []
     chunk_ids = []
-    question_generator = dspy.ChainOfThought(QuestionSingle)
+
     start_time = time.time()
 
-    if num_questions != len(chunks):
-        # randomly select num_questions chunks with replacement
-        chunks = [random.choice(chunks) for _ in range(num_questions)]
+    # randomly select num_questions chunks with replacement
+    chunks = [random.choice(chunks) for _ in range(num_questions)]
 
     for chunk in tqdm(chunks):
         try:
             qg_response = question_generator(text=chunk["chunk_text"])
 
-            if len(qg_response.answer_options) != REQUIRED_ANSWER_OPTIONS:
-                print(
-                    f"Skipping chunk {chunk['chunk_index']} because it has {len(qg_response.answer_options)} answer options, but should have exactly {REQUIRED_ANSWER_OPTIONS} choices."
-                )
+            # assert multiple choice questions have the correct number of answer options
+            if (
+                question_type == "multiple_choice"
+                and len(qg_response.answer_options) != REQUIRED_ANSWER_OPTIONS
+            ):
                 continue
 
             questions.append(qg_response.question)
-            answer_options.append(qg_response.answer_options)
+            answers.append(qg_response.answer)
             chunk_ids.append(chunk["id"])
         except Exception as e:
             print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
             continue
 
     end_time = time.time()
-    print(f"Time taken: {end_time - start_time} seconds")
     print(
-        f"Generated {len(questions)} questions and {len(answer_options)} answer options in {end_time - start_time} seconds"
+        f"Generated {len(questions)} questions and {len(answers)} answers in {end_time - start_time} seconds"
     )
 
     if not questions:
         raise Exception("No questions could be generated from the provided chunks")
 
-    return questions, answer_options, chunk_ids
-
-
-def generate_questions_batch(
-    document_id: str, chunks: List[dict], num_questions: int = DEFAULT_NUM_QUESTIONS
-) -> Tuple[List[str], List[List[str]], List[UUID]]:
-    """
-    Generate questions in batch mode for better performance
-
-    Args:
-        document_id: Document ID
-        chunks: List of document chunks
-        num_questions: Number of questions to generate
-
-    Returns:
-        Tuple of (questions, answer_options, chunk_ids)
-    """
-    print(
-        f"Batch-generating {num_questions} questions for document {document_id} with {len(chunks)} chunks"
-    )
-    if num_questions != len(chunks):
-        chunks = [random.choice(chunks) for _ in range(num_questions)]
-
-    chunk_texts = [chunk["chunk_text"] for chunk in chunks]
-    chunk_ids = [chunk["id"] for chunk in chunks]
-    question_generator = dspy.ChainOfThought(QuestionBatch)
-    start_time = time.time()
-
-    try:
-        qg_response = question_generator(texts=chunk_texts)
-
-        # Validate output
-        questions = []
-        answer_options = []
-        valid_chunk_ids = []
-        for i, (q, opts) in enumerate(
-            zip(qg_response.questions, qg_response.answer_options)
-        ):
-            if not isinstance(opts, list) or len(opts) != REQUIRED_ANSWER_OPTIONS:
-                print(
-                    f"Skipping question {i} because it has {len(opts) if isinstance(opts, list) else 'invalid'} answer options, should have exactly {REQUIRED_ANSWER_OPTIONS}."
-                )
-                continue
-            questions.append(q)
-            answer_options.append(opts)
-            valid_chunk_ids.append(chunk_ids[i])
-
-        end_time = time.time()
-        print(f"Time taken (batch): {end_time - start_time} seconds")
-        print(
-            f"Generated {len(questions)} questions and {len(answer_options)} answer options in {end_time - start_time} seconds (batch)"
-        )
-
-        if not questions:
-            raise Exception("No valid questions could be generated in batch mode")
-
-        return questions, answer_options, valid_chunk_ids
-    except Exception as e:
-        raise Exception(f"Batch question generation failed: {e}")
+    return questions, answers, chunk_ids
 
 
 def evaluate_student_answer(

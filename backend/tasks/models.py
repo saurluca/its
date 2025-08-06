@@ -1,36 +1,15 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
 from uuid import uuid4
 
-if TYPE_CHECKING:
-    from documents.models import Chunk
+from documents.models import Chunk
 
 
 class TaskType(str, Enum):
     MULTIPLE_CHOICE = "multiple_choice"
     FREE_TEXT = "free_text"
-
-
-class TaskBase(SQLModel):
-    type: TaskType
-    question: str
-    chunk_id: UUID = Field(foreign_key="chunk.id")
-
-
-class Task(TaskBase, table=True):
-    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now)
-    deleted_at: datetime | None = None
-
-    # Relationships
-    chunk: "Chunk" = Relationship(back_populates="tasks")
-    answer_options: list["AnswerOption"] = Relationship(
-        back_populates="task",
-        cascade_delete=True,
-    )
 
 
 class AnswerOptionBase(SQLModel):
@@ -60,6 +39,25 @@ class AnswerOptionRead(AnswerOptionBase):
     task_id: UUID
 
 
+class TaskBase(SQLModel):
+    type: TaskType
+    question: str
+    chunk_id: UUID = Field(foreign_key="chunk.id")
+
+
+class Task(TaskBase, table=True):
+    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
+
+    # Relationships
+    chunk: "Chunk" = Relationship(back_populates="tasks")
+    answer_options: list["AnswerOption"] = Relationship(
+        back_populates="task",
+        cascade_delete=True,
+    )
+
+
 class TaskCreate(TaskBase):
     answer_options: list[AnswerOptionCreate] | None = None
 
@@ -79,8 +77,34 @@ class TaskRead(TaskBase):
     id: UUID
     created_at: datetime
     deleted_at: datetime | None = None
-    answer_options: list[AnswerOption] = []
+    answer_options: list["AnswerOption"] = []
+
+
+# Used for the teacher model to provide feedback
+class TaskReadTeacher(SQLModel):
+    question: str = Field(..., description="The question being asked.")
+    answer_options: list["AnswerOption"] = Field(
+        default=[],
+        description="A list of answer options for the question. Including which answers are correct and which are not.",
+    )
+    chunk: "Chunk" = Field(
+        ...,
+        description="The chunk of text related to the question. Source of truth for the question and answer options.",
+    )
+
+
+class TeacherResponseMultipleChoice(SQLModel):
+    feedback: str
+
+
+class TeacherResponseOpen(SQLModel):
+    feedback: str
+    score: int
 
 
 class EvaluateAnswerRequest(SQLModel):
     student_answer: str
+
+
+# Rebuild models to resolve forward references
+TaskReadTeacher.model_rebuild()

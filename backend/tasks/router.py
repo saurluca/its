@@ -11,6 +11,10 @@ from tasks.models import (
     AnswerOptionUpdate,
     AnswerOptionRead,
     EvaluateAnswerRequest,
+    TaskReadTeacher,
+    TeacherResponseMultipleChoice,
+    TeacherResponseOpen,
+    TaskType,
 )
 from uuid import UUID
 from sqlmodel import select, Session
@@ -321,7 +325,10 @@ def generate_tasks_from_document(
     return tasks
 
 
-@router.post("/evaluate_answer/{task_id}", response_model=dict)
+@router.post(
+    "/evaluate_answer/{task_id}",
+    response_model=TeacherResponseMultipleChoice | TeacherResponseOpen,
+)
 def evaluate_answer(
     task_id: UUID,
     request: EvaluateAnswerRequest,
@@ -337,29 +344,15 @@ def evaluate_answer(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
 
-    print("task", db_task)
-
-    # Get answer options for the task
-    answer_options = session.exec(
-        select(AnswerOption).where(AnswerOption.task_id == task_id)
-    ).all()
-
-    # Extract answer texts and find the correct answer
-    answer_texts = [option.answer for option in answer_options]
-    correct_answer = next(
-        (option.answer for option in answer_options if option.is_correct), ""
+    task_teacher = TaskReadTeacher(
+        question=db_task.question,
+        answer_options=db_task.answer_options,
+        chunk=db_task.chunk,
     )
 
-    try:
-        feedback = evaluate_student_answer(
-            db_task.question,
-            answer_texts,
-            request.student_answer,
-            correct_answer,
-        )
-        return {"feedback": feedback}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error evaluating answer: {str(e)}",
-        )
+    response = evaluate_student_answer(
+        task_teacher,
+        request.student_answer,
+        db_task.type,
+    )
+    return response

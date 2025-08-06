@@ -4,10 +4,18 @@ import dspy
 import time
 from tqdm import tqdm
 import random
+from fastapi import HTTPException
 
 from constants import REQUIRED_ANSWER_OPTIONS
 from documents.models import Chunk
-from tasks.models import Task, TaskType, AnswerOption
+from tasks.models import (
+    Task,
+    TaskType,
+    AnswerOption,
+    TaskReadTeacher,
+    TeacherResponseMultipleChoice,
+    TeacherResponseOpen,
+)
 
 
 class QuestionMultipleChoice(dspy.Signature):
@@ -40,26 +48,40 @@ class QuestionOpen(dspy.Signature):
     )
 
 
-class Teacher(dspy.Signature):
+class TeacherOpen(dspy.Signature):
     """Evaluate the student's answer, and provide feedback."""
 
-    # input fields
-    question: str = dspy.InputField(
-        description="The question to be answered and the 4 answer options."
+    task_teacher: TaskReadTeacher = dspy.InputField(
+        description="Includes the question, answer options, and the chunk of text related to the question. Source of truth for the question and answer options."
     )
-    answer_options: list[str] = dspy.InputField(
-        description="The answer options for the question."
-    )
-    correct_answer: str = dspy.InputField(
-        description="The correct answer to the question."
-    )
+
     student_answer: str = dspy.InputField(
         description="The student's answer to the question."
     )
 
     feedback: str = dspy.OutputField(
-        description="Short and concise feedback for the student based on their answer, if it is correct or incorrect. If it is incorrect, provide a short explanation"
-        "of what the correct answer is and why it is correct. The feedback should be based on the student's answer."
+        description="explain your reasoning for the score and provide the score"
+    )
+
+    score: int = dspy.OutputField(
+        description="The score for the student's answer between 0 and 10, 0 being the lowest and complete incorrect, 10 being the highest and complete correct. based on the provided answer options and the chunk of text. The answer options provided are valid and correct."
+    )
+
+
+class TeacherMultipleChoice(dspy.Signature):
+    """Evaluate the student's answer, and provide feedback."""
+
+    task_teacher: TaskReadTeacher = dspy.InputField(
+        description="Includes the question, answer options, and the chunk of text related to the question."
+    )
+
+    student_answer: str = dspy.InputField(
+        description="The student's answer to the question."
+    )
+
+    feedback: str = dspy.OutputField(
+        description="Short and concise feedback for the student based on their answer, if it is correct or incorrect, based on the chunk and the answer options."
+        "If it is incorrect, provide a short explanation of what the correct answer is and why it is correct. The feedback should be based on the student's answer and the chunk."
     )
 
 
@@ -171,17 +193,24 @@ def generate_questions(
 
 
 def evaluate_student_answer(
-    question: str, answer_options: List[str], student_answer: str, correct_answer: str
-) -> str:
-    teacher = dspy.ChainOfThought(Teacher)
+    task_teacher: TaskReadTeacher,
+    student_answer: str,
+    task_type: TaskType,
+) -> TeacherResponseMultipleChoice | TeacherResponseOpen:
+    if task_type == TaskType.MULTIPLE_CHOICE:
+        teacher = dspy.ChainOfThought(TeacherMultipleChoice)
+    elif task_type == TaskType.FREE_TEXT:
+        teacher = dspy.ChainOfThought(TeacherOpen)
 
     try:
         response = teacher(
-            question=question,
-            answer_options=answer_options,
-            correct_answer=correct_answer,
+            task_teacher=task_teacher,
             student_answer=student_answer,
         )
-        return response.feedback
+
+        # inspect history and print the last 3 messages
+        # print(teacher.history[-1:])
+
+        return response
     except Exception as e:
-        return f"Error evaluating answer: {e}"
+        raise HTTPException(status_code=500, detail=f"Error evaluating answer: {e}")

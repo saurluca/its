@@ -1,0 +1,193 @@
+import pytest
+import asyncio
+from typing import Generator, AsyncGenerator
+from fastapi.testclient import TestClient
+from sqlmodel import SQLModel, Session, create_engine
+from sqlalchemy.pool import StaticPool
+from unittest.mock import Mock, patch
+import tempfile
+import os
+from uuid import uuid4
+
+# Import modules
+from main import app
+from dependencies import get_db_session
+from auth.dependencies import get_current_user_from_request
+from auth.models import User
+from auth.service import create_access_token
+
+
+# Test database configuration
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+
+def get_test_session() -> Generator[Session, None, None]:
+    """Test database session dependency"""
+    with Session(engine) as session:
+        yield session
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="function")
+def db_session():
+    """Create a fresh database session for each test"""
+    # Create tables
+    SQLModel.metadata.create_all(engine)
+    
+    # Create session
+    with Session(engine) as session:
+        yield session
+    
+    # Clean up - drop all tables
+    SQLModel.metadata.drop_all(engine)
+
+
+@pytest.fixture
+def client(db_session) -> Generator[TestClient, None, None]:
+    """Create a test client with overridden dependencies"""
+    # Override the database dependency
+    app.dependency_overrides[get_db_session] = lambda: db_session
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    # Clear overrides
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_user():
+    """Create a mock user for testing"""
+    return User(
+        id=str(uuid4()),
+        username="testuser",
+        email="test@example.com",
+        hashed_password="hashed_password",
+        is_active=True,
+        is_superuser=False,
+    )
+
+
+@pytest.fixture
+def mock_current_user(mock_user):
+    """Mock the current user dependency"""
+    def _mock_get_current_user():
+        return mock_user
+    
+    app.dependency_overrides[get_current_user_from_request] = _mock_get_current_user
+    yield mock_user
+    app.dependency_overrides.pop(get_current_user_from_request, None)
+
+
+@pytest.fixture
+def auth_headers(mock_user):
+    """Create authentication headers for testing"""
+    access_token = create_access_token(data={"sub": mock_user.username})
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def temp_file():
+    """Create a temporary file for testing file uploads"""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as f:
+        f.write(b"This is a test document content for testing purposes.")
+        temp_file_path = f.name
+    
+    yield temp_file_path
+    
+    # Clean up
+    if os.path.exists(temp_file_path):
+        os.unlink(temp_file_path)
+
+
+@pytest.fixture
+def mock_llm_service():
+    """Mock LLM service for testing"""
+    with patch("tasks.service.generate_questions") as mock_generate, \
+         patch("tasks.service.evaluate_student_answer") as mock_evaluate, \
+         patch("documents.service.generate_document_title") as mock_title:
+        
+        # Mock generate_questions
+        mock_generate.return_value = []
+        
+        # Mock evaluate_student_answer
+        mock_evaluate.return_value = "Good answer! Well done."
+        
+        # Mock generate_document_title
+        mock_title.return_value = "Test Document Title"
+        
+        yield {
+            "generate_questions": mock_generate,
+            "evaluate_student_answer": mock_evaluate,
+            "generate_document_title": mock_title,
+        }
+
+
+# Test data fixtures
+@pytest.fixture
+def sample_chunk_data():
+    """Sample chunk data for testing"""
+    return {
+        "id": str(uuid4()),
+        "chunk_text": "This is a sample chunk text for testing purposes.",
+        "chunk_index": 0,
+        "document_id": str(uuid4()),
+    }
+
+
+@pytest.fixture
+def sample_task_data():
+    """Sample task data for testing"""
+    return {
+        "type": "multiple_choice",
+        "question": "What is the main topic of this text?",
+        "chunk_id": str(uuid4()),
+        "answer_options": [
+            {"answer": "Option A", "is_correct": True},
+            {"answer": "Option B", "is_correct": False},
+            {"answer": "Option C", "is_correct": False},
+        ]
+    }
+
+
+@pytest.fixture
+def sample_document_data():
+    """Sample document data for testing"""
+    return {
+        "id": str(uuid4()),
+        "title": "Test Document",
+        "source_file": "test.txt",
+        "content": "This is test document content.",
+    }
+
+
+@pytest.fixture
+def sample_repository_data():
+    """Sample repository data for testing"""
+    return {
+        "name": "Test Repository",
+        "description": "A test repository for testing purposes",
+    }
+
+
+@pytest.fixture
+def sample_user_data():
+    """Sample user data for testing"""
+    return {
+        "username": "testuser",
+        "email": "test@example.com",
+        "password": "testpassword123",
+    }

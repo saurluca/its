@@ -1,6 +1,6 @@
 from click import File
 from fastapi import APIRouter, status, Depends, HTTPException, UploadFile
-from database import get_session
+from dependencies import get_db_session
 from documents.models import (
     Chunk,
     Document,
@@ -15,13 +15,13 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 @router.get("/", response_model=list[DocumentResponse])
-def get_documents(session: Session = Depends(get_session)):
+def get_documents(session: Session = Depends(get_db_session)):
     db_documents = session.exec(select(Document)).all()
     return [DocumentResponse.model_validate(doc) for doc in db_documents]
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def get_document(document_id: UUID, session: Session = Depends(get_session)):
+def get_document(document_id: UUID, session: Session = Depends(get_db_session)):
     db_document = session.get(Document, document_id)
     if not db_document:
         raise HTTPException(
@@ -35,7 +35,7 @@ def get_document(document_id: UUID, session: Session = Depends(get_session)):
 
 @router.post("/upload", response_model=Document)
 def upload_and_chunk_document(
-    file: UploadFile = File(...), session: Session = Depends(get_session)
+    file: UploadFile = File(...), session: Session = Depends(get_db_session)
 ):
     document, chunks = extract_text_from_file_and_chunk(
         file.file, mime_type=file.content_type
@@ -67,7 +67,7 @@ def upload_and_chunk_document(
 def update_document(
     document_id: UUID,
     document: DocumentUpdate,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -83,7 +83,7 @@ def update_document(
 
 
 @router.delete("/{document_id}")
-def delete_document(document_id: UUID, session: Session = Depends(get_session)):
+def delete_document(document_id: UUID, session: Session = Depends(get_db_session)):
     db_document = session.get(Document, document_id)
     if not db_document:
         raise HTTPException(
@@ -95,7 +95,7 @@ def delete_document(document_id: UUID, session: Session = Depends(get_session)):
 
 
 @router.get("/{document_id}/chunks", response_model=list[Chunk])
-def get_document_chunks(document_id: UUID, session: Session = Depends(get_session)):
+def get_document_chunks(document_id: UUID, session: Session = Depends(get_db_session)):
     # First check if document exists
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -109,7 +109,7 @@ def get_document_chunks(document_id: UUID, session: Session = Depends(get_sessio
 
 
 @router.get("/chunks/{chunk_id}", response_model=Chunk)
-def get_chunk(chunk_id: UUID, session: Session = Depends(get_session)):
+def get_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
     db_chunk = session.get(Chunk, chunk_id)
     if not db_chunk:
         raise HTTPException(

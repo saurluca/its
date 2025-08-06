@@ -77,23 +77,16 @@ console.log("task", props.task);
       <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
         {{
-          task.type === "true_false"
-            ? "True/False"
-            : task.type === "multiple_choice"
-              ? "Multiple Choice"
-              : "Free Text"
+          task.type === "multiple_choice"
+            ? "Multiple Choice"
+            : "Free Text"
         }}
       </span>
     </div>
     <p class="mt-2">{{ task.question }}</p>
 
-    <!-- True/False Answer -->
-    <div v-if="task.type === 'true_false'" class="mt-4">
-      <DButtonRadio v-model="answer" :name="`answer-${task.id}`" :options="['True', 'False']" />
-    </div>
-
     <!-- Multiple Choice Answer -->
-    <div v-else-if="task.type === 'multiple_choice'" class="mt-4">
+    <div v-if="task.type === 'multiple_choice'" class="mt-4">
       <div class="space-y-2">
         <DButtonRadio v-model="answer" :name="`answer-${task.id}`" :options="shuffledOptions" :disabled="disabled" />
         <!-- Hotkey hint -->

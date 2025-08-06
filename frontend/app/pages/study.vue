@@ -75,16 +75,12 @@ async function startStudy() {
   error.value = null;
 
   try {
-    const responseData = await $authFetch<{
-      tasks: Task[];
-    }>(`/tasks/document/${fileId.value}`);
+    const responseData = await $authFetch<Task[]>(`/tasks/document/${fileId.value}`);
 
-    const fetchedTasks = responseData.tasks;
-
-    if (fetchedTasks && fetchedTasks.length > 0) {
-      tasks.value = fetchedTasks;
-      console.log("Loaded tasks:", fetchedTasks.length, fetchedTasks);
-      console.log("First task structure:", fetchedTasks[0]);
+    if (responseData && responseData.length > 0) {
+      tasks.value = responseData;
+      console.log("Loaded tasks:", responseData.length, responseData);
+      console.log("First task structure:", responseData[0]);
       pageState.value = "studying";
     } else {
       pageState.value = "no-tasks";

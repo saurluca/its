@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import DViewToggle from "~/components/d-view-toggle.vue";
-import type { Task, Course } from "~/types/models";
+import type { Task, Repository } from "~/types/models";
 
 const { $authFetch } = useAuthenticatedFetch();
 
 // Define the form interface for creating/editing tasks
 interface TaskFormData {
-  type: "true_false" | "multiple_choice" | "free_text";
+  type: "multiple_choice" | "free_text";
   question: string;
-  courseId: string;
+  chunkId: string;
   options: string[];
   correctAnswer: string;
 }
@@ -18,7 +18,7 @@ interface TaskFormData {
 const isTeacherView = ref(true);
 const tasks = ref<Task[]>([]);
 const loading = ref(true);
-const coursesList = ref<Course[]>([]);
+const repositoriesList = ref<Repository[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
 const editingTask = ref<Task | null>(null);
 
@@ -28,9 +28,9 @@ const showResults = ref(false);
 const submittedAnswers = ref<Record<string, string>>({});
 
 // For filtering tasks
-const selectedCourseId = ref<string>("");
+const selectedRepositoryId = ref<string>("");
 const selectedDocumentId = ref<string>("");
-const filterType = ref<"course" | "document">("course");
+const filterType = ref<"repository" | "document">("repository");
 
 // Get document ID from route query if present
 const route = useRoute();
@@ -46,87 +46,92 @@ if (documentIdFromRoute) {
 const filteredTasks = computed(() => {
   if (filterType.value === "document" && selectedDocumentId.value) {
     return tasks.value.filter(
-      (task) => task.documentId === selectedDocumentId.value,
+      (task) => task.document_id === selectedDocumentId.value,
     );
-  } else if (filterType.value === "course" && selectedCourseId.value) {
+  } else if (filterType.value === "repository" && selectedRepositoryId.value) {
     return tasks.value.filter(
-      (task) => task.courseId === selectedCourseId.value,
+      (task) => task.repository_id === selectedRepositoryId.value,
     );
   }
   return tasks.value;
 });
 
-// Computed properties for score calculation
-const correctAnswersCount = computed(() => {
-  return filteredTasks.value.filter((task) => isAnswerCorrect(task.id)).length;
-});
-
-const totalAnsweredTasks = computed(() => {
-  return Object.keys(submittedAnswers.value).length;
-});
-
-const scorePercentage = computed(() => {
-  if (totalAnsweredTasks.value === 0) return 0;
-  return Math.round(
-    (correctAnswersCount.value / totalAnsweredTasks.value) * 100,
-  );
-});
-
 // Toggle filter type
 function toggleFilterType() {
-  if (filterType.value === "course") {
+  if (filterType.value === "repository") {
     filterType.value = "document";
-    selectedCourseId.value = "";
+    selectedRepositoryId.value = "";
   } else {
-    filterType.value = "course";
+    filterType.value = "repository";
     selectedDocumentId.value = "";
   }
 }
 
 // Reset filters
 function resetFilters() {
-  selectedCourseId.value = "";
+  selectedRepositoryId.value = "";
   selectedDocumentId.value = "";
+  // Reload all tasks
+  fetchAllTasks();
+}
+
+// Function to fetch all tasks
+async function fetchAllTasks() {
+  try {
+    const response = await $authFetch("/tasks/") as any[];
+    tasks.value = response.map((task: any) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
+  } catch (error) {
+    console.error("Error fetching all tasks:", error);
+  }
 }
 
 // Fetch tasks on page load
 onMounted(async () => {
   loading.value = true;
   try {
-    const [tasksResponse, coursesResponse, documentsResponse] =
+    const [tasksResponse, repositoriesResponse, documentsResponse] =
       await Promise.all([
         $authFetch("/tasks/"),
-        $authFetch("/courses/"),
+        $authFetch("/repositories/"),
         $authFetch("/documents/"),
-      ]);
+      ]) as [any, any, any];
 
-    console.log("coursesResponse", coursesResponse);
+    console.log("repositoriesResponse", repositoriesResponse);
     console.log("tasksResponse", tasksResponse);
     console.log("documentsResponse", documentsResponse);
 
-    tasks.value = (tasksResponse.tasks || []).map((task: any) => ({
+    tasks.value = (tasksResponse || []).map((task: any) => ({
       ...task,
       id: task.id,
       type: task.type,
       question: task.question,
-      options: task.answer_options?.map((option: any) => option.answer) || [],
-      correctAnswer: task.answer_options?.find((option: any) => option.is_correct)?.answer || "",
-      courseId: task.course_id || "",
-      documentId: task.document_id || "",
-      createdAt: new Date(task.created_at),
-      updatedAt: new Date(task.updated_at),
-    }));
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
 
-    coursesList.value = coursesResponse.courses;
+    repositoriesList.value = (repositoriesResponse.repositories || repositoriesResponse) as Repository[];
 
     // Process documents for dropdown
-    if (documentsResponse.titles && documentsResponse.ids) {
-      documentsList.value = documentsResponse.titles.map(
-        (title: string, index: number) => ({
-          value: documentsResponse.ids[index],
-          label: title,
-        }),
-      );
+    if (documentsResponse && Array.isArray(documentsResponse)) {
+      documentsList.value = documentsResponse.map((doc: any) => ({
+        value: doc.id,
+        label: doc.title,
+      }));
     }
   } catch (error) {
     console.error("Error fetching data:", error);
@@ -135,12 +140,69 @@ onMounted(async () => {
   }
 });
 
+// Function to fetch tasks by document
+async function fetchTasksByDocument(documentId: string) {
+  try {
+    const response = await $authFetch(`/tasks/document/${documentId}`) as any[];
+    tasks.value = response.map((task: any) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
+  } catch (error) {
+    console.error("Error fetching tasks by document:", error);
+  }
+}
+
+// Function to fetch tasks by repository
+async function fetchTasksByRepository(repositoryId: string) {
+  try {
+    const response = await $authFetch(`/tasks/repository/${repositoryId}`) as any[];
+    tasks.value = response.map((task: any) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
+  } catch (error) {
+    console.error("Error fetching tasks by repository:", error);
+  }
+}
+
+// Watch for filter changes and fetch tasks accordingly
+watch(selectedDocumentId, (newValue) => {
+  if (newValue && filterType.value === "document") {
+    fetchTasksByDocument(newValue);
+  }
+});
+
+watch(selectedRepositoryId, (newValue) => {
+  if (newValue && filterType.value === "repository") {
+    fetchTasksByRepository(newValue);
+  }
+});
+
 async function createTask(taskData: TaskFormData) {
   try {
     // Create answer options from the form data
     const answer_options = taskData.options?.map((option, index) => ({
+      id: `temp-${index}`,
       answer: option,
-      is_correct: option === taskData.correctAnswer
+      is_correct: option === taskData.correctAnswer,
+      task_id: ""
     })) || [];
 
     // Create the basic task
@@ -150,7 +212,7 @@ async function createTask(taskData: TaskFormData) {
         type: taskData.type,
         question: taskData.question,
         answer_options: answer_options,
-        course_id: taskData.courseId,
+        chunk_id: taskData.chunkId,
       },
     }) as Task;
 
@@ -159,8 +221,7 @@ async function createTask(taskData: TaskFormData) {
     tasks.value.push({
       ...createdTask,
       question: taskData.question,
-      options: taskData.options,
-      correctAnswer: taskData.correctAnswer,
+      answer_options: answer_options,
     });
   } catch (error) {
     console.error("Error creating task:", error);
@@ -171,9 +232,9 @@ async function createTask(taskData: TaskFormData) {
 async function updateTask(taskData: Task) {
   try {
     // Create answer options from the form data
-    const answer_options = taskData.options?.map((option, index) => ({
-      answer: option,
-      is_correct: option === taskData.correctAnswer
+    const answer_options = taskData.answer_options?.map((option) => ({
+      answer: option.answer,
+      is_correct: option.is_correct
     })) || [];
 
     // Update the basic task
@@ -183,7 +244,7 @@ async function updateTask(taskData: Task) {
         type: taskData.type,
         question: taskData.question,
         answer_options: answer_options,
-        course_id: taskData.courseId,
+        repository_id: taskData.repository_id,
       },
     });
 
@@ -191,7 +252,7 @@ async function updateTask(taskData: Task) {
     if (index !== -1) {
       tasks.value[index] = {
         ...taskData,
-        updatedAt: new Date(),
+        updated_at: new Date(),
       };
     }
 
@@ -221,19 +282,23 @@ function handleSaveTask(taskData: TaskFormData) {
       ...editingTask.value,
       type: taskData.type,
       question: taskData.question,
-      options: taskData.options,
-      correctAnswer: taskData.correctAnswer,
-      courseId: taskData.courseId,
+      answer_options: taskData.options.map((option, index) => ({
+        id: `temp-${index}`,
+        answer: option,
+        is_correct: option === taskData.correctAnswer,
+        task_id: editingTask.value!.id,
+      })),
+      chunk_id: taskData.chunkId,
     };
     updateTask(updatedTask);
   } else {
     // Create the task
     createTask(taskData);
 
-    // After successful creation, create a new task form with preserved course
+    // After successful creation, create a new task form with preserved chunk
     // We do this by temporarily setting editingTask to a new object with preserved values
     // then immediately setting it back to null to trigger a form reset
-    const preservedCourseId = taskData.courseId;
+    const preservedChunkId = taskData.chunkId;
     const preservedType = taskData.type;
 
     // Use setTimeout to ensure this happens after the current execution context
@@ -243,18 +308,12 @@ function handleSaveTask(taskData: TaskFormData) {
         id: "",
         type: preservedType,
         question: "",
-        options:
-          preservedType === "true_false"
-            ? ["True", "False"]
-            : preservedType === "multiple_choice"
-              ? ["", "", ""]
-              : [],
-        correctAnswer: "",
-        courseId: preservedCourseId,
-        organisationId: "",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
+        answer_options: [],
+        repository_id: "",
+        document_id: "",
+        chunk_id: preservedChunkId,
+        created_at: new Date(),
+        updated_at: new Date(),
       } as Task;
 
       // Then immediately set it back to null to trigger the form reset
@@ -283,7 +342,10 @@ function resetAnswers() {
 
 function isAnswerCorrect(taskId: string): boolean {
   const task = tasks.value.find((t) => t.id === taskId);
-  return !!task && submittedAnswers.value[taskId] === task.correctAnswer;
+  if (!task) return false;
+
+  const correctOption = task.answer_options.find(option => option.is_correct);
+  return !!correctOption && submittedAnswers.value[taskId] === correctOption.answer;
 }
 </script>
 
@@ -302,13 +364,13 @@ function isAnswerCorrect(taskId: string): boolean {
     <!-- Teacher View -->
     <div v-else-if="isTeacherView" class="space-y-8">
       <!-- Task Creation Form -->
-      <DTaskForm :courses="coursesList" :initial-task="editingTask
+      <DTaskForm :chunks="[]" :initial-task="editingTask
         ? {
           type: editingTask.type,
           question: editingTask.question || '',
-          courseId: editingTask.courseId,
-          options: editingTask.options || [],
-          correctAnswer: editingTask.correctAnswer || '',
+          chunkId: editingTask.chunk_id || '',
+          options: editingTask.answer_options?.map(option => option.answer) || [],
+          correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
         }
         : undefined
         " @save="handleSaveTask" />
@@ -335,11 +397,11 @@ function isAnswerCorrect(taskId: string): boolean {
           <div class="flex justify-between items-center mb-4">
             <div class="flex items-center space-x-2">
               <span class="text-gray-700">Filter by:</span>
-              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'course'
+              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'repository'
                 ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
                 : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
                 ">
-                Course
+                Repository
               </DButton>
               <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'document'
                 ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
@@ -354,15 +416,15 @@ function isAnswerCorrect(taskId: string): boolean {
             </DButton>
           </div>
 
-          <div v-if="filterType === 'course'">
-            <DLabel>Select Course</DLabel>
-            <DSearchableDropdown v-model="selectedCourseId" :options="[
-              { value: '', label: 'All Courses' },
-              ...coursesList.map((course) => ({
-                value: course.id,
-                label: course.name,
+          <div v-if="filterType === 'repository'">
+            <DLabel>Select Repository</DLabel>
+            <DSearchableDropdown v-model="selectedRepositoryId" :options="[
+              { value: '', label: 'All Repositories' },
+              ...repositoriesList.map((repo) => ({
+                value: repo.id,
+                label: repo.name,
               })),
-            ]" placeholder="All Courses" search-placeholder="Search courses..." class="mt-1 w-full" />
+            ]" placeholder="All Repositories" search-placeholder="Search repositories..." class="mt-1 w-full" />
           </div>
 
           <div v-else-if="filterType === 'document'">

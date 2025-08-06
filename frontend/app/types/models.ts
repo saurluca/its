@@ -1,10 +1,40 @@
+// Repository type matching backend API structure
+export interface Repository {
+  id: string;
+  name: string;
+  created_at: Date;
+  deleted_at?: Date | null;
+  document_ids?: string[];
+  document_names?: string[];
+}
+
+// Document type matching backend API structure
+export interface Document {
+  id: string;
+  title: string;
+  content?: string;
+  created_at: Date;
+  deleted_at?: Date | null;
+  repository_ids?: string[];
+  source_file?: string;
+}
+
+// Chunk type matching backend API structure
+export interface Chunk {
+  id: string;
+  content: string;
+  document_id: string;
+  created_at: Date;
+  deleted_at?: Date | null;
+}
+
 // Task type matching backend API structure
 export interface Task {
   id: string;
   type: "multiple_choice" | "free_text";
   question: string;
   answer_options: AnswerOption[];
-  course_id?: string;
+  repository_id?: string;
   document_id?: string;
   chunk_id?: string;
   organisationId?: string;
@@ -32,28 +62,30 @@ export interface User {
   updated_at: Date;
 }
 
-// Course type matching backend API structure
-export interface Course {
-  id: string;
+// Repository creation form
+export interface RepositoryCreateForm {
   name: string;
-  organisationId?: string;
-  created_at: Date;
-  updated_at: Date;
-  deletedAt?: Date | null;
 }
 
-// Form types for creating new entities
-export interface NewTaskForm {
+// Repository update form
+export interface RepositoryUpdateForm {
+  name: string;
+}
+
+// Document creation form
+export interface DocumentCreateForm {
+  title: string;
+  file?: File;
+}
+
+// Task creation form
+export interface TaskCreateForm {
   type: "multiple_choice" | "free_text";
   question: string;
   answer_options?: AnswerOption[];
-  course_id?: string;
+  repository_id?: string;
   document_id?: string;
   chunk_id?: string;
-}
-
-export interface NewCourseForm {
-  name: string;
 }
 
 // User creation form matching backend UserCreate schema

@@ -2,14 +2,13 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 import jwt
-from auth.schemas import UserCreate, UserUpdate, UserResponse
+from auth.models import UserCreate, UserUpdate, UserResponse, User
 import os
 from typing import Annotated, List, Optional
 from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
-from auth.schemas import TokenData, User
+from auth.models import TokenData
 from sqlmodel import Session, select
-from auth.models import User as UserModel
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 
@@ -37,15 +36,15 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def get_user_model_from_db(db: Session, username: str):
+def get_user_model_from_db(session: Session, username: str):
     """Get user model from database by username"""
-    user = db.exec(select(UserModel).where(UserModel.username == username)).first()
+    user = session.get(User, username)
     return user
 
 
-def authenticate_user(db: Session, username: str, password: str):
+def authenticate_user(session: Session, username: str, password: str):
     """Authenticate user with database"""
-    user = get_user_model_from_db(db, username)
+    user = get_user_model_from_db(session, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -65,7 +64,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db_session)
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: Session = Depends(get_db_session),
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,14 +80,14 @@ async def get_current_user(
         token_data = TokenData(username=username)
     except InvalidTokenError:
         raise credentials_exception
-    user = get_user_model_from_db(db, username=token_data.username)
+    user = get_user_model_from_db(session, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
 ):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
@@ -95,7 +95,7 @@ async def get_current_active_user(
 
 
 async def get_current_active_user_from_cookie(
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
 ):
     """Get current active user from cookie"""
     if current_user.disabled:
@@ -104,11 +104,11 @@ async def get_current_active_user_from_cookie(
 
 
 # Database CRUD operations
-async def create_user(user_data: UserCreate, db: Session) -> UserResponse:
+async def create_user(user_data: UserCreate, session: Session) -> UserResponse:
     """Create a new user"""
     # Check if username already exists
-    existing_user = db.exec(
-        select(UserModel).where(UserModel.username == user_data.username)
+    existing_user = session.exec(
+        select(User).where(User.username == user_data.username)
     ).first()
     if existing_user:
         raise HTTPException(
@@ -118,8 +118,8 @@ async def create_user(user_data: UserCreate, db: Session) -> UserResponse:
 
     # Check if email already exists (if provided)
     if user_data.email:
-        existing_email = db.exec(
-            select(UserModel).where(UserModel.email == user_data.email)
+        existing_email = session.exec(
+            select(User).where(User.email == user_data.email)
         ).first()
         if existing_email:
             raise HTTPException(
@@ -129,7 +129,7 @@ async def create_user(user_data: UserCreate, db: Session) -> UserResponse:
 
     # Create new user
     hashed_password = get_password_hash(user_data.password)
-    db_user = UserModel(
+    db_user = User(
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
@@ -137,9 +137,9 @@ async def create_user(user_data: UserCreate, db: Session) -> UserResponse:
         disabled=False,
     )
 
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
 
     return UserResponse(
         id=str(db_user.id),
@@ -152,9 +152,9 @@ async def create_user(user_data: UserCreate, db: Session) -> UserResponse:
     )
 
 
-async def get_user_by_id(user_id: str, db: Session) -> Optional[UserResponse]:
+async def get_user_by_id(user_id: str, session: Session) -> Optional[UserResponse]:
     """Get user by ID"""
-    user = db.exec(select(UserModel).where(UserModel.id == user_id)).first()
+    user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:
         return None
 
@@ -169,9 +169,11 @@ async def get_user_by_id(user_id: str, db: Session) -> Optional[UserResponse]:
     )
 
 
-async def get_user_by_username(username: str, db: Session) -> Optional[UserResponse]:
+async def get_user_by_username(
+    username: str, session: Session
+) -> Optional[UserResponse]:
     """Get user by username"""
-    user = db.exec(select(UserModel).where(UserModel.username == username)).first()
+    user = session.exec(select(User).where(User.username == username)).first()
     if not user:
         return None
 
@@ -187,17 +189,17 @@ async def get_user_by_username(username: str, db: Session) -> Optional[UserRespo
 
 
 async def update_user(
-    user_id: str, user_data: UserUpdate, db: Session
+    user_id: str, user_data: UserUpdate, session: Session
 ) -> Optional[UserResponse]:
     """Update user by ID"""
-    user = db.exec(select(UserModel).where(UserModel.id == user_id)).first()
+    user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:
         return None
 
     # Check if new username already exists (if being updated)
     if user_data.username and user_data.username != user.username:
-        existing_user = db.exec(
-            select(UserModel).where(UserModel.username == user_data.username)
+        existing_user = session.exec(
+            select(User).where(User.username == user_data.username)
         ).first()
         if existing_user:
             raise HTTPException(
@@ -207,8 +209,8 @@ async def update_user(
 
     # Check if new email already exists (if being updated)
     if user_data.email and user_data.email != user.email:
-        existing_email = db.exec(
-            select(UserModel).where(UserModel.email == user_data.email)
+        existing_email = session.exec(
+            select(User).where(User.email == user_data.email)
         ).first()
         if existing_email:
             raise HTTPException(
@@ -229,9 +231,9 @@ async def update_user(
 
     user.updated_at = datetime.utcnow()
 
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
     return UserResponse(
         id=str(user.id),
@@ -244,22 +246,22 @@ async def update_user(
     )
 
 
-async def delete_user(user_id: str, db: Session) -> bool:
+async def delete_user(user_id: str, session: Session) -> bool:
     """Delete user by ID"""
-    user = db.exec(select(UserModel).where(UserModel.id == user_id)).first()
+    user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:
         return False
 
-    db.delete(user)
-    db.commit()
+    session.delete(user)
+    session.commit()
     return True
 
 
 async def get_users(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)
+    skip: int = 0, limit: int = 100, session: Session = Depends(get_db_session)
 ) -> List[UserResponse]:
     """Get all users with pagination"""
-    users = db.exec(select(UserModel).offset(skip).limit(limit)).all()
+    users = session.exec(select(User).offset(skip).limit(limit)).all()
 
     return [
         UserResponse(

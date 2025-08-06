@@ -1,10 +1,10 @@
 from fastapi import Request, Depends, HTTPException, status
 import jwt
 from jwt.exceptions import InvalidTokenError
-from auth.schemas import TokenData, User
+from auth.models import TokenData, UserResponse
 from dependencies import get_db_session
 from sqlmodel import Session, select
-from auth.models import User as UserModel
+from auth.models import User
 import os
 
 
@@ -14,10 +14,10 @@ ALGORITHM = os.getenv("ALGORITHM")
 
 def get_user_from_db(db: Session, username: str):
     """Get user from database by username"""
-    user = db.exec(select(UserModel).where(UserModel.username == username)).first()
+    user = db.exec(select(User).where(User.username == username)).first()
     if not user:
         return None
-    return User(
+    return UserResponse(
         id=str(user.id),
         username=user.username,
         email=user.email,

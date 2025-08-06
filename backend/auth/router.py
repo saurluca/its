@@ -9,11 +9,10 @@ from auth.service import (
     delete_user,
     get_users,
 )
-from auth.schemas import (
-    User,
+from auth.models import (
+    UserResponse,
     UserCreate,
     UserUpdate,
-    UserResponse,
     UserListResponse,
 )
 from typing import Annotated
@@ -64,7 +63,7 @@ async def login_for_access_token(
 @router.post("/logout")
 async def logout(
     response: Response,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
 ):
     """Logout by clearing the access token cookie"""
     response.delete_cookie(key="access_token", path="/")
@@ -73,7 +72,7 @@ async def logout(
 
 @router.get("/users/me/", response_model=UserResponse)
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Get current user information"""
@@ -98,7 +97,7 @@ async def create_user_endpoint(
 
 @router.get("/users/", response_model=UserListResponse)
 async def get_users_endpoint(
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
     skip: int = 0,
     limit: int = 100,
@@ -112,7 +111,7 @@ async def get_users_endpoint(
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user_endpoint(
     user_id: str,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Get user by ID"""
@@ -127,7 +126,7 @@ async def get_user_endpoint(
 @router.get("/users/username/{username}", response_model=UserResponse)
 async def get_user_by_username_endpoint(
     username: str,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Get user by username"""
@@ -143,7 +142,7 @@ async def get_user_by_username_endpoint(
 async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Update user by ID"""
@@ -158,7 +157,7 @@ async def update_user_endpoint(
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_endpoint(
     user_id: str,
-    current_user: Annotated[User, Depends(get_current_user_from_request)],
+    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
     """Delete user by ID"""

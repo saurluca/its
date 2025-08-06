@@ -1,10 +1,9 @@
 import pytest
 import uuid
 from fastapi import status
-from sqlmodel import Session, select
 
-from tasks.models import Task, TaskCreate, TaskUpdate, AnswerOption
 from documents.models import Document, Chunk
+from tasks.models import Task, AnswerOption
 
 
 class TestTasksCRUD:

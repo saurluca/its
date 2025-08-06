@@ -1,8 +1,6 @@
 import pytest
 import uuid
 from fastapi import status
-from sqlmodel import Session, select
-from unittest.mock import patch, MagicMock
 
 from tasks.models import Task, AnswerOption
 from documents.models import Document, Chunk

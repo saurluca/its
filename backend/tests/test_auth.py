@@ -1,12 +1,9 @@
 import pytest
 import uuid
 from fastapi import status
-from sqlmodel import Session, select
-from unittest.mock import patch, MagicMock
-from datetime import timedelta
+from unittest.mock import patch
 
 from auth.models import User
-from auth.schemas import UserCreate, UserUpdate
 
 
 class TestAuthAuthentication:

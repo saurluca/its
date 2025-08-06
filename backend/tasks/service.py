@@ -158,9 +158,7 @@ def generate_questions(
         )
 
         if qg_response is not None:
-            task = _create_task_from_response(
-                qg_response, question_type, document_id, chunk.id
-            )
+            task = _create_task_from_response(qg_response, question_type, chunk.id)
             tasks.append(task)
 
     end_time = time.time()

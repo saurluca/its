@@ -9,18 +9,23 @@ import {
   PlusIcon,
   ClipboardIcon,
   FileTextIcon,
+  FolderIcon,
 } from "lucide-vue-next";
+import type { Document, Repository } from "~/types/models";
 
 const { $authFetch } = useAuthenticatedFetch();
 
-const documents = ref<{ id: string; title: string }[]>([]);
+const documents = ref<Document[]>([]);
+const repositories = ref<Repository[]>([]);
 const loadingDocuments = ref(true);
+const loadingRepositories = ref(true);
 const uploadingDocument = ref(false);
 const uploadedDocumentId = ref<string | null>(null);
 const deletingDocument = ref(false);
 const generatingTasks = ref(false);
 const showGenerateTasksModal = ref(false);
 const showDeleteModal = ref(false);
+const showRepositoryModal = ref(false);
 const generateTasksDocumentId = ref<string | null>(null);
 const numTasksToGenerate = ref(1);
 const deleteDocumentId = ref<string | null>(null);
@@ -28,6 +33,8 @@ const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
+const selectedRepositoryId = ref<string>("");
+const selectedRepositoryName = ref<string>("");
 
 // HTML viewer state
 const showHtmlViewer = ref(false);
@@ -40,10 +47,15 @@ async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
     const data = await $authFetch("/documents/");
-    // Transform the API response to an array of objects with id and title
-    documents.value = data.titles.map((title: string, idx: number) => ({
-      id: data.ids[idx],
-      title,
+    // Transform the API response to match our Document interface
+    documents.value = data.map((doc: any) => ({
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      created_at: new Date(doc.created_at),
+      deleted_at: doc.deleted_at ? new Date(doc.deleted_at) : null,
+      repository_ids: doc.repository_ids || [],
+      source_file: doc.source_file,
     }));
   } catch (error) {
     console.error("Error fetching documents:", error);
@@ -53,8 +65,21 @@ async function fetchDocuments() {
   }
 }
 
+async function fetchRepositories() {
+  loadingRepositories.value = true;
+  try {
+    const data = await $authFetch("/repositories/");
+    repositories.value = data.repositories || data;
+  } catch (error) {
+    console.error("Error fetching repositories:", error);
+    alert("Failed to load repositories. Please try again. " + error);
+  } finally {
+    loadingRepositories.value = false;
+  }
+}
+
 onMounted(async () => {
-  await fetchDocuments();
+  await Promise.all([fetchDocuments(), fetchRepositories()]);
 });
 
 async function uploadDocumentFromInput(event: Event) {
@@ -117,6 +142,7 @@ function openGenerateTasksModal(documentId: string) {
   numTasksToGenerate.value = 1;
   showGenerateTasksModal.value = true;
 }
+
 function closeGenerateTasksModal() {
   showGenerateTasksModal.value = false;
   generateTasksDocumentId.value = null;
@@ -141,6 +167,19 @@ function closeDeleteModal() {
   deleteDocumentId.value = null;
   deleteDocumentTitle.value = null;
 }
+
+function openRepositoryModal(documentId: string) {
+  selectedDocumentId.value = documentId;
+  showRepositoryModal.value = true;
+}
+
+function closeRepositoryModal() {
+  showRepositoryModal.value = false;
+  selectedDocumentId.value = null;
+  selectedRepositoryId.value = "";
+  selectedRepositoryName.value = "";
+}
+
 async function confirmGenerateTasks() {
   if (!generateTasksDocumentId.value) return;
   generatingTasks.value = true;
@@ -165,6 +204,27 @@ async function confirmDelete() {
   if (!deleteDocumentId.value) return;
   await deleteDocument(deleteDocumentId.value);
   closeDeleteModal();
+}
+
+async function confirmAddToRepository() {
+  if (!selectedDocumentId.value || !selectedRepositoryId.value) return;
+
+  try {
+    await $authFetch("/repositories/add_document/", {
+      method: "POST",
+      body: {
+        repository_id: selectedRepositoryId.value,
+        document_id: selectedDocumentId.value,
+      },
+    });
+
+    closeRepositoryModal();
+    // Refresh repositories to show updated document lists
+    await fetchRepositories();
+  } catch (error) {
+    console.error("Error adding document to repository:", error);
+    alert("Failed to add document to repository. Please try again. " + error);
+  }
 }
 
 function openEditTitleModal(documentId: string, currentTitle: string) {
@@ -310,6 +370,13 @@ async function viewDocument(documentId: string) {
                         <ClipboardIcon class="h-4 w-4" />
                         Copy ID
                       </button>
+                      <button @click="
+                        openRepositoryModal(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <FolderIcon class="h-4 w-4" />
+                        Add to Repository
+                      </button>
                       <div class="border-t border-gray-200 my-1"></div>
                       <button @click="
                         openDeleteModal(document.id, document.title);
@@ -375,6 +442,19 @@ async function viewDocument(documentId: string) {
       <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>
       <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
         placeholder="Enter new title" @keyup.enter="confirmEditTitle" />
+    </div>
+  </DModal>
+
+  <DModal v-if="showRepositoryModal" titel="Add Document to Repository" confirmText="Add" @close="closeRepositoryModal"
+    @confirm="confirmAddToRepository">
+    <div class="p-4">
+      <label for="repository-select" class="block mb-2 font-medium">Select Repository:</label>
+      <select id="repository-select" v-model="selectedRepositoryId" class="w-full border rounded px-3 py-2 text-sm">
+        <option value="">Select a repository...</option>
+        <option v-for="repo in repositories" :key="repo.id" :value="repo.id">
+          {{ repo.name }}
+        </option>
+      </select>
     </div>
   </DModal>
 </template>

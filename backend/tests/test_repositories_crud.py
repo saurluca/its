@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+import uuid
 from fastapi import status
 from sqlmodel import Session, select
 from unittest.mock import patch, MagicMock
@@ -23,11 +23,11 @@ class TestRepositoriesCRUD:
         """Test getting repositories when repositories exist"""
         # Create repositories
         repo1 = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository 1"
         )
         repo2 = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository 2"
         )
         db_session.add(repo1)
@@ -45,7 +45,7 @@ class TestRepositoriesCRUD:
     def test_get_repository_by_id_success(self, client, db_session):
         """Test getting a specific repository by ID"""
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -60,7 +60,7 @@ class TestRepositoriesCRUD:
     @pytest.mark.crud
     def test_get_repository_by_id_not_found(self, client):
         """Test getting a repository that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         response = client.get(f"/repositories/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Repository not found"
@@ -91,7 +91,7 @@ class TestRepositoriesCRUD:
     def test_update_repository_success(self, client, db_session):
         """Test updating a repository successfully"""
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Original Name"
         )
         db_session.add(repository)
@@ -109,7 +109,7 @@ class TestRepositoriesCRUD:
     @pytest.mark.crud
     def test_update_repository_not_found(self, client):
         """Test updating a repository that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         update_data = {"name": "Updated Name"}
 
         response = client.put(f"/repositories/{fake_id}", json=update_data)
@@ -120,7 +120,7 @@ class TestRepositoriesCRUD:
     def test_delete_repository_success(self, client, db_session):
         """Test deleting a repository successfully"""
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -137,7 +137,7 @@ class TestRepositoriesCRUD:
     @pytest.mark.crud
     def test_delete_repository_not_found(self, client):
         """Test deleting a repository that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         response = client.delete(f"/repositories/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Repository not found"
@@ -151,7 +151,7 @@ class TestRepositoryDocumentLinks:
         """Test creating a repository-document link successfully"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -159,7 +159,7 @@ class TestRepositoryDocumentLinks:
 
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -183,7 +183,7 @@ class TestRepositoryDocumentLinks:
         """Test creating a link with non-existent repository"""
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -192,7 +192,7 @@ class TestRepositoryDocumentLinks:
         db_session.commit()
 
         link_data = {
-            "repository_id": str(uuid4()),  # Non-existent repository
+            "repository_id": str(uuid.uuid4()),  # Non-existent repository
             "document_id": str(document.id)
         }
 
@@ -205,7 +205,7 @@ class TestRepositoryDocumentLinks:
         """Test creating a link with non-existent document"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -213,7 +213,7 @@ class TestRepositoryDocumentLinks:
 
         link_data = {
             "repository_id": str(repository.id),
-            "document_id": str(uuid4())  # Non-existent document
+            "document_id": str(uuid.uuid4())  # Non-existent document
         }
 
         response = client.post("/repositories/links", json=link_data)
@@ -225,7 +225,7 @@ class TestRepositoryDocumentLinks:
         """Test creating a link that already exists"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -233,7 +233,7 @@ class TestRepositoryDocumentLinks:
 
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -243,7 +243,7 @@ class TestRepositoryDocumentLinks:
 
         # Create the link first
         link = RepositoryDocumentLink(
-            id=uuid4(),
+            id=uuid.uuid4(),
             repository_id=repository.id,
             document_id=document.id
         )
@@ -265,7 +265,7 @@ class TestRepositoryDocumentLinks:
         """Test deleting a repository-document link successfully"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -273,7 +273,7 @@ class TestRepositoryDocumentLinks:
 
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -283,7 +283,7 @@ class TestRepositoryDocumentLinks:
 
         # Create the link
         link = RepositoryDocumentLink(
-            id=uuid4(),
+            id=uuid.uuid4(),
             repository_id=repository.id,
             document_id=document.id
         )
@@ -297,8 +297,8 @@ class TestRepositoryDocumentLinks:
     @pytest.mark.crud
     def test_delete_repository_document_link_not_found(self, client):
         """Test deleting a repository-document link that doesn't exist"""
-        fake_repo_id = uuid4()
-        fake_doc_id = uuid4()
+        fake_repo_id = uuid.uuid4()
+        fake_doc_id = uuid.uuid4()
 
         response = client.delete(f"/repositories/links/{fake_repo_id}/{fake_doc_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -309,7 +309,7 @@ class TestRepositoryDocumentLinks:
         """Test getting a repository with its linked documents"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -317,13 +317,13 @@ class TestRepositoryDocumentLinks:
 
         # Create documents
         doc1 = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Document 1",
             source_file="doc1.txt",
             content="Content 1"
         )
         doc2 = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Document 2",
             source_file="doc2.txt",
             content="Content 2"
@@ -334,12 +334,12 @@ class TestRepositoryDocumentLinks:
 
         # Create links
         link1 = RepositoryDocumentLink(
-            id=uuid4(),
+            id=uuid.uuid4(),
             repository_id=repository.id,
             document_id=doc1.id
         )
         link2 = RepositoryDocumentLink(
-            id=uuid4(),
+            id=uuid.uuid4(),
             repository_id=repository.id,
             document_id=doc2.id
         )
@@ -376,7 +376,7 @@ class TestRepositoriesEdgeCases:
     def test_update_repository_invalid_data(self, client, db_session):
         """Test updating a repository with invalid data"""
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository",
             description="Test description"
         )
@@ -412,7 +412,7 @@ class TestRepositoriesEdgeCases:
         """Test that deleting a repository doesn't delete linked documents"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Test Repository"
         )
         db_session.add(repository)
@@ -420,7 +420,7 @@ class TestRepositoriesEdgeCases:
 
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -430,7 +430,7 @@ class TestRepositoriesEdgeCases:
 
         # Create a link
         link = RepositoryDocumentLink(
-            id=uuid4(),
+            id=uuid.uuid4(),
             repository_id=repository.id,
             document_id=document.id
         )
@@ -450,7 +450,7 @@ class TestRepositoriesEdgeCases:
         """Test repository with many linked documents"""
         # Create a repository
         repository = Repository(
-            id=uuid4(),
+            id=uuid.uuid4(),
             name="Large Repository"
         )
         db_session.add(repository)
@@ -460,7 +460,7 @@ class TestRepositoriesEdgeCases:
         documents = []
         for i in range(10):
             doc = Document(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 title=f"Document {i}",
                 source_file=f"doc{i}.txt",
                 content=f"Content {i}"
@@ -472,7 +472,7 @@ class TestRepositoriesEdgeCases:
         # Create links for all documents
         for doc in documents:
             link = RepositoryDocumentLink(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 repository_id=repository.id,
                 document_id=doc.id
             )

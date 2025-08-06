@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 from unittest.mock import Mock, patch
 import tempfile
 import os
-from uuid import uuid4
+import uuid
 
 # Import modules
 from main import app
@@ -72,12 +72,11 @@ def client(db_session) -> Generator[TestClient, None, None]:
 def mock_user():
     """Create a mock user for testing"""
     return User(
-        id=str(uuid4()),
+        id=uuid.uuid4(),
         username="testuser",
         email="test@example.com",
         hashed_password="hashed_password",
-        is_active=True,
-        is_superuser=False,
+        disabled=False,
     )
 
 
@@ -116,11 +115,11 @@ def temp_file():
 @pytest.fixture
 def mock_llm_service():
     """Mock LLM service for testing"""
-    with patch("tasks.service.generate_questions") as mock_generate, \
-         patch("tasks.service.evaluate_student_answer") as mock_evaluate, \
+    with patch("tasks.router.generate_questions") as mock_generate, \
+         patch("tasks.router.evaluate_student_answer") as mock_evaluate, \
          patch("documents.service.generate_document_title") as mock_title:
         
-        # Mock generate_questions
+        # Mock generate_questions - return empty list by default
         mock_generate.return_value = []
         
         # Mock evaluate_student_answer
@@ -141,10 +140,10 @@ def mock_llm_service():
 def sample_chunk_data():
     """Sample chunk data for testing"""
     return {
-        "id": str(uuid4()),
+        "id": uuid.uuid4(),
         "chunk_text": "This is a sample chunk text for testing purposes.",
         "chunk_index": 0,
-        "document_id": str(uuid4()),
+        "document_id": uuid.uuid4(),
     }
 
 
@@ -154,7 +153,7 @@ def sample_task_data():
     return {
         "type": "multiple_choice",
         "question": "What is the main topic of this text?",
-        "chunk_id": str(uuid4()),
+        "chunk_id": uuid.uuid4(),
         "answer_options": [
             {"answer": "Option A", "is_correct": True},
             {"answer": "Option B", "is_correct": False},
@@ -167,7 +166,7 @@ def sample_task_data():
 def sample_document_data():
     """Sample document data for testing"""
     return {
-        "id": str(uuid4()),
+        "id": uuid.uuid4(),
         "title": "Test Document",
         "source_file": "test.txt",
         "content": "This is test document content.",

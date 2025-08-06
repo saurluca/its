@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+import uuid
 from fastapi import status
 from sqlmodel import Session, select
 from unittest.mock import patch, MagicMock
@@ -17,7 +17,7 @@ class TestAuthAuthentication:
         """Test successful login"""
         # Create a test user
         user = User(
-            id=str(uuid4()),
+            id=str(uuid.uuid4()),
             username="testuser",
             email="test@example.com",
             hashed_password="$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4tbQJ5J5e",  # "password"
@@ -105,7 +105,7 @@ class TestAuthUserManagement:
 
         with patch("auth.service.create_user") as mock_create:
             mock_user = User(
-                id=str(uuid4()),
+                id=str(uuid.uuid4()),
                 username="newuser",
                 email="newuser@example.com",
                 hashed_password="hashed_password",
@@ -183,7 +183,7 @@ class TestAuthUserManagement:
         with patch("auth.service.get_users") as mock_get_users:
             mock_users = [
                 User(
-                    id=str(uuid4()),
+                    id=str(uuid.uuid4()),
                     username="user1",
                     email="user1@example.com",
                     hashed_password="hashed_password",
@@ -191,7 +191,7 @@ class TestAuthUserManagement:
                     is_superuser=False,
                 ),
                 User(
-                    id=str(uuid4()),
+                    id=str(uuid.uuid4()),
                     username="user2",
                     email="user2@example.com",
                     hashed_password="hashed_password",
@@ -217,7 +217,7 @@ class TestAuthUserManagement:
     @pytest.mark.crud
     def test_get_user_by_id_success(self, client, db_session, mock_current_user):
         """Test getting a user by ID"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         with patch("auth.service.get_user_by_id") as mock_get_user:
             mock_user = User(
                 id=user_id,
@@ -238,7 +238,7 @@ class TestAuthUserManagement:
     @pytest.mark.auth
     def test_get_user_by_id_not_found(self, client, db_session, mock_current_user):
         """Test getting a user by ID that doesn't exist"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         with patch("auth.service.get_user_by_id") as mock_get_user:
             mock_get_user.return_value = None
 
@@ -252,7 +252,7 @@ class TestAuthUserManagement:
         """Test getting a user by username"""
         with patch("auth.service.get_user_by_username") as mock_get_user:
             mock_user = User(
-                id=str(uuid4()),
+                id=str(uuid.uuid4()),
                 username="testuser",
                 email="test@example.com",
                 hashed_password="hashed_password",
@@ -280,7 +280,7 @@ class TestAuthUserManagement:
     @pytest.mark.crud
     def test_update_user_success(self, client, db_session, mock_current_user):
         """Test updating a user successfully"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         update_data = {
             "email": "updated@example.com",
             "is_active": False
@@ -306,7 +306,7 @@ class TestAuthUserManagement:
     @pytest.mark.auth
     def test_update_user_not_found(self, client, db_session, mock_current_user):
         """Test updating a user that doesn't exist"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         update_data = {"email": "updated@example.com"}
 
         with patch("auth.service.update_user") as mock_update:
@@ -319,7 +319,7 @@ class TestAuthUserManagement:
     @pytest.mark.auth
     def test_update_user_invalid_data(self, client, mock_current_user):
         """Test updating a user with invalid data"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         update_data = {"email": "invalid-email"}
 
         response = client.put(f"/auth/users/{user_id}", json=update_data)
@@ -329,7 +329,7 @@ class TestAuthUserManagement:
     @pytest.mark.crud
     def test_delete_user_success(self, client, db_session, mock_current_user):
         """Test deleting a user successfully"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
 
         with patch("auth.service.delete_user") as mock_delete:
             mock_delete.return_value = True
@@ -340,7 +340,7 @@ class TestAuthUserManagement:
     @pytest.mark.auth
     def test_delete_user_not_found(self, client, db_session, mock_current_user):
         """Test deleting a user that doesn't exist"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
 
         with patch("auth.service.delete_user") as mock_delete:
             mock_delete.return_value = False
@@ -396,7 +396,7 @@ class TestAuthEdgeCases:
     @pytest.mark.auth
     def test_update_user_service_error(self, client, db_session, mock_current_user):
         """Test updating user when service fails"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
         update_data = {"email": "updated@example.com"}
 
         with patch("auth.service.update_user") as mock_update:
@@ -408,7 +408,7 @@ class TestAuthEdgeCases:
     @pytest.mark.auth
     def test_delete_user_service_error(self, client, db_session, mock_current_user):
         """Test deleting user when service fails"""
-        user_id = str(uuid4())
+        user_id = str(uuid.uuid4())
 
         with patch("auth.service.delete_user") as mock_delete:
             mock_delete.side_effect = Exception("User service error")

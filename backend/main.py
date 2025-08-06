@@ -1,9 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from router import router
-
-# from courses.router import router as courses_router
-# from tasks.router import router as tasks_router
+from tasks.router import router as tasks_router
 from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
@@ -44,13 +42,13 @@ app.include_router(
     repositories_router,
     # dependencies=[Depends(get_current_user_from_request)]
 )
-# app.include_router(
-#     courses_router, dependencies=[Depends(get_current_user_from_request)]
-# )
-# app.include_router(tasks_router, dependencies=[Depends(get_current_user_from_request)])
+app.include_router(
+    tasks_router,
+    # dependencies=[Depends(get_current_user_from_request)],
+)
 app.include_router(
     documents_router,
-    # dependencies=[Depends(get_current_user_from_request)]
+    # dependencies=[Depends(get_current_user_from_request)],
 )
 
 

@@ -40,3 +40,28 @@ class RepositoryCreate(RepositoryBase):
 
 class RepositoryUpdate(SQLModel):
     name: str
+
+
+class RepositoryResponse(RepositoryBase):
+    id: UUID
+    created_at: datetime
+    deleted_at: datetime | None = None
+
+
+class RepositoryResponseDetail(RepositoryBase):
+    id: UUID
+    created_at: datetime
+    deleted_at: datetime | None = None
+    document_ids: list[UUID] = []
+    document_names: list[str] = []
+
+
+class RepositoryDocumentLinkCreate(SQLModel):
+    repository_id: UUID
+    document_id: UUID
+
+
+class RepositoryDocumentLinkResponse(SQLModel):
+    repository_id: UUID
+    document_id: UUID
+    created_at: datetime

@@ -4,9 +4,8 @@ from database import get_session
 from documents.models import (
     Chunk,
     Document,
-    DocumentCreate,
     DocumentUpdate,
-    DocumentPublic,
+    DocumentResponse,
 )
 from uuid import UUID
 from sqlmodel import select, Session
@@ -15,20 +14,23 @@ from documents.service import extract_text_from_file_and_chunk, generate_documen
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/", response_model=list[DocumentPublic])
+@router.get("/", response_model=list[DocumentResponse])
 def get_documents(session: Session = Depends(get_session)):
     db_documents = session.exec(select(Document)).all()
-    return [DocumentPublic.model_validate(doc) for doc in db_documents]
+    return [DocumentResponse.model_validate(doc) for doc in db_documents]
 
 
-@router.get("/{document_id}", response_model=Document)
+@router.get("/{document_id}", response_model=DocumentResponse)
 def get_document(document_id: UUID, session: Session = Depends(get_session)):
     db_document = session.get(Document, document_id)
     if not db_document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
         )
-    return db_document
+
+    doc_response = DocumentResponse.model_validate(db_document)
+    doc_response.repository_ids = [repo.id for repo in db_document.repositories]
+    return doc_response
 
 
 @router.post("/upload", response_model=Document)

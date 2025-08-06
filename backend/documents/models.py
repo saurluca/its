@@ -37,10 +37,11 @@ class DocumentCreate(DocumentBase):
     pass
 
 
-class DocumentPublic(DocumentBase):
+class DocumentResponse(DocumentBase):
     id: UUID
-    title: str
     created_at: datetime
+    deleted_at: datetime | None = None
+    repository_ids: list[UUID] = []
 
 
 class DocumentUpdate(SQLModel):

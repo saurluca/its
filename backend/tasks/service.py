@@ -87,7 +87,7 @@ def _generate_single_question(chunk: Chunk, question_generator, question_type: s
 
         return qg_response
     except Exception as e:
-        print(f"Error generating question for chunk {chunk.chunk_id}: {e}")
+        print(f"Error generating question for chunk {chunk.id}: {e}")
         return None
 
 

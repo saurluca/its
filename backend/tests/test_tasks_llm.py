@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+import uuid
 from fastapi import status
 from sqlmodel import Session, select
 from unittest.mock import patch, MagicMock
@@ -17,7 +17,7 @@ class TestTasksLLM:
         """Test generating tasks from document successfully"""
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -27,14 +27,14 @@ class TestTasksLLM:
 
         # Create chunks for the document
         chunk1 = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="This is the first chunk of text for testing.",
             chunk_index=0,
             chunk_length=44,
             document_id=document.id
         )
         chunk2 = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="This is the second chunk of text for testing.",
             chunk_index=1,
             chunk_length=45,
@@ -47,13 +47,13 @@ class TestTasksLLM:
         # Mock the generate_questions function to return test tasks
         mock_tasks = [
             Task(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 type="multiple_choice",
                 question="What is the main topic of the first chunk?",
                 chunk_id=chunk1.id
             ),
             Task(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 type="multiple_choice",
                 question="What is the main topic of the second chunk?",
                 chunk_id=chunk2.id
@@ -76,7 +76,7 @@ class TestTasksLLM:
         """Test generating tasks from document with no chunks"""
         # Create a document without chunks
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -91,7 +91,7 @@ class TestTasksLLM:
     @pytest.mark.llm
     def test_generate_tasks_from_document_invalid_doc_id(self, client):
         """Test generating tasks with invalid document ID"""
-        fake_doc_id = "invalid-doc-id"
+        fake_doc_id = uuid.uuid4()  # Use a valid UUID format that doesn't exist
         response = client.post(f"/tasks/generate/{fake_doc_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "No chunks found"
@@ -102,7 +102,7 @@ class TestTasksLLM:
         """Test generating tasks with custom number of tasks"""
         # Create a document
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -112,7 +112,7 @@ class TestTasksLLM:
 
         # Create chunks for the document
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="This is a test chunk for generating tasks.",
             chunk_index=0,
             chunk_length=42,
@@ -124,7 +124,7 @@ class TestTasksLLM:
         # Mock the generate_questions function
         mock_tasks = [
             Task(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 type="multiple_choice",
                 question=f"Test question {i}",
                 chunk_id=chunk.id
@@ -146,7 +146,7 @@ class TestTasksLLM:
         """Test evaluating a student answer successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -155,7 +155,7 @@ class TestTasksLLM:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -166,7 +166,7 @@ class TestTasksLLM:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is the main topic?",
             chunk_id=chunk.id
@@ -176,13 +176,13 @@ class TestTasksLLM:
 
         # Create answer options
         option1 = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Correct answer",
             is_correct=True,
             task_id=task.id
         )
         option2 = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Wrong answer",
             is_correct=False,
             task_id=task.id
@@ -195,8 +195,7 @@ class TestTasksLLM:
         mock_llm_service["evaluate_student_answer"].return_value = "Excellent answer! You are correct."
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}",
-            json={"student_answer": "Correct answer"}
+            f"/tasks/evaluate_answer/{task.id}?student_answer=Correct answer"
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -209,10 +208,9 @@ class TestTasksLLM:
     @pytest.mark.llm
     def test_evaluate_answer_task_not_found(self, client):
         """Test evaluating answer for non-existent task"""
-        fake_task_id = uuid4()
+        fake_task_id = uuid.uuid4()
         response = client.post(
-            f"/tasks/evaluate_answer/{fake_task_id}",
-            json={"student_answer": "Some answer"}
+            f"/tasks/evaluate_answer/{fake_task_id}?student_answer=Some answer"
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
@@ -222,7 +220,7 @@ class TestTasksLLM:
         """Test evaluating answer with missing student answer"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -231,7 +229,7 @@ class TestTasksLLM:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -242,7 +240,7 @@ class TestTasksLLM:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is the main topic?",
             chunk_id=chunk.id
@@ -252,7 +250,7 @@ class TestTasksLLM:
 
         # Create answer options
         option = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Correct answer",
             is_correct=True,
             task_id=task.id
@@ -269,7 +267,7 @@ class TestTasksLLM:
         """Test evaluating answer with multiple answer options"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -278,7 +276,7 @@ class TestTasksLLM:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -289,7 +287,7 @@ class TestTasksLLM:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is the main topic?",
             chunk_id=chunk.id
@@ -300,19 +298,19 @@ class TestTasksLLM:
         # Create multiple answer options
         options = [
             AnswerOption(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 answer="Option A",
                 is_correct=False,
                 task_id=task.id
             ),
             AnswerOption(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 answer="Option B",
                 is_correct=True,
                 task_id=task.id
             ),
             AnswerOption(
-                id=uuid4(),
+                id=uuid.uuid4(),
                 answer="Option C",
                 is_correct=False,
                 task_id=task.id
@@ -326,8 +324,7 @@ class TestTasksLLM:
         mock_llm_service["evaluate_student_answer"].return_value = "Good attempt, but not quite right."
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}",
-            json={"student_answer": "Option A"}
+            f"/tasks/evaluate_answer/{task.id}?student_answer=Option A"
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -340,7 +337,7 @@ class TestTasksLLM:
         """Test evaluating answer with empty student answer"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -349,7 +346,7 @@ class TestTasksLLM:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -360,7 +357,7 @@ class TestTasksLLM:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is the main topic?",
             chunk_id=chunk.id
@@ -370,7 +367,7 @@ class TestTasksLLM:
 
         # Create answer options
         option = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Correct answer",
             is_correct=True,
             task_id=task.id
@@ -382,8 +379,7 @@ class TestTasksLLM:
         mock_llm_service["evaluate_student_answer"].return_value = "Please provide an answer."
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}",
-            json={"student_answer": ""}
+            f"/tasks/evaluate_answer/{task.id}?student_answer="
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -396,7 +392,7 @@ class TestTasksLLM:
         """Test evaluating answer when LLM service fails"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -405,7 +401,7 @@ class TestTasksLLM:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -416,7 +412,7 @@ class TestTasksLLM:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is the main topic?",
             chunk_id=chunk.id
@@ -426,7 +422,7 @@ class TestTasksLLM:
 
         # Create answer options
         option = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Correct answer",
             is_correct=True,
             task_id=task.id
@@ -438,8 +434,7 @@ class TestTasksLLM:
         mock_llm_service["evaluate_student_answer"].side_effect = Exception("LLM service error")
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}",
-            json={"student_answer": "Some answer"}
+            f"/tasks/evaluate_answer/{task.id}?student_answer=Some answer"
         )
         # The endpoint should handle the error gracefully
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR

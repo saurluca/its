@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+import uuid
 from fastapi import status
 from sqlmodel import Session, select
 
@@ -22,7 +22,7 @@ class TestTasksCRUD:
         """Test getting tasks when tasks exist"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -31,7 +31,7 @@ class TestTasksCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -42,7 +42,7 @@ class TestTasksCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is this?",
             chunk_id=chunk.id
@@ -61,7 +61,7 @@ class TestTasksCRUD:
         """Test getting a specific task by ID"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -70,7 +70,7 @@ class TestTasksCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -81,7 +81,7 @@ class TestTasksCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="What is this?",
             chunk_id=chunk.id
@@ -98,7 +98,7 @@ class TestTasksCRUD:
     @pytest.mark.crud
     def test_get_task_by_id_not_found(self, client):
         """Test getting a task that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         response = client.get(f"/tasks/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
@@ -108,7 +108,7 @@ class TestTasksCRUD:
         """Test creating a task successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -117,7 +117,7 @@ class TestTasksCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -149,7 +149,7 @@ class TestTasksCRUD:
         task_data = {
             "type": "multiple_choice",
             "question": "What is the main topic?",
-            "chunk_id": str(uuid4()),
+            "chunk_id": str(uuid.uuid4()),
             "answer_options": [
                 {"answer": "Option A", "is_correct": True}
             ]
@@ -164,7 +164,7 @@ class TestTasksCRUD:
         """Test updating a task successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -173,7 +173,7 @@ class TestTasksCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -184,7 +184,7 @@ class TestTasksCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Original question",
             chunk_id=chunk.id
@@ -209,7 +209,7 @@ class TestTasksCRUD:
     @pytest.mark.crud
     def test_update_task_not_found(self, client):
         """Test updating a task that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         update_data = {"question": "Updated question"}
 
         response = client.put(f"/tasks/{fake_id}", json=update_data)
@@ -221,7 +221,7 @@ class TestTasksCRUD:
         """Test deleting a task successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -230,7 +230,7 @@ class TestTasksCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -241,7 +241,7 @@ class TestTasksCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
             chunk_id=chunk.id
@@ -260,7 +260,7 @@ class TestTasksCRUD:
     @pytest.mark.crud
     def test_delete_task_not_found(self, client):
         """Test deleting a task that doesn't exist"""
-        fake_id = uuid4()
+        fake_id = uuid.uuid4()
         response = client.delete(f"/tasks/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
@@ -274,7 +274,7 @@ class TestAnswerOptionsCRUD:
         """Test creating an answer option successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -283,7 +283,7 @@ class TestAnswerOptionsCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -294,7 +294,7 @@ class TestAnswerOptionsCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
             chunk_id=chunk.id
@@ -317,7 +317,7 @@ class TestAnswerOptionsCRUD:
     @pytest.mark.crud
     def test_create_answer_option_task_not_found(self, client):
         """Test creating an answer option for non-existent task"""
-        fake_task_id = uuid4()
+        fake_task_id = uuid.uuid4()
         answer_option_data = {
             "answer": "New answer option",
             "is_correct": True
@@ -332,7 +332,7 @@ class TestAnswerOptionsCRUD:
         """Test getting answer options for a task"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -341,7 +341,7 @@ class TestAnswerOptionsCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -352,7 +352,7 @@ class TestAnswerOptionsCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
             chunk_id=chunk.id
@@ -362,13 +362,13 @@ class TestAnswerOptionsCRUD:
 
         # Create answer options
         option1 = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Option A",
             is_correct=True,
             task_id=task.id
         )
         option2 = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Option B",
             is_correct=False,
             task_id=task.id
@@ -387,7 +387,7 @@ class TestAnswerOptionsCRUD:
     @pytest.mark.crud
     def test_get_answer_options_task_not_found(self, client):
         """Test getting answer options for non-existent task"""
-        fake_task_id = uuid4()
+        fake_task_id = uuid.uuid4()
         response = client.get(f"/tasks/{fake_task_id}/answer-options")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
@@ -397,7 +397,7 @@ class TestAnswerOptionsCRUD:
         """Test updating an answer option successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -406,7 +406,7 @@ class TestAnswerOptionsCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -417,7 +417,7 @@ class TestAnswerOptionsCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
             chunk_id=chunk.id
@@ -427,7 +427,7 @@ class TestAnswerOptionsCRUD:
 
         # Create an answer option
         option = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Original answer",
             is_correct=False,
             task_id=task.id
@@ -449,8 +449,8 @@ class TestAnswerOptionsCRUD:
     @pytest.mark.crud
     def test_update_answer_option_not_found(self, client):
         """Test updating an answer option that doesn't exist"""
-        fake_task_id = uuid4()
-        fake_option_id = uuid4()
+        fake_task_id = uuid.uuid4()
+        fake_option_id = uuid.uuid4()
         update_data = {
             "answer": "Updated answer",
             "is_correct": True
@@ -465,7 +465,7 @@ class TestAnswerOptionsCRUD:
         """Test deleting an answer option successfully"""
         # Create a document and chunk first
         document = Document(
-            id=uuid4(),
+            id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
             content="Test content"
@@ -474,7 +474,7 @@ class TestAnswerOptionsCRUD:
         db_session.commit()
 
         chunk = Chunk(
-            id=uuid4(),
+            id=uuid.uuid4(),
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
@@ -485,7 +485,7 @@ class TestAnswerOptionsCRUD:
 
         # Create a task
         task = Task(
-            id=uuid4(),
+            id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
             chunk_id=chunk.id
@@ -495,7 +495,7 @@ class TestAnswerOptionsCRUD:
 
         # Create an answer option
         option = AnswerOption(
-            id=uuid4(),
+            id=uuid.uuid4(),
             answer="Test answer",
             is_correct=True,
             task_id=task.id
@@ -510,8 +510,8 @@ class TestAnswerOptionsCRUD:
     @pytest.mark.crud
     def test_delete_answer_option_not_found(self, client):
         """Test deleting an answer option that doesn't exist"""
-        fake_task_id = uuid4()
-        fake_option_id = uuid4()
+        fake_task_id = uuid.uuid4()
+        fake_option_id = uuid.uuid4()
 
         response = client.delete(f"/tasks/{fake_task_id}/answer-options/{fake_option_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -292,7 +292,7 @@ def delete_answer_option(
 
 @router.post("/generate/{doc_id}", response_model=list[TaskRead])
 def generate_tasks_from_document(
-    doc_id: str,
+    doc_id: UUID,
     num_tasks: int = DEFAULT_NUM_QUESTIONS,
     session: Session = Depends(get_db_session),
 ):
@@ -346,11 +346,16 @@ def evaluate_answer(
         (option.answer for option in answer_options if option.is_correct), ""
     )
 
-    feedback = evaluate_student_answer(
-        db_task.question,
-        answer_texts,
-        student_answer,
-        correct_answer,
-    )
-
-    return {"feedback": feedback}
+    try:
+        feedback = evaluate_student_answer(
+            db_task.question,
+            answer_texts,
+            student_answer,
+            correct_answer,
+        )
+        return {"feedback": feedback}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error evaluating answer: {str(e)}"
+        )

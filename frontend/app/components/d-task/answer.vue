@@ -32,10 +32,11 @@ function shuffleArray<T>(array: T[]): T[] {
 
 // Computed property for shuffled multiple choice options
 const shuffledOptions = computed(() => {
-  if (props.task.type === 'multiple_choice' && props.task.options) {
-    return shuffleArray(props.task.options);
+  if (props.task.type === 'multiple_choice' && props.task.answer_options) {
+    const options = props.task.answer_options.map(option => option.answer);
+    return shuffleArray(options);
   }
-  return props.task.options || [];
+  return [];
 });
 
 // Hotkey handler function
@@ -52,7 +53,7 @@ function handleKeyPress(event: KeyboardEvent) {
   if (key >= '1' && key <= '4' && optionIndex < shuffledOptions.value.length) {
     // Select the answer
     answer.value = shuffledOptions.value[optionIndex];
-    
+
     // Automatically evaluate the answer
     emit("evaluate");
   }
@@ -74,9 +75,7 @@ console.log("task", props.task);
   <div class="bg-white p-6 rounded-lg shadow w-2xl">
     <div class="flex justify-between">
       <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
-      <span
-        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-      >
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
         {{
           task.type === "true_false"
             ? "True/False"
@@ -90,25 +89,18 @@ console.log("task", props.task);
 
     <!-- True/False Answer -->
     <div v-if="task.type === 'true_false'" class="mt-4">
-      <DButtonRadio
-        v-model="answer"
-        :name="`answer-${task.id}`"
-        :options="['True', 'False']"
-      />
+      <DButtonRadio v-model="answer" :name="`answer-${task.id}`" :options="['True', 'False']" />
     </div>
 
     <!-- Multiple Choice Answer -->
     <div v-else-if="task.type === 'multiple_choice'" class="mt-4">
       <div class="space-y-2">
-        <DButtonRadio
-          v-model="answer"
-          :name="`answer-${task.id}`"
-          :options="shuffledOptions"
-          :disabled="disabled"
-        />
+        <DButtonRadio v-model="answer" :name="`answer-${task.id}`" :options="shuffledOptions" :disabled="disabled" />
         <!-- Hotkey hint -->
         <div class="text-xs text-gray-500 mt-2">
-          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">1</kbd> - <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">{{ shuffledOptions.length }}</kbd> to quickly select and evaluate answers
+          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">1</kbd> - <kbd
+            class="px-1 py-0.5 bg-gray-100 rounded text-xs">{{ shuffledOptions.length }}</kbd> to quickly select and
+          evaluate answers
         </div>
       </div>
     </div>

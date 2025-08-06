@@ -1,10 +1,9 @@
 // Task type matching backend API structure
 export interface Task {
   id: string;
-  type: "true_false" | "multiple_choice" | "free_text";
+  type: "multiple_choice" | "free_text";
   question: string;
-  options?: string[];
-  correct_answer: string;
+  answer_options: AnswerOption[];
   course_id?: string;
   document_id?: string;
   chunk_id?: string;
@@ -12,6 +11,14 @@ export interface Task {
   created_at: Date;
   updated_at: Date;
   deletedAt?: Date | null;
+}
+
+// Answer option type matching backend API structure
+export interface AnswerOption {
+  id: string;
+  answer: string;
+  is_correct: boolean;
+  task_id: string;
 }
 
 // User type matching backend API structure
@@ -37,10 +44,9 @@ export interface Course {
 
 // Form types for creating new entities
 export interface NewTaskForm {
-  type: "true_false" | "multiple_choice" | "free_text";
+  type: "multiple_choice" | "free_text";
   question: string;
-  options?: string[];
-  correct_answer: string;
+  answer_options?: AnswerOption[];
   course_id?: string;
   document_id?: string;
   chunk_id?: string;

@@ -134,7 +134,9 @@ async function evaluateAnswer() {
 
   feedback.value = "Evaluating...";
 
-  const correct = currentAnswer.value === currentTask.value?.correct_answer;
+  const correct = currentTask.value?.type === 'multiple_choice'
+    ? currentAnswer.value === currentTask.value.answer_options.find(option => option.is_correct)?.answer
+    : false; // For free text questions, we'll let the backend evaluate the answer
   isCorrect.value = correct;
 
   showEvaluation.value = true;

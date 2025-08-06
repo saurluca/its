@@ -109,9 +109,8 @@ onMounted(async () => {
       id: task.id,
       type: task.type,
       question: task.question,
-      options:
-        task.options || (task.type === "true_false" ? ["True", "False"] : []),
-      correctAnswer: task.correct_answer || "",
+      options: task.answer_options?.map((option: any) => option.answer) || [],
+      correctAnswer: task.answer_options?.find((option: any) => option.is_correct)?.answer || "",
       courseId: task.course_id || "",
       documentId: task.document_id || "",
       createdAt: new Date(task.created_at),
@@ -138,14 +137,19 @@ onMounted(async () => {
 
 async function createTask(taskData: TaskFormData) {
   try {
+    // Create answer options from the form data
+    const answer_options = taskData.options?.map((option, index) => ({
+      answer: option,
+      is_correct: option === taskData.correctAnswer
+    })) || [];
+
     // Create the basic task
     const createdTask = await $authFetch("/tasks/", {
       method: "POST",
       body: {
         type: taskData.type,
         question: taskData.question,
-        options: taskData.options,
-        correct_answer: taskData.correctAnswer,
+        answer_options: answer_options,
         course_id: taskData.courseId,
       },
     }) as Task;
@@ -166,14 +170,19 @@ async function createTask(taskData: TaskFormData) {
 
 async function updateTask(taskData: Task) {
   try {
+    // Create answer options from the form data
+    const answer_options = taskData.options?.map((option, index) => ({
+      answer: option,
+      is_correct: option === taskData.correctAnswer
+    })) || [];
+
     // Update the basic task
     await $authFetch(`/tasks/${taskData.id}/`, {
       method: "PUT",
       body: {
         type: taskData.type,
         question: taskData.question,
-        options: taskData.options,
-        correct_answer: taskData.correctAnswer,
+        answer_options: answer_options,
         course_id: taskData.courseId,
       },
     });

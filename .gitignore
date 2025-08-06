@@ -26,6 +26,7 @@ db/
 
 # backend
 backend/data/
+backend/test.db
 
 # vscode stuff
 .vscode/

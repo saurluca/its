@@ -38,16 +38,19 @@ uv sync
 ### Basic Test Commands
 
 Run all tests:
+
 ```bash
 uv run pytest tests/
 ```
 
 Run tests with verbose output:
+
 ```bash
 uv run pytest tests/ -v
 ```
 
 Run specific test categories:
+
 ```bash
 # CRUD tests only
 uv run pytest tests/ -m crud
@@ -89,6 +92,7 @@ uv run pytest tests/ --cov=. --cov-report=html --cov-report=term
 ```
 
 This will generate:
+
 - A terminal coverage report
 - An HTML coverage report in `htmlcov/` directory
 
@@ -239,6 +243,7 @@ uv run pytest tests/ -v -s --pdb
 ```
 
 This will:
+
 - Show print statements (`-s`)
 - Drop into debugger on failures (`--pdb`)
 - Show verbose output (`-v`)

@@ -32,11 +32,7 @@ class TestAuthAuthentication:
             mock_auth.return_value = user
 
             response = client.post(
-                "/auth/token",
-                data={
-                    "username": "testuser",
-                    "password": "password"
-                }
+                "/auth/token", data={"username": "testuser", "password": "password"}
             )
 
             assert response.status_code == status.HTTP_200_OK
@@ -55,10 +51,7 @@ class TestAuthAuthentication:
 
             response = client.post(
                 "/auth/token",
-                data={
-                    "username": "wronguser",
-                    "password": "wrongpassword"
-                }
+                data={"username": "wronguser", "password": "wrongpassword"},
             )
 
             assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -100,7 +93,7 @@ class TestAuthUserManagement:
         user_data = {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "newpassword123"
+            "password": "newpassword123",
         }
 
         with patch("auth.service.create_user") as mock_create:
@@ -126,7 +119,7 @@ class TestAuthUserManagement:
         user_data = {
             "username": "existinguser",
             "email": "newuser@example.com",
-            "password": "newpassword123"
+            "password": "newpassword123",
         }
 
         with patch("auth.service.create_user") as mock_create:
@@ -141,7 +134,7 @@ class TestAuthUserManagement:
         user_data = {
             "username": "",  # Invalid empty username
             "email": "invalid-email",  # Invalid email
-            "password": "123"  # Too short password
+            "password": "123",  # Too short password
         }
 
         response = client.post("/auth/users/", json=user_data)
@@ -197,7 +190,7 @@ class TestAuthUserManagement:
                     hashed_password="hashed_password",
                     is_active=True,
                     is_superuser=False,
-                )
+                ),
             ]
             mock_get_users.return_value = mock_users
 
@@ -267,7 +260,9 @@ class TestAuthUserManagement:
             assert data["username"] == "testuser"
 
     @pytest.mark.auth
-    def test_get_user_by_username_not_found(self, client, db_session, mock_current_user):
+    def test_get_user_by_username_not_found(
+        self, client, db_session, mock_current_user
+    ):
         """Test getting a user by username that doesn't exist"""
         with patch("auth.service.get_user_by_username") as mock_get_user:
             mock_get_user.return_value = None
@@ -281,10 +276,7 @@ class TestAuthUserManagement:
     def test_update_user_success(self, client, db_session, mock_current_user):
         """Test updating a user successfully"""
         user_id = str(uuid.uuid4())
-        update_data = {
-            "email": "updated@example.com",
-            "is_active": False
-        }
+        update_data = {"email": "updated@example.com", "is_active": False}
 
         with patch("auth.service.update_user") as mock_update:
             mock_user = User(
@@ -360,11 +352,7 @@ class TestAuthEdgeCases:
             mock_auth.side_effect = Exception("Authentication service error")
 
             response = client.post(
-                "/auth/token",
-                data={
-                    "username": "testuser",
-                    "password": "password"
-                }
+                "/auth/token", data={"username": "testuser", "password": "password"}
             )
 
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -375,7 +363,7 @@ class TestAuthEdgeCases:
         user_data = {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "newpassword123"
+            "password": "newpassword123",
         }
 
         with patch("auth.service.create_user") as mock_create:

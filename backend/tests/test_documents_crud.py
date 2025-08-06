@@ -26,13 +26,13 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document 1",
             source_file="test1.txt",
-            content="Test content 1"
+            content="Test content 1",
         )
         doc2 = Document(
             id=uuid.uuid4(),
             title="Test Document 2",
             source_file="test2.txt",
-            content="Test content 2"
+            content="Test content 2",
         )
         db_session.add(doc1)
         db_session.add(doc2)
@@ -52,7 +52,7 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -79,15 +79,12 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Original Title",
             source_file="original.txt",
-            content="Original content"
+            content="Original content",
         )
         db_session.add(document)
         db_session.commit()
 
-        update_data = {
-            "title": "Updated Title",
-            "content": "Updated content"
-        }
+        update_data = {"title": "Updated Title", "content": "Updated content"}
 
         response = client.put(f"/documents/{document.id}", json=update_data)
         assert response.status_code == status.HTTP_200_OK
@@ -112,7 +109,7 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -141,7 +138,7 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -152,14 +149,14 @@ class TestDocumentsCRUD:
             chunk_text="First chunk text",
             chunk_index=0,
             chunk_length=16,
-            document_id=document.id
+            document_id=document.id,
         )
         chunk2 = Chunk(
             id=uuid.uuid4(),
             chunk_text="Second chunk text",
             chunk_index=1,
             chunk_length=17,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk1)
         db_session.add(chunk2)
@@ -187,7 +184,7 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -204,7 +201,7 @@ class TestDocumentsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -215,7 +212,7 @@ class TestDocumentsCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -250,7 +247,7 @@ class TestDocumentUpload:
                 id=uuid.uuid4(),
                 title="",
                 source_file="test.txt",
-                content="Test content"
+                content="Test content",
             )
             mock_chunks = [
                 Chunk(
@@ -258,15 +255,15 @@ class TestDocumentUpload:
                     chunk_text="First chunk",
                     chunk_index=0,
                     chunk_length=11,
-            document_id=mock_document.id
+                    document_id=mock_document.id,
                 ),
                 Chunk(
                     id=uuid.uuid4(),
                     chunk_text="Second chunk",
                     chunk_index=1,
                     chunk_length=12,
-            document_id=mock_document.id
-                )
+                    document_id=mock_document.id,
+                ),
             ]
             mock_extract.return_value = (mock_document, mock_chunks)
 
@@ -279,7 +276,7 @@ class TestDocumentUpload:
 
             response = client.post(
                 "/documents/upload",
-                files={"file": ("test.pdf", test_file, "application/pdf")}
+                files={"file": ("test.pdf", test_file, "application/pdf")},
             )
 
             assert response.status_code == status.HTTP_200_OK
@@ -313,17 +310,26 @@ class TestDocumentUpload:
             try:
                 response = client.post(
                     "/documents/upload",
-                    files={"file": ("test.invalid", test_file, "application/octet-stream")}
+                    files={
+                        "file": ("test.invalid", test_file, "application/octet-stream")
+                    },
                 )
                 # The endpoint should handle invalid file types gracefully
-                assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_500_INTERNAL_SERVER_ERROR]
+                assert response.status_code in [
+                    status.HTTP_200_OK,
+                    status.HTTP_400_BAD_REQUEST,
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
+                ]
             except Exception as e:
                 # If the mock raises an exception, that's also acceptable
                 assert "Invalid file type" in str(e)
 
     @pytest.mark.crud
     @pytest.mark.slow
-    def test_upload_document_extraction_error(self, client, db_session, mock_llm_service):
+    def test_upload_document_extraction_error(
+        self, client, db_session, mock_llm_service
+    ):
         """Test uploading a document when text extraction fails"""
         with patch("documents.router.extract_text_from_file_and_chunk") as mock_extract:
             # Mock the extraction to raise an exception
@@ -336,7 +342,7 @@ class TestDocumentUpload:
             try:
                 response = client.post(
                     "/documents/upload",
-                    files={"file": ("test.pdf", test_file, "application/pdf")}
+                    files={"file": ("test.pdf", test_file, "application/pdf")},
                 )
                 # If the endpoint handles the error gracefully, it should return 500
                 assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -346,7 +352,9 @@ class TestDocumentUpload:
 
     @pytest.mark.crud
     @pytest.mark.slow
-    def test_upload_document_title_generation_error(self, client, db_session, mock_llm_service):
+    def test_upload_document_title_generation_error(
+        self, client, db_session, mock_llm_service
+    ):
         """Test uploading a document when title generation fails"""
         with patch("documents.router.extract_text_from_file_and_chunk") as mock_extract:
             # Create mock document and chunks
@@ -354,7 +362,7 @@ class TestDocumentUpload:
                 id=uuid.uuid4(),
                 title="",
                 source_file="test.pdf",
-                content="Test content"
+                content="Test content",
             )
             mock_chunks = [
                 Chunk(
@@ -362,7 +370,7 @@ class TestDocumentUpload:
                     chunk_text="First chunk",
                     chunk_index=0,
                     chunk_length=11,
-                    document_id=mock_document.id
+                    document_id=mock_document.id,
                 )
             ]
             mock_extract.return_value = (mock_document, mock_chunks)
@@ -377,7 +385,7 @@ class TestDocumentUpload:
 
                 response = client.post(
                     "/documents/upload",
-                    files={"file": ("test.pdf", test_file, "application/pdf")}
+                    files={"file": ("test.pdf", test_file, "application/pdf")},
                 )
 
                 # The service handles title generation errors gracefully by returning "Untitled Document"
@@ -394,7 +402,7 @@ class TestDocumentUpload:
                 id=uuid.uuid4(),
                 title="",
                 source_file="large_test.pdf",
-                content="Large test content"
+                content="Large test content",
             )
             mock_chunks = [
                 Chunk(
@@ -402,13 +410,15 @@ class TestDocumentUpload:
                     chunk_text="Large chunk text",
                     chunk_index=0,
                     chunk_length=16,
-                    document_id=mock_document.id
+                    document_id=mock_document.id,
                 )
             ]
             mock_extract.return_value = (mock_document, mock_chunks)
 
             # Mock the title generation
-            mock_llm_service["generate_document_title"].return_value = "Large Document Title"
+            mock_llm_service[
+                "generate_document_title"
+            ].return_value = "Large Document Title"
 
             # Create a large test file
             large_content = b"Large test document content. " * 1000
@@ -417,7 +427,7 @@ class TestDocumentUpload:
 
             response = client.post(
                 "/documents/upload",
-                files={"file": ("large_test.pdf", test_file, "application/pdf")}
+                files={"file": ("large_test.pdf", test_file, "application/pdf")},
             )
 
             assert response.status_code == status.HTTP_200_OK

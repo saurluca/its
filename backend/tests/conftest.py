@@ -46,11 +46,11 @@ def db_session():
     """Create a fresh database session for each test"""
     # Create tables
     SQLModel.metadata.create_all(engine)
-    
+
     # Create session
     with Session(engine) as session:
         yield session
-    
+
     # Clean up - drop all tables
     SQLModel.metadata.drop_all(engine)
 
@@ -60,10 +60,10 @@ def client(db_session) -> Generator[TestClient, None, None]:
     """Create a test client with overridden dependencies"""
     # Override the database dependency
     app.dependency_overrides[get_db_session] = lambda: db_session
-    
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     # Clear overrides
     app.dependency_overrides.clear()
 
@@ -83,9 +83,10 @@ def mock_user():
 @pytest.fixture
 def mock_current_user(mock_user):
     """Mock the current user dependency"""
+
     def _mock_get_current_user():
         return mock_user
-    
+
     app.dependency_overrides[get_current_user_from_request] = _mock_get_current_user
     yield mock_user
     app.dependency_overrides.pop(get_current_user_from_request, None)
@@ -104,9 +105,9 @@ def temp_file():
     with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as f:
         f.write(b"This is a test document content for testing purposes.")
         temp_file_path = f.name
-    
+
     yield temp_file_path
-    
+
     # Clean up
     if os.path.exists(temp_file_path):
         os.unlink(temp_file_path)
@@ -115,19 +116,20 @@ def temp_file():
 @pytest.fixture
 def mock_llm_service():
     """Mock LLM service for testing"""
-    with patch("tasks.router.generate_questions") as mock_generate, \
-         patch("tasks.router.evaluate_student_answer") as mock_evaluate, \
-         patch("documents.service.generate_document_title") as mock_title:
-        
+    with (
+        patch("tasks.router.generate_questions") as mock_generate,
+        patch("tasks.router.evaluate_student_answer") as mock_evaluate,
+        patch("documents.service.generate_document_title") as mock_title,
+    ):
         # Mock generate_questions - return empty list by default
         mock_generate.return_value = []
-        
+
         # Mock evaluate_student_answer
         mock_evaluate.return_value = "Good answer! Well done."
-        
+
         # Mock generate_document_title
         mock_title.return_value = "Test Document Title"
-        
+
         yield {
             "generate_questions": mock_generate,
             "evaluate_student_answer": mock_evaluate,
@@ -158,7 +160,7 @@ def sample_task_data():
             {"answer": "Option A", "is_correct": True},
             {"answer": "Option B", "is_correct": False},
             {"answer": "Option C", "is_correct": False},
-        ]
+        ],
     }
 
 

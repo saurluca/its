@@ -32,10 +32,12 @@ app.add_middleware(
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()
 
+
 def init_app():
     """Initialize the application (database tables, etc.)"""
     # Initialize database tables
     create_db_and_tables()
+
 
 # Only initialize if running directly
 if __name__ == "__main__":

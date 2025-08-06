@@ -15,6 +15,7 @@ class TestBasicSetup:
         """Test that database connection is working"""
         # Try to execute a simple query
         from sqlalchemy import text
+
         result = db_session.execute(text("SELECT 1"))
         assert result is not None
 
@@ -38,8 +39,9 @@ class TestBasicSetup:
     def test_temp_file_fixture(self, temp_file):
         """Test that the temp file fixture works"""
         import os
+
         assert os.path.exists(temp_file)
-        with open(temp_file, 'r') as f:
+        with open(temp_file, "r") as f:
             content = f.read()
         assert "test document content" in content.lower()
 

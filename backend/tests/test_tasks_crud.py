@@ -25,7 +25,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -35,7 +35,7 @@ class TestTasksCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -45,7 +45,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="What is this?",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
@@ -64,7 +64,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -74,7 +74,7 @@ class TestTasksCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -84,7 +84,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="What is this?",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
@@ -111,7 +111,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -121,7 +121,7 @@ class TestTasksCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -132,8 +132,8 @@ class TestTasksCRUD:
             "chunk_id": str(chunk.id),
             "answer_options": [
                 {"answer": "Option A", "is_correct": True},
-                {"answer": "Option B", "is_correct": False}
-            ]
+                {"answer": "Option B", "is_correct": False},
+            ],
         }
 
         response = client.post("/tasks/", json=task_data)
@@ -150,9 +150,7 @@ class TestTasksCRUD:
             "type": "multiple_choice",
             "question": "What is the main topic?",
             "chunk_id": str(uuid.uuid4()),
-            "answer_options": [
-                {"answer": "Option A", "is_correct": True}
-            ]
+            "answer_options": [{"answer": "Option A", "is_correct": True}],
         }
 
         response = client.post("/tasks/", json=task_data)
@@ -167,7 +165,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -177,7 +175,7 @@ class TestTasksCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -187,7 +185,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Original question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
@@ -196,8 +194,8 @@ class TestTasksCRUD:
             "question": "Updated question",
             "answer_options": [
                 {"answer": "New Option A", "is_correct": True},
-                {"answer": "New Option B", "is_correct": False}
-            ]
+                {"answer": "New Option B", "is_correct": False},
+            ],
         }
 
         response = client.put(f"/tasks/{task.id}", json=update_data)
@@ -224,7 +222,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -234,7 +232,7 @@ class TestTasksCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -244,7 +242,7 @@ class TestTasksCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
@@ -277,7 +275,7 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -287,7 +285,7 @@ class TestAnswerOptionsCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -297,17 +295,16 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
 
-        answer_option_data = {
-            "answer": "New answer option",
-            "is_correct": True
-        }
+        answer_option_data = {"answer": "New answer option", "is_correct": True}
 
-        response = client.post(f"/tasks/{task.id}/answer-options", json=answer_option_data)
+        response = client.post(
+            f"/tasks/{task.id}/answer-options", json=answer_option_data
+        )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["answer"] == "New answer option"
@@ -318,12 +315,11 @@ class TestAnswerOptionsCRUD:
     def test_create_answer_option_task_not_found(self, client):
         """Test creating an answer option for non-existent task"""
         fake_task_id = uuid.uuid4()
-        answer_option_data = {
-            "answer": "New answer option",
-            "is_correct": True
-        }
+        answer_option_data = {"answer": "New answer option", "is_correct": True}
 
-        response = client.post(f"/tasks/{fake_task_id}/answer-options", json=answer_option_data)
+        response = client.post(
+            f"/tasks/{fake_task_id}/answer-options", json=answer_option_data
+        )
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
 
@@ -335,7 +331,7 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -345,7 +341,7 @@ class TestAnswerOptionsCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -355,23 +351,17 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
 
         # Create answer options
         option1 = AnswerOption(
-            id=uuid.uuid4(),
-            answer="Option A",
-            is_correct=True,
-            task_id=task.id
+            id=uuid.uuid4(), answer="Option A", is_correct=True, task_id=task.id
         )
         option2 = AnswerOption(
-            id=uuid.uuid4(),
-            answer="Option B",
-            is_correct=False,
-            task_id=task.id
+            id=uuid.uuid4(), answer="Option B", is_correct=False, task_id=task.id
         )
         db_session.add(option1)
         db_session.add(option2)
@@ -400,7 +390,7 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -410,7 +400,7 @@ class TestAnswerOptionsCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -420,27 +410,23 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
 
         # Create an answer option
         option = AnswerOption(
-            id=uuid.uuid4(),
-            answer="Original answer",
-            is_correct=False,
-            task_id=task.id
+            id=uuid.uuid4(), answer="Original answer", is_correct=False, task_id=task.id
         )
         db_session.add(option)
         db_session.commit()
 
-        update_data = {
-            "answer": "Updated answer",
-            "is_correct": True
-        }
+        update_data = {"answer": "Updated answer", "is_correct": True}
 
-        response = client.put(f"/tasks/{task.id}/answer-options/{option.id}", json=update_data)
+        response = client.put(
+            f"/tasks/{task.id}/answer-options/{option.id}", json=update_data
+        )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["answer"] == "Updated answer"
@@ -451,12 +437,11 @@ class TestAnswerOptionsCRUD:
         """Test updating an answer option that doesn't exist"""
         fake_task_id = uuid.uuid4()
         fake_option_id = uuid.uuid4()
-        update_data = {
-            "answer": "Updated answer",
-            "is_correct": True
-        }
+        update_data = {"answer": "Updated answer", "is_correct": True}
 
-        response = client.put(f"/tasks/{fake_task_id}/answer-options/{fake_option_id}", json=update_data)
+        response = client.put(
+            f"/tasks/{fake_task_id}/answer-options/{fake_option_id}", json=update_data
+        )
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Answer option not found"
 
@@ -468,7 +453,7 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             title="Test Document",
             source_file="test.txt",
-            content="Test content"
+            content="Test content",
         )
         db_session.add(document)
         db_session.commit()
@@ -478,7 +463,7 @@ class TestAnswerOptionsCRUD:
             chunk_text="Test chunk text",
             chunk_index=0,
             chunk_length=15,
-            document_id=document.id
+            document_id=document.id,
         )
         db_session.add(chunk)
         db_session.commit()
@@ -488,17 +473,14 @@ class TestAnswerOptionsCRUD:
             id=uuid.uuid4(),
             type="multiple_choice",
             question="Test question",
-            chunk_id=chunk.id
+            chunk_id=chunk.id,
         )
         db_session.add(task)
         db_session.commit()
 
         # Create an answer option
         option = AnswerOption(
-            id=uuid.uuid4(),
-            answer="Test answer",
-            is_correct=True,
-            task_id=task.id
+            id=uuid.uuid4(), answer="Test answer", is_correct=True, task_id=task.id
         )
         db_session.add(option)
         db_session.commit()
@@ -513,6 +495,8 @@ class TestAnswerOptionsCRUD:
         fake_task_id = uuid.uuid4()
         fake_option_id = uuid.uuid4()
 
-        response = client.delete(f"/tasks/{fake_task_id}/answer-options/{fake_option_id}")
+        response = client.delete(
+            f"/tasks/{fake_task_id}/answer-options/{fake_option_id}"
+        )
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Answer option not found"

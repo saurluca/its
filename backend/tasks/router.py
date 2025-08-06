@@ -357,5 +357,5 @@ def evaluate_answer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error evaluating answer: {str(e)}"
+            detail=f"Error evaluating answer: {str(e)}",
         )

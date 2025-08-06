@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from router import router
 from tasks.router import router as tasks_router
@@ -7,7 +7,12 @@ from repositories.router import router as repositories_router
 from auth.router import router as auth_router
 from database import create_db_and_tables
 from config import LLMConfig, AppConfig
-from auth.dependencies import get_current_user_from_request
+
+# Import all models to register them with SQLModel.metadata
+from auth.models import User  # noqa
+from documents.models import Document, Chunk  # noqa
+from tasks.models import Task, AnswerOption  # noqa
+from repositories.models import Repository  # noqa
 
 app = FastAPI(
     title="ITS Backend",

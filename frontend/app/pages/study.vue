@@ -143,11 +143,8 @@ async function evaluateAnswer() {
     try {
       const responseData = await $authFetch<{
         feedback: string;
-      }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+      }>(`/tasks/evaluate_answer/${currentTask.value?.id}?student_answer=${encodeURIComponent(currentAnswer.value)}`, {
         method: "POST",
-        body: {
-          student_answer: currentAnswer.value,
-        },
       });
       feedback.value = responseData.feedback || null;
     } catch (e: any) {

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 
 class RepositoryBase(SQLModel):
-    name: str
+    name: str = Field(..., min_length=1, description="Repository name cannot be empty")
 
 
 class RepositoryDocumentLink(SQLModel, table=True):
@@ -39,7 +39,7 @@ class RepositoryCreate(RepositoryBase):
 
 
 class RepositoryUpdate(SQLModel):
-    name: str
+    name: str = Field(..., min_length=1, description="Repository name cannot be empty")
 
 
 class RepositoryResponse(RepositoryBase):

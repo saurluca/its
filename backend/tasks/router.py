@@ -13,6 +13,8 @@ from tasks.models import (
 )
 from uuid import UUID
 from sqlmodel import select, Session
+from tasks.service import generate_questions, evaluate_student_answer
+from constants import DEFAULT_NUM_QUESTIONS
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -208,89 +210,67 @@ def delete_answer_option(
     return {"ok": True}
 
 
-# # Question-related endpoints
-# @router.post("/document_to_questions", response_model=dict)
-# def document_to_questions(
-#     file: UploadFile = File(...), session: Session = Depends(get_db_session)
-# ) -> dict:
-#     """
-#     Full pipeline endpoint for document processing.
-#     1. Extracts text and chunks from the uploaded file and saves them to the database.
-#     2. Summarises the document and stores key points in the database.
-#     3. Generates questions and answer options from the document chunks and stores them in the database.
-#     4. Returns the document ID, generated questions, and answer options.
-#     This endpoint orchestrates the main workflow for document ingestion and question generation.
-#     """
-#     result = extract_text_from_file_and_chunk(file.file, mime_type=file.content_type)
-#     document_id = save_document_to_db(result["full_text"], title=result["name"])
-#     save_chunks_to_db(document_id, result["chunks"])
-#     print("Generating questions")
-#     tasks = generate_questions(document_id, result["chunks"])
+@router.post("/generate/{doc_id}", response_model=list[TaskRead])
+def generate_tasks_from_document(
+    doc_id: str,
+    num_tasks: int = DEFAULT_NUM_QUESTIONS,
+    session: Session = Depends(get_db_session),
+):
+    """
+    Generates a specified number of questions for a given document ID.
+    Uses the document's chunks to create questions and answer options.
+    Returns the generated questions and answer options.
+    Useful for on-demand question generation for existing documents.
+    """
+    # TODO retrieve chunks from document model instead of search all chunks
+    chunks = session.exec(select(Chunk).where(Chunk.document_id == doc_id)).all()
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
+        )
 
-#     # Save tasks to database
-#     for task in tasks:
-#         session.add(task)
-#     session.commit()
+    tasks = generate_questions(doc_id, chunks, num_tasks)
 
-#     return {
-#         "document_id": document_id,
-#         "tasks_created": len(tasks),
-#     }
+    # Save tasks and their answer options to database
+    for task in tasks:
+        session.add(task)
+    session.commit()
 
-
-# @router.post("/generate/{doc_id}", response_model=dict)
-# def generate_tasks_from_document(
-#     doc_id: str,
-#     num_tasks: int = DEFAULT_NUM_QUESTIONS,
-#     session: Session = Depends(get_db_session),
-# ):
-#     """
-#     Generates a specified number of questions for a given document ID.
-#     Uses the document's chunks to create questions and answer options.
-#     Returns the generated questions and answer options.
-#     Useful for on-demand question generation for existing documents.
-#     """
-#     # TODO retrieve chunks from document model instead of search all chunks
-#     chunks = session.exec(select(Chunk).where(Chunk.document_id == doc_id)).all()
-#     if not chunks:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
-#         )
-
-#     tasks = generate_questions(doc_id, chunks, num_tasks)
-
-#     # Save tasks to database
-#     for task in tasks:
-#         session.add(task)
-#     session.commit()
-
-#     return {
-#         "tasks_created": len(tasks),
-#     }
+    return tasks
 
 
-# @router.post("/evaluate_answer/{task_id}", response_model=EvaluateAnswerResponse)
-# def evaluate_answer(
-#     task_id: UUID,
-#     body: EvaluateAnswerRequest,
-#     session: Session = Depends(get_db_session),
-# ) -> EvaluateAnswerResponse:
-#     """
-#     Evaluate a student's answer for a specific task.
-#     Returns feedback on the student's answer.
-#     """
-#     db_task = session.get(Task, task_id)
-#     if not db_task:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
-#         )
+@router.post("/evaluate_answer/{task_id}", response_model=dict)
+def evaluate_answer(
+    task_id: UUID,
+    student_answer: str,
+    session: Session = Depends(get_db_session),
+):
+    """
+    Evaluate a student's answer for a specific task.
+    Returns feedback on the student's answer.
+    """
+    db_task = session.get(Task, task_id)
+    if not db_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        )
 
-#     answer_options = db_task.get_options_list()
-#     feedback = evaluate_student_answer(
-#         db_task.question,
-#         answer_options,
-#         body.student_answer,
-#         db_task.correct_answer,
-#     )
+    # Get answer options for the task
+    answer_options = session.exec(
+        select(AnswerOption).where(AnswerOption.task_id == task_id)
+    ).all()
 
-#     return EvaluateAnswerResponse(feedback=feedback)
+    # Extract answer texts and find the correct answer
+    answer_texts = [option.answer for option in answer_options]
+    correct_answer = next(
+        (option.answer for option in answer_options if option.is_correct), ""
+    )
+
+    feedback = evaluate_student_answer(
+        db_task.question,
+        answer_texts,
+        student_answer,
+        correct_answer,
+    )
+
+    return {"feedback": feedback}

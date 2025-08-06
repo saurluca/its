@@ -4,10 +4,10 @@ import dspy
 import time
 from tqdm import tqdm
 import random
-import json
 
 from constants import REQUIRED_ANSWER_OPTIONS
-from tasks.models import Task, TaskType
+from documents.models import Chunk
+from tasks.models import Task, TaskType, AnswerOption
 
 
 class QuestionMultipleChoice(dspy.Signature):
@@ -73,10 +73,10 @@ def _get_question_generator(question_type: str):
         raise ValueError(f"Invalid question type: {question_type}")
 
 
-def _generate_single_question(chunk: dict, question_generator, question_type: str):
+def _generate_single_question(chunk: Chunk, question_generator, question_type: str):
     """Generate a single question from a chunk."""
     try:
-        qg_response = question_generator(text=chunk["chunk_text"])
+        qg_response = question_generator(text=chunk.chunk_text)
 
         # Validate multiple choice questions have the correct number of answer options
         if (
@@ -87,28 +87,41 @@ def _generate_single_question(chunk: dict, question_generator, question_type: st
 
         return qg_response
     except Exception as e:
-        print(f"Error generating question for chunk {chunk['chunk_index']}: {e}")
+        print(f"Error generating question for chunk {chunk.chunk_id}: {e}")
         return None
 
 
 def _create_task_from_response(
-    qg_response, question_type: str, document_id: str, chunk_id: UUID
+    qg_response, question_type: str, document_id: UUID, chunk_id: UUID
 ) -> Task:
     """Create a Task object from a question generation response."""
-    return Task(
+    task = Task(
         type=TaskType.MULTIPLE_CHOICE
         if question_type == "multiple_choice"
         else TaskType.FREE_TEXT,
         question=qg_response.question,
-        options_json=json.dumps(qg_response.answer)
-        if question_type == "multiple_choice"
-        else None,
-        correct_answer=qg_response.answer[0]
-        if question_type == "multiple_choice"
-        else qg_response.answer,
-        document_id=UUID(document_id),
         chunk_id=chunk_id,
     )
+
+    # Create answer options for multiple choice questions
+    if question_type == "multiple_choice":
+        for i, answer in enumerate(qg_response.answer):
+            answer_option = AnswerOption(
+                answer=answer,
+                is_correct=(i == 0),  # First answer is correct
+                task=task,
+            )
+            task.answer_options.append(answer_option)
+    # For free text questions, create a single answer option with the ideal answer
+    elif question_type == "open":
+        answer_option = AnswerOption(
+            answer=qg_response.answer,
+            is_correct=True,  # The ideal answer is always correct
+            task=task,
+        )
+        task.answer_options.append(answer_option)
+
+    return task
 
 
 def generate_questions(
@@ -148,7 +161,7 @@ def generate_questions(
 
         if qg_response is not None:
             task = _create_task_from_response(
-                qg_response, question_type, document_id, chunk["id"]
+                qg_response, question_type, document_id, chunk.id
             )
             tasks.append(task)
 

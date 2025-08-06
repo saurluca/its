@@ -12,14 +12,13 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
 
-def get_user_from_db(db: Session, username: str):
-    """Get user from database by username"""
-    user = db.exec(select(User).where(User.username == username)).first()
+def get_user_from_db(db: Session, email: str):
+    """Get user from database by email"""
+    user = db.exec(select(User).where(User.email == email)).first()
     if not user:
         return None
     return UserResponse(
         id=str(user.id),
-        username=user.username,
         email=user.email,
         full_name=user.full_name,
         disabled=user.disabled,
@@ -45,14 +44,14 @@ async def get_current_user_from_request(
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
+        email = payload.get("sub")
+        if email is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        token_data = TokenData(email=email)
     except InvalidTokenError:
         raise credentials_exception
 
-    user = get_user_from_db(db, username=token_data.username)
+    user = get_user_from_db(db, email=token_data.email)
     if user is None:
         raise credentials_exception
     return user

@@ -22,7 +22,6 @@ async function register() {
     errorMsg.value = "";
     
     const result = await authStore.register({
-      username: email.value, // Use email as username
       email: email.value,
       password: password.value,
       full_name: name.value,

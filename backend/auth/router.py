@@ -4,10 +4,10 @@ from auth.service import (
     create_access_token,
     create_user,
     get_user_by_id,
-    get_user_by_username,
     update_user,
     delete_user,
     get_users,
+    get_user_by_email,
 )
 from auth.models import (
     UserResponse,
@@ -23,6 +23,7 @@ from auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session
+from uuid import UUID
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,12 +39,12 @@ async def login_for_access_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
 
     # Set HTTP-only cookie with the access token
@@ -76,7 +77,7 @@ async def read_users_me(
     db: Session = Depends(get_db_session),
 ):
     """Get current user information"""
-    user = await get_user_by_username(current_user.username, db)
+    user = await get_user_by_email(current_user.email, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -103,14 +104,14 @@ async def get_users_endpoint(
     limit: int = 100,
 ):
     """Get all users with pagination"""
-    users = await get_users(skip=skip, limit=limit, db=db)
+    users = await get_users(skip=skip, limit=limit, session=db)
     total = len(users)  # In a real app, you'd want to get total count from DB
     return UserListResponse(users=users, total=total)
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user_endpoint(
-    user_id: str,
+    user_id: UUID,
     current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):
@@ -123,24 +124,9 @@ async def get_user_endpoint(
     return user
 
 
-@router.get("/users/username/{username}", response_model=UserResponse)
-async def get_user_by_username_endpoint(
-    username: str,
-    current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
-    db: Session = Depends(get_db_session),
-):
-    """Get user by username"""
-    user = await get_user_by_username(username, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-    return user
-
-
 @router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user_endpoint(
-    user_id: str,
+    user_id: UUID,
     user_data: UserUpdate,
     current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
@@ -156,7 +142,7 @@ async def update_user_endpoint(
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_endpoint(
-    user_id: str,
+    user_id: UUID,
     current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
 ):

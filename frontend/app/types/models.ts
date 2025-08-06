@@ -54,8 +54,7 @@ export interface AnswerOption {
 // User type matching backend API structure
 export interface User {
   id: string;
-  username: string;
-  email?: string;
+  email: string;
   full_name?: string;
   disabled: boolean;
   created_at: Date;
@@ -90,16 +89,14 @@ export interface TaskCreateForm {
 
 // User creation form matching backend UserCreate schema
 export interface UserCreateForm {
-  username: string;
-  email?: string;
+  email: string;
   full_name?: string;
   password: string;
 }
 
 // User update form matching backend UserUpdate schema
 export interface UserUpdateForm {
-  username?: string;
-  email?: string;
+  email: string;
   full_name?: string;
   password?: string;
   disabled?: boolean;

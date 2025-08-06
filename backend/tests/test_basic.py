@@ -27,7 +27,6 @@ class TestBasicSetup:
 
     def test_mock_user_fixture(self, mock_user):
         """Test that the mock user fixture works"""
-        assert mock_user.username == "testuser"
         assert mock_user.email == "test@example.com"
 
     def test_mock_llm_service_fixture(self, mock_llm_service):

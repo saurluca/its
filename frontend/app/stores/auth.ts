@@ -19,14 +19,14 @@ export const useAuthStore = defineStore('auth', {
     },
 
     actions: {
-        async login(username: string, password: string) {
+        async login(email: string, password: string) {
             const config = useRuntimeConfig()
             const apiUrl = config.public.apiBase
 
             try {
                 // Create form data for OAuth2PasswordRequestForm
                 const formData = new FormData()
-                formData.append('username', username)
+                formData.append('username', email)
                 formData.append('password', password)
 
                 const response = await $fetch<{ message: string }>(`${apiUrl}/auth/token`, {
@@ -52,7 +52,6 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async register(userData: {
-            username: string;
             email: string;
             password: string;
             full_name?: string;

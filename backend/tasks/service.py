@@ -91,9 +91,7 @@ def _generate_single_question(chunk: Chunk, question_generator, question_type: s
         return None
 
 
-def _create_task_from_response(
-    qg_response, question_type: str, document_id: UUID, chunk_id: UUID
-) -> Task:
+def _create_task_from_response(qg_response, question_type: str, chunk_id: UUID) -> Task:
     """Create a Task object from a question generation response."""
     task = Task(
         type=TaskType.MULTIPLE_CHOICE
@@ -125,8 +123,8 @@ def _create_task_from_response(
 
 
 def generate_questions(
-    document_id: str,
-    chunks: List[dict],
+    document_id: UUID,
+    chunks: List[Chunk],
     num_questions: int = 3,
     question_type: str = "multiple_choice",
 ) -> List[Task]:

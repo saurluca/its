@@ -294,6 +294,7 @@ def delete_answer_option(
 def generate_tasks_from_document(
     doc_id: UUID,
     num_tasks: int = DEFAULT_NUM_QUESTIONS,
+    task_type: str = "multiple_choice",
     session: Session = Depends(get_db_session),
 ):
     """
@@ -309,7 +310,7 @@ def generate_tasks_from_document(
             status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
         )
 
-    tasks = generate_questions(doc_id, chunks, num_tasks)
+    tasks = generate_questions(doc_id, chunks, num_tasks, task_type)
 
     # Save tasks and their answer options to database
     for task in tasks:

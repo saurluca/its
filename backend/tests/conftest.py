@@ -1,10 +1,10 @@
 import pytest
 import asyncio
-from typing import Generator, AsyncGenerator
+from typing import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy.pool import StaticPool
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import tempfile
 import os
 import uuid
@@ -73,8 +73,8 @@ def mock_user():
     """Create a mock user for testing"""
     return User(
         id=uuid.uuid4(),
-        username="testuser",
         email="test@example.com",
+        full_name="Test User",
         hashed_password="hashed_password",
         disabled=False,
     )
@@ -95,7 +95,7 @@ def mock_current_user(mock_user):
 @pytest.fixture
 def auth_headers(mock_user):
     """Create authentication headers for testing"""
-    access_token = create_access_token(data={"sub": mock_user.username})
+    access_token = create_access_token(data={"sub": mock_user.email})
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -188,7 +188,6 @@ def sample_repository_data():
 def sample_user_data():
     """Sample user data for testing"""
     return {
-        "username": "testuser",
         "email": "test@example.com",
         "password": "testpassword123",
     }

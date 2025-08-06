@@ -52,24 +52,11 @@ function saveItem() {
   <div class="bg-white p-6 rounded-lg shadow">
     <h2 class="text-xl font-bold mb-4">{{ title }}</h2>
 
-    <div class="space-y-4">
+    <div class="flex items-center justify-between space-x-3">
       <div>
-        <DLabel>Name</DLabel>
         <DInput v-model="formData.name" type="text" placeholder="Enter name" />
       </div>
-
       <div>
-        <DLabel>Description</DLabel>
-        <DInputArea
-          v-model="formData.description"
-          rows="3"
-          placeholder="Enter description (optional)"
-        />
-      </div>
-
-      <slot name="extra-fields"></slot>
-
-      <div class="flex justify-end space-x-3 mt-6">
         <DButton v-if="isEdit" @click="$emit('cancel')" variant="secondary">
           Cancel
         </DButton>

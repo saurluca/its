@@ -46,7 +46,7 @@ const selectedDocumentId = ref<string | null>(null);
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
-    const data = await $authFetch("/documents/");
+    const data = await $authFetch("/documents/") as any;
     // Transform the API response to match our Document interface
     documents.value = data.map((doc: any) => ({
       id: doc.id,
@@ -68,7 +68,7 @@ async function fetchDocuments() {
 async function fetchRepositories() {
   loadingRepositories.value = true;
   try {
-    const data = await $authFetch("/repositories/");
+    const data = await $authFetch("/repositories/") as any;
     repositories.value = data.repositories || data;
   } catch (error) {
     console.error("Error fetching repositories:", error);
@@ -96,11 +96,11 @@ async function uploadDocumentFromInput(event: Event) {
       formData.append("file", input.files[0]);
     }
 
-    const data = await $authFetch("/documents/to_chunks/", {
+    const data = await $authFetch("/documents/upload", {
       method: "POST",
       body: formData,
-    });
-    uploadedDocumentId.value = data.document_id;
+    }) as any;
+    uploadedDocumentId.value = data.id;
     // Refresh the document list
     await fetchDocuments();
   } catch (error) {
@@ -210,7 +210,7 @@ async function confirmAddToRepository() {
   if (!selectedDocumentId.value || !selectedRepositoryId.value) return;
 
   try {
-    await $authFetch("/repositories/add_document/", {
+    await $authFetch("/repositories/links", {
       method: "POST",
       body: {
         repository_id: selectedRepositoryId.value,
@@ -291,7 +291,7 @@ async function viewDocument(documentId: string) {
   showHtmlViewer.value = true;
 
   try {
-    const data = await $authFetch(`/documents/${documentId}/`);
+    const data = await $authFetch(`/documents/${documentId}/`) as any;
 
     if (data.content) {
       htmlContent.value = data.content;
@@ -321,10 +321,7 @@ async function viewDocument(documentId: string) {
             New Document
           </DButton>
           <div v-if="uploadingDocument">
-            <DSpinner />
-            <p>
-              Uploading document and extracting text, this may take a while...
-            </p>
+            Extracting text, this may take a while...
           </div>
         </div>
 
@@ -404,9 +401,7 @@ async function viewDocument(documentId: string) {
             Close
           </DButton>
         </div>
-        <!-- <div class="h-[calc(100%-4rem)]"> -->
         <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-        <!-- </div> -->
       </div>
       <div v-else class="h-full flex items-center justify-center text-gray-500">
         <div class="text-center">

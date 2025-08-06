@@ -194,7 +194,8 @@ class TestTasksLLM:
         ].return_value = "Excellent answer! You are correct."
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}?student_answer=Correct answer"
+            f"/tasks/evaluate_answer/{task.id}",
+            json={"student_answer": "Correct answer"},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -209,7 +210,8 @@ class TestTasksLLM:
         """Test evaluating answer for non-existent task"""
         fake_task_id = uuid.uuid4()
         response = client.post(
-            f"/tasks/evaluate_answer/{fake_task_id}?student_answer=Some answer"
+            f"/tasks/evaluate_answer/{fake_task_id}",
+            json={"student_answer": "Some answer"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Task not found"
@@ -254,7 +256,7 @@ class TestTasksLLM:
         db_session.add(option)
         db_session.commit()
 
-        response = client.post(f"/tasks/evaluate_answer/{task.id}")
+        response = client.post(f"/tasks/evaluate_answer/{task.id}", json={})
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.llm
@@ -315,7 +317,7 @@ class TestTasksLLM:
         ].return_value = "Good attempt, but not quite right."
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}?student_answer=Option A"
+            f"/tasks/evaluate_answer/{task.id}", json={"student_answer": "Option A"}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -370,7 +372,9 @@ class TestTasksLLM:
             "evaluate_student_answer"
         ].return_value = "Please provide an answer."
 
-        response = client.post(f"/tasks/evaluate_answer/{task.id}?student_answer=")
+        response = client.post(
+            f"/tasks/evaluate_answer/{task.id}", json={"student_answer": ""}
+        )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert "feedback" in data
@@ -425,7 +429,7 @@ class TestTasksLLM:
         )
 
         response = client.post(
-            f"/tasks/evaluate_answer/{task.id}?student_answer=Some answer"
+            f"/tasks/evaluate_answer/{task.id}", json={"student_answer": "Some answer"}
         )
         # The endpoint should handle the error gracefully
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR

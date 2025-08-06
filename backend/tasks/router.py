@@ -10,6 +10,7 @@ from tasks.models import (
     AnswerOptionCreate,
     AnswerOptionUpdate,
     AnswerOptionRead,
+    EvaluateAnswerRequest,
 )
 from uuid import UUID
 from sqlmodel import select, Session
@@ -323,7 +324,7 @@ def generate_tasks_from_document(
 @router.post("/evaluate_answer/{task_id}", response_model=dict)
 def evaluate_answer(
     task_id: UUID,
-    student_answer: str,
+    request: EvaluateAnswerRequest,
     session: Session = Depends(get_db_session),
 ):
     """
@@ -335,6 +336,8 @@ def evaluate_answer(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
+
+    print("task", db_task)
 
     # Get answer options for the task
     answer_options = session.exec(
@@ -351,7 +354,7 @@ def evaluate_answer(
         feedback = evaluate_student_answer(
             db_task.question,
             answer_texts,
-            student_answer,
+            request.student_answer,
             correct_answer,
         )
         return {"feedback": feedback}

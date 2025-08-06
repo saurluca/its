@@ -48,7 +48,7 @@ class Teacher(dspy.Signature):
         description="The question to be answered and the 4 answer options."
     )
     answer_options: list[str] = dspy.InputField(
-        description="The 4 answer options for the question."
+        description="The answer options for the question."
     )
     correct_answer: str = dspy.InputField(
         description="The correct answer to the question."
@@ -57,9 +57,9 @@ class Teacher(dspy.Signature):
         description="The student's answer to the question."
     )
 
-    # output fields
     feedback: str = dspy.OutputField(
-        description="Short and concise explanation of what the correct answer is and why it is correct. The feedback should be based on the student's answer."
+        description="Short and concise feedback for the student based on their answer, if it is correct or incorrect. If it is incorrect, provide a short explanation"
+        "of what the correct answer is and why it is correct. The feedback should be based on the student's answer."
     )
 
 

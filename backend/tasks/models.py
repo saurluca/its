@@ -80,3 +80,7 @@ class TaskRead(TaskBase):
     created_at: datetime
     deleted_at: datetime | None = None
     answer_options: list[AnswerOption] = []
+
+
+class EvaluateAnswerRequest(SQLModel):
+    student_answer: str

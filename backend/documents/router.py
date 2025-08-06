@@ -31,13 +31,34 @@ def get_document(document_id: UUID, session: Session = Depends(get_session)):
     return db_document
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=Document)
-def create_document(document: DocumentCreate, session: Session = Depends(get_session)):
-    db_document = Document.model_validate(document)
-    session.add(db_document)
+@router.post("/upload", response_model=Document)
+def upload_and_chunk_document(
+    file: UploadFile = File(...), session: Session = Depends(get_session)
+):
+    document, chunks = extract_text_from_file_and_chunk(
+        file.file, mime_type=file.content_type
+    )
+
+    title_context = "\n".join([chunk.chunk_text for chunk in chunks[:4]])
+
+    # create title for document based on first chunk
+    title = generate_document_title(title_context)
+
+    # Update document with generated title
+    document.title = title
+    document.source_file = file.filename
+    session.add(document)
     session.commit()
-    session.refresh(db_document)
-    return db_document
+    session.refresh(document)
+
+    # Add chunks with document_id reference
+    for chunk in chunks:
+        chunk.document_id = document.id
+        session.add(chunk)
+
+    session.commit()
+    session.refresh(document)
+    return document
 
 
 @router.put("/{document_id}", response_model=Document)
@@ -71,36 +92,6 @@ def delete_document(document_id: UUID, session: Session = Depends(get_session)):
     return {"ok": True}
 
 
-@router.post("/upload", response_model=Document)
-def upload_and_chunk_document(
-    file: UploadFile = File(...), session: Session = Depends(get_session)
-):
-    document, chunks = extract_text_from_file_and_chunk(
-        file.file, mime_type=file.content_type
-    )
-
-    title_context = "\n".join([chunk.chunk_text for chunk in chunks[:4]])
-
-    # create title for document based on first chunk
-    title = generate_document_title(title_context)
-
-    # Update document with generated title
-    document.title = title
-    document.source_file = file.filename
-    session.add(document)
-    session.commit()
-    session.refresh(document)
-
-    # Add chunks with document_id reference
-    for chunk in chunks:
-        chunk.document_id = document.id
-        session.add(chunk)
-
-    session.commit()
-    session.refresh(document)
-    return document
-
-
 @router.get("/{document_id}/chunks", response_model=list[Chunk])
 def get_document_chunks(document_id: UUID, session: Session = Depends(get_session)):
     # First check if document exists
@@ -115,15 +106,8 @@ def get_document_chunks(document_id: UUID, session: Session = Depends(get_sessio
     return chunks
 
 
-@router.get("/{document_id}/chunks/{chunk_id}", response_model=Chunk)
-def get_chunk(
-    document_id: UUID, chunk_id: UUID, session: Session = Depends(get_session)
-):
-    db_document = session.get(Document, document_id)
-    if not db_document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
+@router.get("/chunks/{chunk_id}", response_model=Chunk)
+def get_chunk(chunk_id: UUID, session: Session = Depends(get_session)):
     db_chunk = session.get(Chunk, chunk_id)
     if not db_chunk:
         raise HTTPException(

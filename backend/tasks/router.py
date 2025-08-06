@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status, Depends, HTTPException
 from dependencies import get_db_session
+from documents.models import Chunk
 from tasks.models import (
     Task,
     TaskCreate,
@@ -35,6 +36,13 @@ def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
 def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
+    # Verify chunk exists
+    db_chunk = session.get(Chunk, task.chunk_id)
+    if not db_chunk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
+        )
+
     # Extract answer options from the request
     answer_options_data = task.answer_options or []
     task_data = task.model_dump(exclude={"answer_options"})
@@ -67,6 +75,14 @@ def update_task(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
+
+    # Verify chunk exists if chunk_id is being updated
+    if task.chunk_id is not None:
+        db_chunk = session.get(Chunk, task.chunk_id)
+        if not db_chunk:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
+            )
 
     # Update task fields
     task_data = task.model_dump(exclude_unset=True, exclude={"answer_options"})
@@ -101,6 +117,15 @@ def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
+
+    # Explicitly delete answer options first to ensure proper cleanup
+    answer_options = session.exec(
+        select(AnswerOption).where(AnswerOption.task_id == task_id)
+    ).all()
+    for answer_option in answer_options:
+        session.delete(answer_option)
+
+    # Then delete the task
     session.delete(db_task)
     session.commit()
     return {"ok": True}

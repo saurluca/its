@@ -6,7 +6,7 @@ from enum import Enum
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    pass
+    from documents.models import Chunk
 
 
 class TaskType(str, Enum):
@@ -17,6 +17,7 @@ class TaskType(str, Enum):
 class TaskBase(SQLModel):
     type: TaskType
     question: str
+    chunk_id: UUID = Field(foreign_key="chunk.id")
 
 
 class Task(TaskBase, table=True):
@@ -25,12 +26,10 @@ class Task(TaskBase, table=True):
     deleted_at: datetime | None = None
 
     # Relationships
-    # chunks: list["Chunk"] = Relationship(
-    #     back_populates="tasks",
-    #     link_model="ChunkTaskLink",
-    # )
+    chunk: "Chunk" = Relationship(back_populates="tasks")
     answer_options: list["AnswerOption"] = Relationship(
         back_populates="task",
+        cascade_delete=True,
     )
 
 
@@ -41,7 +40,7 @@ class AnswerOptionBase(SQLModel):
 
 class AnswerOption(AnswerOptionBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
-    task_id: UUID = Field(foreign_key="task.id")
+    task_id: UUID = Field(foreign_key="task.id", nullable=False)
 
     # Relationships
     task: "Task" = Relationship(back_populates="answer_options")

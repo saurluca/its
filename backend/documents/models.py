@@ -7,6 +7,7 @@ from repositories.models import RepositoryDocumentLink
 
 if TYPE_CHECKING:
     from repositories.models import Repository
+    from tasks.models import Task
 
 
 class DocumentBase(SQLModel):
@@ -21,6 +22,11 @@ class Document(DocumentBase, table=True):
     deleted_at: datetime | None = None
 
     # Relationships
+    chunks: list["Chunk"] = Relationship(
+        back_populates="document",
+        cascade_delete=True,
+    )
+
     repositories: list["Repository"] = Relationship(
         back_populates="documents",
         link_model=RepositoryDocumentLink,
@@ -49,18 +55,8 @@ class DocumentDelete(SQLModel):
 
 
 class ChunkBase(SQLModel):
-    document_id: UUID | None = Field(default=None, foreign_key="document.id")
     chunk_index: int
     chunk_text: str
-
-
-# class ChunkTaskLink(SQLModel, table=True):
-#     chunk_id: UUID | None = Field(
-#         default=None, foreign_key="chunk.id", primary_key=True
-#     )
-#     task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
-#     created_at: datetime = Field(default_factory=datetime.now)
-#     deleted_at: datetime | None = None
 
 
 class Chunk(ChunkBase, table=True):
@@ -70,10 +66,12 @@ class Chunk(ChunkBase, table=True):
     chunk_length: int
 
     # Relationships
-    # tasks: list["Task"] = Relationship(
-    #     back_populates="chunk",
-    #     link_model=ChunkTaskLink,
-    # )
+    document_id: UUID = Field(foreign_key="document.id")
+    document: Document = Relationship(back_populates="chunks")
+    tasks: list["Task"] = Relationship(
+        back_populates="chunk",
+        cascade_delete=True,
+    )
 
 
 class ChunkCreate(ChunkBase):

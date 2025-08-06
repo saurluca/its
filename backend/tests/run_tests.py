@@ -41,7 +41,40 @@ def run_tests(test_type=None, verbose=False, coverage=False):
     cmd.append("tests/")
 
     print(f"Running command: {' '.join(cmd)}")
+
+    # Clean up any existing test database before running tests
+    test_db_path = Path(__file__).parent.parent / "test.db"
+    if test_db_path.exists():
+        try:
+            test_db_path.unlink()
+            print(f"🧹 Cleaned up existing test database: {test_db_path}")
+        except OSError as e:
+            print(
+                f"⚠️  Warning: Could not delete existing test database {test_db_path}: {e}"
+            )
+
     result = subprocess.run(cmd, cwd=Path(__file__).parent.parent)
+
+    # Clean up test database after tests complete
+    # Wait a moment for any remaining connections to close
+    import time
+
+    time.sleep(0.1)
+
+    if test_db_path.exists():
+        try:
+            test_db_path.unlink()
+            print(f"🧹 Cleaned up test database: {test_db_path}")
+        except OSError as e:
+            print(f"⚠️  Warning: Could not delete test database {test_db_path}: {e}")
+            # Try again after a longer delay
+            time.sleep(1)
+            try:
+                test_db_path.unlink()
+                print(f"🧹 Cleaned up test database (retry): {test_db_path}")
+            except OSError as e2:
+                print(f"❌ Failed to delete test database {test_db_path}: {e2}")
+
     return result.returncode == 0
 
 

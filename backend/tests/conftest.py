@@ -16,9 +16,16 @@ from auth.dependencies import get_current_user_from_request
 from auth.models import User
 from auth.service import create_access_token
 
+# Import all models to ensure they're registered with SQLModel.metadata
+from auth.models import User  # noqa
+from documents.models import Document, Chunk  # noqa
+from tasks.models import Task, AnswerOption  # noqa
+from repositories.models import Repository  # noqa
+
 
 # Test database configuration
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+TEST_DB_PATH = "./test.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -41,6 +48,22 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_db():
+    """Clean up the test database file after all tests complete"""
+    yield
+    # Ensure engine is disposed to close all connections
+    engine.dispose()
+
+    # Clean up the test database file
+    if os.path.exists(TEST_DB_PATH):
+        try:
+            os.unlink(TEST_DB_PATH)
+            print(f"✅ Cleaned up test database: {TEST_DB_PATH}")
+        except OSError as e:
+            print(f"⚠️  Warning: Could not delete test database {TEST_DB_PATH}: {e}")
+
+
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test"""
@@ -51,8 +74,9 @@ def db_session():
     with Session(engine) as session:
         yield session
 
-    # Clean up - drop all tables
+    # Clean up - drop all tables and close connections
     SQLModel.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture
@@ -119,7 +143,7 @@ def mock_llm_service():
     with (
         patch("tasks.router.generate_questions") as mock_generate,
         patch("tasks.router.evaluate_student_answer") as mock_evaluate,
-        patch("documents.service.generate_document_title") as mock_title,
+        patch("documents.router.generate_document_title") as mock_title,
     ):
         # Mock generate_questions - return empty list by default
         mock_generate.return_value = []

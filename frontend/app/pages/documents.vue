@@ -95,7 +95,7 @@ async function uploadDocumentFromInput(event: Event) {
       formData.append("file", input.files[0]);
     }
 
-    const data = await $authFetch("/documents/upload", {
+    const data = await $authFetch("/documents/upload/", {
       method: "POST",
       body: formData,
     }) as any;
@@ -209,7 +209,7 @@ async function confirmAddToRepository() {
   if (!selectedDocumentId.value || !selectedRepositoryId.value) return;
 
   try {
-    await $authFetch("/repositories/links", {
+    await $authFetch("/repositories/links/", {
       method: "POST",
       body: {
         repository_id: selectedRepositoryId.value,

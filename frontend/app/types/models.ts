@@ -6,6 +6,7 @@ export interface Repository {
   deleted_at?: Date | null;
   document_ids?: string[];
   document_names?: string[];
+  task_count?: number;
 }
 
 // Document type matching backend API structure
@@ -17,6 +18,14 @@ export interface Document {
   deleted_at?: Date | null;
   repository_ids?: string[];
   source_file?: string;
+}
+
+// Item interface for generic components
+export interface Item {
+  id: string;
+  name: string;
+  description?: string;
+  [key: string]: any;
 }
 
 // Chunk type matching backend API structure

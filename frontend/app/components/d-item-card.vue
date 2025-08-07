@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-
-interface Item {
-  id: string;
-  name: string;
-  description?: string;
-  [key: string]: any;
-}
+import type { Item } from "~/types/models";
 
 const props = defineProps<{
   item: Item;

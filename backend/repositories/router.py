@@ -9,6 +9,7 @@ from repositories.models import (
     RepositoryDocumentLinkCreate,
     RepositoryDocumentLinkResponse,
     RepositoryResponseDetail,
+    RepositoryTaskLink,
 )
 from documents.models import Document, DocumentResponse
 from uuid import UUID
@@ -20,7 +21,25 @@ router = APIRouter(prefix="/repositories", tags=["repositories"])
 @router.get("/", response_model=list[RepositoryResponse])
 def get_repositories(session: Session = Depends(get_db_session)):
     db_repositories = session.exec(select(Repository)).all()
-    return db_repositories
+
+    # Create response objects with task counts
+    repositories_with_task_counts = []
+    for repo in db_repositories:
+        # Count tasks linked to this repository
+        task_count = len(
+            session.exec(
+                select(RepositoryTaskLink).where(
+                    RepositoryTaskLink.repository_id == repo.id
+                )
+            ).all()
+        )
+
+        # Create response object with task count
+        repo_response = RepositoryResponse.model_validate(repo)
+        repo_response.task_count = task_count
+        repositories_with_task_counts.append(repo_response)
+
+    return repositories_with_task_counts
 
 
 @router.get("/{repository_id}", response_model=RepositoryResponseDetail)

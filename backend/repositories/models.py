@@ -60,6 +60,7 @@ class RepositoryResponse(RepositoryBase):
     id: UUID
     created_at: datetime
     deleted_at: datetime | None = None
+    task_count: int = 0
 
 
 class RepositoryResponseDetail(RepositoryBase):

@@ -56,7 +56,7 @@ function saveItem() {
       <div>
         <DInput v-model="formData.name" type="text" placeholder="Enter name" />
       </div>
-      <div>
+      <div class="flex space-x-2">
         <DButton v-if="isEdit" @click="$emit('cancel')" variant="secondary">
           Cancel
         </DButton>

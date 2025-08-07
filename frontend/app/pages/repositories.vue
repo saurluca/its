@@ -6,7 +6,6 @@ import type { Repository } from "~/types/models";
 const { $authFetch } = useAuthenticatedFetch();
 
 // View state
-const isTeacherView = ref(true);
 const repositories = ref<Repository[]>([]);
 const loading = ref(true);
 const showForm = ref(false);
@@ -102,7 +101,6 @@ function cancelEdit() {
     <div class="max-w-6xl mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold">Repositories</h1>
-            <DViewToggle v-model="isTeacherView" />
         </div>
 
         <div v-if="loading" class="py-20 text-center">
@@ -110,22 +108,19 @@ function cancelEdit() {
         </div>
 
         <div v-else class="space-y-8">
-            <!-- Teacher View Form -->
-            <div v-if="isTeacherView && !showForm" class="flex">
+            <div v-if="!showForm" class="flex">
                 <DButton @click="showForm = true" variant="primary" :iconLeft="PlusIcon">
                     New Repository
                 </DButton>
             </div>
 
-            <DItemForm v-if="isTeacherView && showForm"
-                :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
+            <DItemForm v-if="showForm" :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
                 :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
                 @cancel="cancelEdit" />
 
-            <!-- Repositories List -->
             <div v-if="repositories.length > 0" class="space-y-4">
                 <DItemCard v-for="repository in repositories" :key="repository.id" :item="repository"
-                    :is-teacher-view="isTeacherView" @delete="deleteRepository" @edit="editRepository" />
+                    @delete="deleteRepository" @edit="editRepository" />
             </div>
 
             <div v-else class="bg-white p-6 rounded-lg shadow text-center">

@@ -71,14 +71,7 @@ async function handleUpload() {
     }
 }
 
-function toggleRepository(repositoryId: string) {
-    const index = selectedRepositories.value.indexOf(repositoryId);
-    if (index > -1) {
-        selectedRepositories.value.splice(index, 1);
-    } else {
-        selectedRepositories.value.push(repositoryId);
-    }
-}
+
 
 function close() {
     selectedRepositories.value = [];
@@ -92,7 +85,6 @@ function close() {
         @confirm="handleUpload">
         <div class="p-4 space-y-4">
             <div>
-                <label class="block mb-2 font-medium">Select Document:</label>
                 <DButton @click="triggerFilePicker" :loading="uploading" :iconLeft="UploadIcon" variant="primary">
                     Choose File
                 </DButton>
@@ -106,9 +98,9 @@ function close() {
                 <label class="block mb-2 font-medium">Add to Repositories:</label>
                 <div class="space-y-2 max-h-40 overflow-y-auto">
                     <label v-for="repository in repositories" :key="repository.id"
-                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
                         <input type="checkbox" :value="repository.id" v-model="selectedRepositories"
-                            @change="toggleRepository(repository.id)" class="rounded border-gray-300" />
+                            class="w-4 h-4 accent-black" style="accent-color: black;" />
                         <span>{{ repository.name }}</span>
                     </label>
                 </div>

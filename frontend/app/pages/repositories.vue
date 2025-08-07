@@ -358,6 +358,7 @@ async function viewDocument(documentId: string) {
                                             @click="toggleRepositoryExpansion(repository.id)">
                                             {{ repository.name }}
                                         </h3>
+
                                     </div>
                                 </div>
                                 <div class="flex gap-2">

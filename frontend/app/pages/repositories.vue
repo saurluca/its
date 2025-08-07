@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon } from "lucide-vue-next";
+import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon, FileTextIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -29,6 +29,13 @@ const repositoryDocuments = ref<Document[]>([]);
 const selectedDocuments = ref<Set<string>>(new Set());
 const numTasksToGenerate = ref(5);
 const taskType = ref<"multiple_choice" | "free_text">("multiple_choice");
+
+// HTML viewer state
+const showHtmlViewer = ref(false);
+const htmlContent = ref("");
+const loadingHtml = ref(false);
+const htmlError = ref("");
+const selectedDocumentId = ref<string | null>(null);
 
 // Load repositories on component mount
 onMounted(async () => {
@@ -276,101 +283,149 @@ async function confirmGenerateTasks() {
         generatingTasks.value = false;
     }
 }
+
+async function viewDocument(documentId: string) {
+    if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
+        // If clicking the same document, toggle the viewer off
+        showHtmlViewer.value = false;
+        selectedDocumentId.value = null;
+        htmlContent.value = "";
+        return;
+    }
+
+    loadingHtml.value = true;
+    htmlError.value = "";
+    selectedDocumentId.value = documentId;
+    showHtmlViewer.value = true;
+
+    try {
+        const data = await $authFetch(`/documents/${documentId}/`) as any;
+
+        if (data.content) {
+            htmlContent.value = data.content;
+        } else {
+            htmlError.value = "Document content not found";
+        }
+    } catch (err) {
+        console.error("Error fetching document content:", err);
+        htmlError.value = "Failed to load document content";
+    } finally {
+        loadingHtml.value = false;
+    }
+}
 </script>
 
 <template>
-    <div class="max-w-6xl mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold">Repositories</h1>
-        </div>
+    <div class="h-full flex">
+        <!-- Left side - Repositories list -->
+        <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto ml-2' : 'w-full p-4 ml-2'">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-3xl font-bold">Repositories</h1>
+                </div>
 
-        <div v-if="loading" class="py-20 text-center">
-            <div class="text-xl">Loading repositories...</div>
-        </div>
+                <div v-if="loading" class="py-20 text-center">
+                    <div class="text-xl">Loading repositories...</div>
+                </div>
 
-        <div v-else class="space-y-8">
-            <div v-if="!showForm" class="flex gap-4">
-                <DButton @click="showForm = true" variant="primary" :iconLeft="PlusIcon">
-                    New Repository
-                </DButton>
-                <DButton @click="openUploadModal" variant="secondary" :iconLeft="UploadIcon">
-                    Upload Document
-                </DButton>
-            </div>
+                <div v-else class="space-y-6">
+                    <div v-if="!showForm" class="flex gap-3">
+                        <DButton @click="openUploadModal" variant="primary" :iconLeft="UploadIcon">
+                            Document
+                        </DButton>
+                        <DButton @click="showForm = true" variant="secondary" :iconLeft="PlusIcon">
+                            Repository
+                        </DButton>
+                    </div>
 
-            <DItemForm v-if="showForm" :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
-                :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
-                @cancel="cancelEdit" />
+                    <DItemForm v-if="showForm" :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
+                        :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
+                        @cancel="cancelEdit" />
 
-            <div v-if="repositories.length > 0" class="space-y-4">
-                <div v-for="repository in repositories" :key="repository.id"
-                    class="bg-white p-4 rounded-lg shadow border border-gray-100">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <button @click="toggleRepositoryExpansion(repository.id)"
-                                class="p-1 hover:bg-gray-100 rounded">
-                                <ChevronDownIcon v-if="expandedRepositories.has(repository.id)" class="h-4 w-4" />
-                                <ChevronRightIcon v-else class="h-4 w-4" />
-                            </button>
-                            <div class="flex items-center gap-2">
-                                <h3 class="text-lg font-medium cursor-pointer"
-                                    @click="toggleRepositoryExpansion(repository.id)">
-                                    {{ repository.name }}
-                                </h3>
-                                <span v-if="repository.task_count !== undefined"
-                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {{ repository.task_count }} {{ repository.task_count === 1 ? 'task' : 'tasks' }}
-                                </span>
+                    <div v-if="repositories.length > 0" class="space-y-4">
+                        <div v-for="repository in repositories" :key="repository.id"
+                            class="bg-white p-4 rounded-lg shadow border border-gray-100">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <button @click="toggleRepositoryExpansion(repository.id)"
+                                        class="p-1 hover:bg-gray-100 rounded">
+                                        <ChevronDownIcon v-if="expandedRepositories.has(repository.id)"
+                                            class="h-4 w-4" />
+                                        <ChevronRightIcon v-else class="h-4 w-4" />
+                                    </button>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-lg font-medium cursor-pointer"
+                                            @click="toggleRepositoryExpansion(repository.id)">
+                                            {{ repository.name }}
+                                        </h3>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+
+                                    <DButton @click="navigateToStudy(repository.id)" variant="primary"
+                                        :iconLeft="BookOpenIcon">
+                                        Study
+                                    </DButton>
+
+                                    <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
+                                        :iconLeft="PlusIcon" class="!p-2" />
+
+                                    <span v-if="repository.task_count !== undefined"
+                                        class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ repository.task_count }} {{ repository.task_count === 1 ? 'task' :
+                                            'tasks' }}
+                                    </span>
+
+                                    <DHamburgerMenu>
+                                        <template #default="{ close }">
+                                            <button @click="
+                                                navigateToTasks(repository.id);
+                                            close();
+                                            "
+                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <EyeIcon class="h-4 w-4" />
+                                                View Tasks
+                                            </button>
+                                            <button @click="
+                                                openEditTitleModal(repository.id, repository.name);
+                                            close();
+                                            "
+                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <PencilIcon class="h-4 w-4" />
+                                                Edit Name
+                                            </button>
+                                            <div class="border-t border-gray-200 my-1"></div>
+                                            <button @click="
+                                                openDeleteModal(repository.id, repository.name);
+                                            close();
+                                            "
+                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                <TrashIcon class="h-4 w-4" />
+                                                Delete
+                                            </button>
+                                        </template>
+                                    </DHamburgerMenu>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <DButton @click="navigateToStudy(repository.id)" variant="primary" :iconLeft="BookOpenIcon">
-                                Study
-                            </DButton>
 
-                            <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
-                                :iconLeft="PlusIcon" />
-
-                            <DHamburgerMenu>
-                                <template #default="{ close }">
-                                    <button @click="
-                                        navigateToTasks(repository.id);
-                                    close();
-                                    "
-                                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <EyeIcon class="h-4 w-4" />
-                                        View Tasks
-                                    </button>
-                                    <button @click="
-                                        openEditTitleModal(repository.id, repository.name);
-                                    close();
-                                    "
-                                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <PencilIcon class="h-4 w-4" />
-                                        Edit Name
-                                    </button>
-                                    <div class="border-t border-gray-200 my-1"></div>
-                                    <button @click="
-                                        openDeleteModal(repository.id, repository.name);
-                                    close();
-                                    "
-                                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                        <TrashIcon class="h-4 w-4" />
-                                        Delete
-                                    </button>
-                                </template>
-                            </DHamburgerMenu>
+                            <!-- Expanded documents view -->
+                            <DRepositoryDocuments v-if="expandedRepositories.has(repository.id)"
+                                :repository-id="repository.id" :repository-name="repository.name"
+                                @refresh-repositories="fetchRepositories" @view-document="viewDocument" />
                         </div>
                     </div>
 
-                    <!-- Expanded documents view -->
-                    <DRepositoryDocuments v-if="expandedRepositories.has(repository.id)" :repository-id="repository.id"
-                        :repository-name="repository.name" @refresh-repositories="fetchRepositories" />
+                    <div v-else class="bg-white p-6 rounded-lg shadow text-center">
+                        <p class="text-gray-500">No repositories have been created yet.</p>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div v-else class="bg-white p-6 rounded-lg shadow text-center">
-                <p class="text-gray-500">No repositories have been created yet.</p>
+        <!-- Right side - HTML viewer -->
+        <div v-if="showHtmlViewer" class="w-1/2 ">
+            <div class="h-full p-4">
+                <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
             </div>
         </div>
     </div>

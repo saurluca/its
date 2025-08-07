@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import {
-    TrashIcon,
-    PencilIcon,
-    UploadIcon,
-    EyeIcon,
-    BookOpenIcon,
-    PlusIcon,
-    FileTextIcon,
-    FolderIcon,
-} from "lucide-vue-next";
+import { TrashIcon, PencilIcon, EyeIcon } from "lucide-vue-next";
 import type { Document } from "~/types/models";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -22,12 +13,14 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
     (e: "refresh-repositories"): void;
+    (e: "view-document", documentId: string): void;
 }>();
 
 const documents = ref<Document[]>([]);
 const loading = ref(true);
 const uploadingDocument = ref(false);
 const generatingTasks = ref(false);
+const deletingDocument = ref(false);
 const showGenerateTasksModal = ref(false);
 const showDeleteModal = ref(false);
 const generateTasksDocumentId = ref<string | null>(null);
@@ -37,13 +30,6 @@ const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
-
-// HTML viewer state
-const showHtmlViewer = ref(false);
-const htmlContent = ref("");
-const loadingHtml = ref(false);
-const htmlError = ref("");
-const selectedDocumentId = ref<string | null>(null);
 
 onMounted(async () => {
     await fetchDocuments();
@@ -106,15 +92,6 @@ async function uploadDocumentFromInput(event: Event) {
     }
 }
 
-function triggerFilePicker() {
-    if (uploadingDocument.value) return;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "*/*";
-    input.addEventListener("change", uploadDocumentFromInput, { once: true });
-    input.click();
-}
-
 async function deleteDocument(documentId: string) {
     try {
         await $authFetch(`/documents/${documentId}/`, {
@@ -126,12 +103,6 @@ async function deleteDocument(documentId: string) {
         console.error("Error deleting document:", error);
         alert("Failed to delete document. Please try again. " + error);
     }
-}
-
-function openGenerateTasksModal(documentId: string) {
-    generateTasksDocumentId.value = documentId;
-    numTasksToGenerate.value = 1;
-    showGenerateTasksModal.value = true;
 }
 
 function closeGenerateTasksModal() {
@@ -210,33 +181,8 @@ async function confirmDelete() {
     closeDeleteModal();
 }
 
-async function viewDocument(documentId: string) {
-    if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
-        showHtmlViewer.value = false;
-        selectedDocumentId.value = null;
-        htmlContent.value = "";
-        return;
-    }
-
-    loadingHtml.value = true;
-    htmlError.value = "";
-    selectedDocumentId.value = documentId;
-    showHtmlViewer.value = true;
-
-    try {
-        const data = await $authFetch(`/documents/${documentId}/`) as any;
-
-        if (data.content) {
-            htmlContent.value = data.content;
-        } else {
-            htmlError.value = "Document content not found";
-        }
-    } catch (err) {
-        console.error("Error fetching document content:", err);
-        htmlError.value = "Failed to load document content";
-    } finally {
-        loadingHtml.value = false;
-    }
+function viewDocument(documentId: string) {
+    emit("view-document", documentId);
 }
 </script>
 
@@ -258,9 +204,6 @@ async function viewDocument(documentId: string) {
                     </div>
 
                     <div class="flex gap-2">
-                        <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                            :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
-
                         <DHamburgerMenu>
                             <template #default="{ close }">
                                 <button @click="
@@ -295,24 +238,6 @@ async function viewDocument(documentId: string) {
             </div>
         </div>
     </div>
-
-    <!-- HTML Viewer Modal -->
-    <DModal v-if="showHtmlViewer" titel="Document Preview" @close="showHtmlViewer = false">
-        <div class="p-4">
-            <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-        </div>
-    </DModal>
-
-    <!-- Generate Tasks Modal -->
-    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-        :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
-        @confirm="confirmGenerateTasks">
-        <div class="p-4">
-            <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
-            <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
-                class="border rounded px-2 py-1 w-24" />
-        </div>
-    </DModal>
 
     <!-- Delete Modal -->
     <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"

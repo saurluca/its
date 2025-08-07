@@ -5,6 +5,7 @@ from enum import Enum
 from uuid import uuid4
 
 from documents.models import Chunk
+from repositories.models import Repository, RepositoryTaskLink
 
 
 class TaskType(str, Enum):
@@ -55,6 +56,10 @@ class Task(TaskBase, table=True):
     answer_options: list["AnswerOption"] = Relationship(
         back_populates="task",
         cascade_delete=True,
+    )
+    repositories: list["Repository"] = Relationship(
+        back_populates="tasks",
+        link_model=RepositoryTaskLink,
     )
 
 

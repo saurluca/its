@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from documents.models import Document
+    from tasks.models import Task
 
 
 class RepositoryBase(SQLModel):
@@ -22,6 +23,15 @@ class RepositoryDocumentLink(SQLModel, table=True):
     deleted_at: datetime | None = None
 
 
+class RepositoryTaskLink(SQLModel, table=True):
+    repository_id: UUID | None = Field(
+        default=None, foreign_key="repository.id", primary_key=True
+    )
+    task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
+
+
 class Repository(RepositoryBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
@@ -31,6 +41,10 @@ class Repository(RepositoryBase, table=True):
     documents: list["Document"] = Relationship(
         back_populates="repositories",
         link_model=RepositoryDocumentLink,
+    )
+    tasks: list["Task"] = Relationship(
+        back_populates="repositories",
+        link_model=RepositoryTaskLink,
     )
 
 

@@ -10,6 +10,7 @@ from repositories.models import (
     RepositoryDocumentLinkResponse,
     RepositoryResponseDetail,
 )
+from documents.models import Document, DocumentResponse
 from uuid import UUID
 from sqlmodel import select, Session
 
@@ -34,6 +35,26 @@ def get_repository(repository_id: UUID, session: Session = Depends(get_db_sessio
     repo_response.document_ids = [doc.id for doc in db_repository.documents]
     repo_response.document_names = [doc.title for doc in db_repository.documents]
     return repo_response
+
+
+@router.get("/{repository_id}/documents", response_model=list[DocumentResponse])
+def get_repository_documents(
+    repository_id: UUID, session: Session = Depends(get_db_session)
+):
+    db_repository = session.get(Repository, repository_id)
+    if not db_repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    documents = db_repository.documents
+    document_responses = []
+    for doc in documents:
+        doc_response = DocumentResponse.model_validate(doc)
+        doc_response.repository_ids = [repo.id for repo in doc.repositories]
+        document_responses.append(doc_response)
+
+    return document_responses
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Repository)
@@ -94,7 +115,6 @@ def create_repository_document_link(
         )
 
     # Check if document exists
-    from documents.models import Document
 
     db_document = session.get(Document, link.document_id)
     if not db_document:

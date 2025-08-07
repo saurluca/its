@@ -1,5 +1,5 @@
 from click import File
-from fastapi import APIRouter, status, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, Query
 from dependencies import get_db_session
 from documents.models import (
     Chunk,
@@ -79,6 +79,27 @@ def update_document(
     session.add(db_document)
     session.commit()
     session.refresh(db_document)
+    return db_document
+
+
+@router.patch("/{document_id}", response_model=Document)
+def patch_document(
+    document_id: UUID,
+    title: str = Query(None, description="New title for the document"),
+    session: Session = Depends(get_db_session),
+):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    if title is not None:
+        db_document.title = title
+        session.add(db_document)
+        session.commit()
+        session.refresh(db_document)
+
     return db_document
 
 

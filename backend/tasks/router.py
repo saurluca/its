@@ -14,13 +14,12 @@ from tasks.models import (
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
     TeacherResponseOpen,
-    TaskType,
 )
 from uuid import UUID
 from sqlmodel import select, Session
 from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
-from repositories.models import RepositoryDocumentLink
+from repositories.models import Repository, RepositoryTaskLink
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -72,42 +71,23 @@ def get_tasks_by_repository(
     repository_id: UUID, session: Session = Depends(get_db_session)
 ):
     """
-    Get all tasks for a specific repository by fetching tasks from all chunks
-    of documents that belong to that repository.
+    Get all tasks for a specific repository using the direct task-repository relationship.
     """
-    # First, get all documents that belong to this repository
-    # This requires a join through the repository_document_link table
-    # Get document IDs that belong to this repository
-    document_links = session.exec(
-        select(RepositoryDocumentLink).where(
-            RepositoryDocumentLink.repository_id == repository_id
-        )
-    ).all()
-
-    if not document_links:
+    # Get the repository to verify it exists
+    repository = session.get(Repository, repository_id)
+    if not repository:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No documents found for repository",
+            detail="Repository not found",
         )
 
-    document_ids = [link.document_id for link in document_links if link.document_id]
-
-    # Get all chunks for these documents
-    chunks = session.exec(
-        select(Chunk).where(Chunk.document_id.in_(document_ids))
+    # Get all tasks directly linked to this repository
+    db_tasks = session.exec(
+        select(Task)
+        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
+        .where(RepositoryTaskLink.repository_id == repository_id)
     ).all()
 
-    if not chunks:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No chunks found for repository documents",
-        )
-
-    # Get chunk IDs
-    chunk_ids = [chunk.id for chunk in chunks]
-
-    # Get all tasks for these chunks
-    db_tasks = session.exec(select(Task).where(Task.chunk_id.in_(chunk_ids))).all()
     return db_tasks
 
 

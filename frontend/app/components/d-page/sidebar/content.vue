@@ -20,9 +20,9 @@ const links = [
   //   icon: HomeIcon,
   // },
   {
-    name: "Documents",
-    to: "/documents",
-    icon: FileIcon,
+    name: "Repositories",
+    to: "/repositories",
+    icon: BookOpenIcon,
   },
   {
     name: "Tasks",
@@ -30,9 +30,9 @@ const links = [
     icon: ClipboardCheck,
   },
   {
-    name: "Repositories",
-    to: "/repositories",
-    icon: BookOpenIcon,
+    name: "Documents",
+    to: "/documents",
+    icon: FileIcon,
   },
   // {
   //   name: "Study",

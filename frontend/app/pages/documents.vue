@@ -7,7 +7,6 @@ import {
   EyeIcon,
   BookOpenIcon,
   PlusIcon,
-  ClipboardIcon,
   FileTextIcon,
   FolderIcon,
 } from "lucide-vue-next";
@@ -259,23 +258,6 @@ async function confirmEditTitle() {
   }
 }
 
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    // Optional: Show a success message
-    console.log("Copied to clipboard:", text);
-  } catch (error) {
-    console.error("Failed to copy to clipboard:", error);
-    // Fallback for older browsers
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand("copy");
-    document.body.removeChild(textArea);
-  }
-}
-
 async function viewDocument(documentId: string) {
   if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
     // If clicking the same document, toggle the viewer off
@@ -308,7 +290,7 @@ async function viewDocument(documentId: string) {
 </script>
 
 <template>
-  <div class="h-screen flex">
+  <div class="h-full flex">
     <!-- Left side - Documents list -->
     <div class="w-1/2 p-6 overflow-y-auto">
       <div class="max-w-4xl mx-auto">
@@ -325,9 +307,13 @@ async function viewDocument(documentId: string) {
           </div>
         </div>
 
-        <div class="border border-gray-200 rounded-md p-4">
+        <div class=" rounded-md p-4 shadow-sm">
           <div v-if="loadingDocuments" class="py-8 text-center">
             <div class="text-xl">Loading documents...</div>
+          </div>
+
+          <div v-else-if="documents.length === 0" class="py-2 text-center text-gray-500">
+            <p>No documents found. Upload a document to get started.</p>
           </div>
 
           <div v-else class="space-y-3 w-full">
@@ -361,13 +347,6 @@ async function viewDocument(documentId: string) {
                         View Tasks
                       </button>
                       <button @click="
-                        copyToClipboard(document.id);
-                      close();
-                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <ClipboardIcon class="h-4 w-4" />
-                        Copy ID
-                      </button>
-                      <button @click="
                         openRepositoryModal(document.id);
                       close();
                       " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -395,12 +374,6 @@ async function viewDocument(documentId: string) {
     <!-- Right side - HTML viewer -->
     <div class="w-1/2 border-l border-gray-200">
       <div v-if="showHtmlViewer" class="h-full p-4">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold">Document Preview</h2>
-          <DButton @click="showHtmlViewer = false" variant="secondary" class="!p-2">
-            Close
-          </DButton>
-        </div>
         <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
       </div>
       <div v-else class="h-full flex items-center justify-center text-gray-500">
@@ -421,6 +394,7 @@ async function viewDocument(documentId: string) {
         class="border rounded px-2 py-1 w-24" />
     </div>
   </DModal>
+
   <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
     @close="closeDeleteModal" @confirm="confirmDelete">
     <div class="p-4">

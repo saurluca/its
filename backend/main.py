@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from auth.dependencies import get_current_user_from_request
 from router import router
 from tasks.router import router as tasks_router
 from documents.router import router as documents_router
@@ -38,30 +39,21 @@ app.add_middleware(
 LLMConfig.configure_dspy()
 
 
-def init_app():
-    """Initialize the application (database tables, etc.)"""
-    # Initialize database tables
-    create_db_and_tables()
-
-
-# Only initialize if running directly
-if __name__ == "__main__":
-    init_app()
+create_db_and_tables()
 
 # Include all routers
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(
-    repositories_router,
-    # dependencies=[Depends(get_current_user_from_request)]
+    repositories_router, dependencies=[Depends(get_current_user_from_request)]
 )
 app.include_router(
     tasks_router,
-    # dependencies=[Depends(get_current_user_from_request)],
+    dependencies=[Depends(get_current_user_from_request)],
 )
 app.include_router(
     documents_router,
-    # dependencies=[Depends(get_current_user_from_request)],
+    dependencies=[Depends(get_current_user_from_request)],
 )
 
 

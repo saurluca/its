@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon } from "lucide-vue-next";
-import type { Repository } from "~/types/models";
+import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon } from "lucide-vue-next";
+import type { Repository, Document } from "~/types/models";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -20,6 +20,15 @@ const editingTitle = ref("");
 const showDeleteModal = ref(false);
 const deleteRepositoryId = ref<string | null>(null);
 const deleteRepositoryName = ref<string | null>(null);
+
+// Generate tasks modal state
+const showGenerateTasksModal = ref(false);
+const generatingTasks = ref(false);
+const selectedRepositoryForTasks = ref<Repository | null>(null);
+const repositoryDocuments = ref<Document[]>([]);
+const selectedDocuments = ref<Set<string>>(new Set());
+const numTasksToGenerate = ref(5);
+const taskType = ref<"multiple_choice" | "free_text">("multiple_choice");
 
 // Load repositories on component mount
 onMounted(async () => {
@@ -110,6 +119,10 @@ function navigateToStudy(repositoryId: string) {
     navigateTo(`/study?repositoryId=${repositoryId}`);
 }
 
+function navigateToTasks(repositoryId: string) {
+    navigateTo(`/tasks?repositoryId=${repositoryId}`);
+}
+
 function toggleRepositoryExpansion(repositoryId: string) {
     if (expandedRepositories.value.has(repositoryId)) {
         expandedRepositories.value.delete(repositoryId);
@@ -178,6 +191,91 @@ async function confirmDelete() {
     await deleteRepository(deleteRepositoryId.value);
     closeDeleteModal();
 }
+
+// Generate tasks functions
+async function openGenerateTasksModal(repository: Repository) {
+    selectedRepositoryForTasks.value = repository;
+    selectedDocuments.value.clear();
+    numTasksToGenerate.value = 5;
+    taskType.value = "multiple_choice";
+
+    // Fetch documents for this repository
+    try {
+        const data = await $authFetch(`/repositories/${repository.id}/documents/`) as any;
+        repositoryDocuments.value = data.map((doc: any) => ({
+            id: doc.id,
+            title: doc.title,
+            content: doc.content,
+            created_at: new Date(doc.created_at),
+            deleted_at: doc.deleted_at ? new Date(doc.deleted_at) : null,
+            repository_ids: doc.repository_ids || [],
+            source_file: doc.source_file,
+        }));
+    } catch (error) {
+        console.error("Error fetching repository documents:", error);
+        alert("Failed to load repository documents. Please try again.");
+        return;
+    }
+
+    showGenerateTasksModal.value = true;
+}
+
+function closeGenerateTasksModal() {
+    showGenerateTasksModal.value = false;
+    selectedRepositoryForTasks.value = null;
+    repositoryDocuments.value = [];
+    selectedDocuments.value.clear();
+}
+
+function toggleDocumentSelection(documentId: string) {
+    if (selectedDocuments.value.has(documentId)) {
+        selectedDocuments.value.delete(documentId);
+    } else {
+        selectedDocuments.value.add(documentId);
+    }
+}
+
+function selectAllDocuments() {
+    repositoryDocuments.value.forEach(doc => {
+        selectedDocuments.value.add(doc.id);
+    });
+}
+
+function deselectAllDocuments() {
+    selectedDocuments.value.clear();
+}
+
+async function confirmGenerateTasks() {
+    if (!selectedRepositoryForTasks.value || selectedDocuments.value.size === 0) {
+        alert("Please select at least one document to generate tasks from.");
+        return;
+    }
+
+    generatingTasks.value = true;
+    try {
+        const documentIds = Array.from(selectedDocuments.value);
+
+        await $authFetch("/tasks/generate_for_multiple_documents", {
+            method: "POST",
+            body: {
+                repository_id: selectedRepositoryForTasks.value.id,
+                document_ids: documentIds,
+                num_tasks: numTasksToGenerate.value,
+                task_type: taskType.value,
+            },
+        });
+
+        closeGenerateTasksModal();
+        // Refresh repositories to show updated task counts
+        await fetchRepositories();
+        alert("Tasks generated successfully!");
+    } catch (error) {
+        console.error("Error generating tasks:", error);
+        alert("Failed to generate tasks. Please try again. " + error);
+    } finally {
+        generatingTasks.value = false;
+    }
+}
 </script>
 
 <template>
@@ -219,8 +317,8 @@ async function confirmDelete() {
                                     @click="toggleRepositoryExpansion(repository.id)">
                                     {{ repository.name }}
                                 </h3>
-                                <span v-if="repository.task_count !== undefined" 
-                                      class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <span v-if="repository.task_count !== undefined"
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                     {{ repository.task_count }} {{ repository.task_count === 1 ? 'task' : 'tasks' }}
                                 </span>
                             </div>
@@ -230,8 +328,19 @@ async function confirmDelete() {
                                 Study
                             </DButton>
 
+                            <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
+                                :iconLeft="PlusIcon" />
+
                             <DHamburgerMenu>
                                 <template #default="{ close }">
+                                    <button @click="
+                                        navigateToTasks(repository.id);
+                                    close();
+                                    "
+                                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <EyeIcon class="h-4 w-4" />
+                                        View Tasks
+                                    </button>
                                     <button @click="
                                         openEditTitleModal(repository.id, repository.name);
                                     close();
@@ -251,16 +360,6 @@ async function confirmDelete() {
                                     </button>
                                 </template>
                             </DHamburgerMenu>
-                        </div>
-                    </div>
-
-                    <!-- Repository info section -->
-                    <div v-if="repository.task_count !== undefined" class="mt-3 pt-3 border-t border-gray-100">
-                        <div class="flex items-center gap-4 text-sm text-gray-600">
-                            <div class="flex items-center gap-1">
-                                <BookOpenIcon class="h-4 w-4" />
-                                <span>{{ repository.task_count }} {{ repository.task_count === 1 ? 'task' : 'tasks' }} available</span>
-                            </div>
                         </div>
                     </div>
 
@@ -298,6 +397,70 @@ async function confirmDelete() {
                 Are you sure you want to delete the repository "{{ deleteRepositoryName }}"?
             </p>
             <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+        </div>
+    </DModal>
+
+    <!-- Generate Tasks Modal -->
+    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+        :confirmText="generatingTasks ? 'Generating...' : 'Generate Tasks'" :wide="true"
+        @close="closeGenerateTasksModal" @confirm="confirmGenerateTasks">
+        <div class="p-4 space-y-4">
+            <!-- Task Generation Settings -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
+                    <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
+                        class="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label for="task-type" class="block mb-2 font-medium">Task type:</label>
+                    <select id="task-type" v-model="taskType" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="multiple_choice">Multiple Choice</option>
+                        <option value="free_text">Free Text</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Document Selection -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="font-medium">Select documents to generate tasks from:</label>
+                    <div class="flex gap-2">
+                        <button @click="selectAllDocuments" class="text-sm text-blue-600 hover:text-blue-800">
+                            Select All
+                        </button>
+                        <button @click="deselectAllDocuments" class="text-sm text-gray-600 hover:text-gray-800">
+                            Deselect All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="max-h-60 overflow-y-auto border rounded p-2 space-y-2">
+                    <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
+                        No documents found in this repository.
+                    </div>
+                    <div v-for="document in repositoryDocuments" :key="document.id"
+                        class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
+                        <input type="checkbox" :id="'doc-' + document.id" :value="document.id"
+                            :checked="selectedDocuments.has(document.id)" @change="toggleDocumentSelection(document.id)"
+                            class="rounded" />
+                        <label :for="'doc-' + document.id" class="flex-1 cursor-pointer">
+                            {{ document.title }}
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
+                <p>Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
+                    'free text' }} tasks from {{ selectedDocuments.size }} selected document{{ selectedDocuments.size
+                        === 1
+                        ?
+                        '' :
+                        's' }}.</p>
+                <p>Tasks will be linked to the repository "{{ selectedRepositoryForTasks?.name }}".</p>
+            </div>
         </div>
     </DModal>
 </template>

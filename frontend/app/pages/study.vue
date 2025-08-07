@@ -6,7 +6,7 @@ import type { Task } from "~/types/models";
 const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
 const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
-const fileId = ref("");
+const repositoryId = ref("");
 const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
@@ -50,10 +50,10 @@ function handleKeyPress(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  // Check if documentId is provided in URL parameters
-  const documentId = route.query.documentId as string;
-  if (documentId) {
-    fileId.value = documentId;
+  // Check if repositoryId is provided in URL parameters
+  const repoId = route.query.repositoryId as string;
+  if (repoId) {
+    repositoryId.value = repoId;
     startStudy();
   }
 
@@ -67,15 +67,15 @@ onUnmounted(() => {
 });
 
 async function startStudy() {
-  if (!fileId.value) {
-    error.value = "Please enter a Document ID.";
+  if (!repositoryId.value) {
+    error.value = "Please enter a Repository ID.";
     return;
   }
   loading.value = true;
   error.value = null;
 
   try {
-    const responseData = await $authFetch<Task[]>(`/tasks/document/${fileId.value}`);
+    const responseData = await $authFetch<Task[]>(`/tasks/repository/${repositoryId.value}`);
 
     if (responseData && responseData.length > 0) {
       tasks.value = responseData;
@@ -102,14 +102,20 @@ function closeGenerateTasksModal() {
 }
 
 async function confirmGenerateTasks() {
-  if (!fileId.value) return;
+  if (!repositoryId.value) return;
   generatingTasks.value = true;
   try {
-    // Call the API to generate tasks
+    // Call the API to generate tasks for repository
     await $authFetch(
-      `/tasks/generate/${fileId.value}/?num_tasks=${numTasksToGenerate.value}`,
+      `/tasks/generate_for_multiple_documents`,
       {
         method: "POST",
+        body: {
+          repository_id: repositoryId.value,
+          document_ids: [], // This would need to be populated with repository documents
+          num_tasks: numTasksToGenerate.value,
+          task_type: "multiple_choice",
+        },
       },
     );
     closeGenerateTasksModal();
@@ -178,11 +184,11 @@ function nextQuestion() {
 async function showSource() {
   console.log("Showing source for chunk:", currentTask.value?.chunk_id);
   console.log("Current task:", currentTask.value);
-  console.log("File ID:", fileId.value);
+  console.log("Repository ID:", repositoryId.value);
 
-  if (!fileId.value || !currentTask.value?.chunk_id) {
-    console.error("Missing fileId or chunk_id:", {
-      fileId: fileId.value,
+  if (!repositoryId.value || !currentTask.value?.chunk_id) {
+    console.error("Missing repositoryId or chunk_id:", {
+      repositoryId: repositoryId.value,
       chunkId: currentTask.value?.chunk_id,
     });
     return;
@@ -208,19 +214,13 @@ async function showSource() {
       throw new Error("Chunk data not found");
     }
 
-    // Then fetch the full document content
-    const data = await $authFetch<{ content: string }>(`/documents/${fileId.value}/`);
-
-    if (data.content) {
-      htmlContent.value = data.content;
-      // Pass chunk data to the HTML viewer for highlighting
-      highlightedChunkText.value = chunkData.chunk_text;
-    } else {
-      htmlError.value = "Document content not found";
-    }
+    // For repository-based study, we'll show the chunk text directly
+    // since we don't have a specific document to show
+    htmlContent.value = `<div class="p-4"><h2 class="text-xl font-bold mb-4">Source Text</h2><div class="bg-gray-50 p-4 rounded">${chunkData.chunk_text}</div></div>`;
+    highlightedChunkText.value = chunkData.chunk_text;
   } catch (err) {
-    console.error("Error fetching document content:", err);
-    htmlError.value = "Failed to load document content";
+    console.error("Error fetching chunk content:", err);
+    htmlError.value = "Failed to load chunk content";
   } finally {
     loadingHtml.value = false;
   }
@@ -233,7 +233,7 @@ function closeHtmlViewer() {
 
 function restart() {
   pageState.value = "studying";
-  fileId.value = "";
+  repositoryId.value = "";
   tasks.value = [];
   currentTaskIndex.value = 0;
   currentAnswer.value = "";
@@ -249,7 +249,7 @@ function restart() {
   htmlError.value = "";
   highlightedChunkText.value = "";
 
-  router.push("/documents");
+  router.push("/repositories");
 }
 </script>
 
@@ -261,7 +261,7 @@ function restart() {
       : 'w-full flex justify-center px-6'
       ">
       <div :class="showHtmlViewer ? 'max-w-4xl mx-auto' : 'max-w-2xl w-full'">
-        <DPageHeader title="Study Mode" class="mt-4" />
+        <DPageHeader title="Repository Study Mode" class="mt-4" />
         <div class="mx-auto max-w-2xl">
           <!-- Loading State -->
           <div v-if="loading" class="text-center space-y-4">
@@ -273,10 +273,10 @@ function restart() {
             <div class="space-y-4">
               <h2 class="text-2xl font-bold">No Tasks Found</h2>
               <p class="text-lg text-gray-600">
-                No study tasks have been generated for this document yet.
+                No study tasks have been generated for this repository yet.
               </p>
               <p class="text-gray-500">
-                Generate some tasks to start studying this document.
+                Generate some tasks to start studying this repository.
               </p>
             </div>
             <div class="flex justify-center">
@@ -335,7 +335,7 @@ function restart() {
     <div v-if="showHtmlViewer" class="w-1/2 border-l border-gray-200">
       <div class="h-full p-4">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold">Document Source</h2>
+          <h2 class="text-xl font-semibold">Source Text</h2>
           <DButton @click="closeHtmlViewer" variant="secondary" class="!p-2">
             Close
           </DButton>

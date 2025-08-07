@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from documents.models import Chunk
 from repositories.models import Repository, RepositoryTaskLink
+from constants import DEFAULT_NUM_QUESTIONS
 
 
 class TaskType(str, Enum):
@@ -109,6 +110,13 @@ class TeacherResponseOpen(SQLModel):
 
 class EvaluateAnswerRequest(SQLModel):
     student_answer: str
+
+
+class GenerateTasksForMultipleDocumentsRequest(SQLModel):
+    repository_id: UUID
+    document_ids: list[UUID]
+    num_tasks: int = DEFAULT_NUM_QUESTIONS
+    task_type: str = "multiple_choice"
 
 
 # Rebuild models to resolve forward references

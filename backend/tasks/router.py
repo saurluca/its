@@ -14,6 +14,7 @@ from tasks.models import (
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
     TeacherResponseOpen,
+    GenerateTasksForMultipleDocumentsRequest,
 )
 from uuid import UUID
 from sqlmodel import select, Session
@@ -278,6 +279,7 @@ def delete_answer_option(
 @router.post("/generate/{doc_id}", response_model=list[TaskRead])
 def generate_tasks_from_document(
     doc_id: UUID,
+    repository_id: UUID | None = None,
     num_tasks: int = DEFAULT_NUM_QUESTIONS,
     task_type: str = "multiple_choice",
     session: Session = Depends(get_db_session),
@@ -285,6 +287,7 @@ def generate_tasks_from_document(
     """
     Generates a specified number of questions for a given document ID.
     Uses the document's chunks to create questions and answer options.
+    Optionally links the generated tasks to a repository.
     Returns the generated questions and answer options.
     Useful for on-demand question generation for existing documents.
     """
@@ -300,9 +303,63 @@ def generate_tasks_from_document(
     # Save tasks and their answer options to database
     for task in tasks:
         session.add(task)
+        session.flush()  # Flush to get the task ID
+
+        # Create repository-task link if repository_id is provided
+        if repository_id:
+            repository_task_link = RepositoryTaskLink(
+                repository_id=repository_id, task_id=task.id
+            )
+            session.add(repository_task_link)
+
     session.commit()
 
     return tasks
+
+
+@router.post("/generate_for_multiple_documents", response_model=list[TaskRead])
+def generate_tasks_for_multiple_documents(
+    request: GenerateTasksForMultipleDocumentsRequest,
+    session: Session = Depends(get_db_session),
+):
+    """
+    Generate tasks for a number of documents and link them to the repository.
+    """
+    db_repository = session.get(Repository, request.repository_id)
+    if not db_repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    all_generated_tasks = []
+
+    for document_id in request.document_ids:
+        chunks = session.exec(
+            select(Chunk).where(Chunk.document_id == document_id)
+        ).all()
+        if not chunks:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
+            )
+        tasks = generate_questions(
+            document_id, chunks, request.num_tasks, request.task_type
+        )
+
+        # Save tasks and create repository-task links
+        for task in tasks:
+            session.add(task)
+            session.flush()  # Flush to get the task ID
+
+            # Create repository-task link
+            repository_task_link = RepositoryTaskLink(
+                repository_id=request.repository_id, task_id=task.id
+            )
+            session.add(repository_task_link)
+
+        all_generated_tasks.extend(tasks)
+
+    session.commit()
+    return all_generated_tasks
 
 
 @router.post(

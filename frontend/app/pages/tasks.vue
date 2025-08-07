@@ -32,14 +32,18 @@ const selectedRepositoryId = ref<string>("");
 const selectedDocumentId = ref<string>("");
 const filterType = ref<"repository" | "document">("repository");
 
-// Get document ID from route query if present
+// Get document ID or repository ID from route query if present
 const route = useRoute();
 const documentIdFromRoute = route.query.documentId as string;
+const repositoryIdFromRoute = route.query.repositoryId as string;
 
-// Initialize document filter from route if present
+// Initialize filter from route if present
 if (documentIdFromRoute) {
   selectedDocumentId.value = documentIdFromRoute;
   filterType.value = "document";
+} else if (repositoryIdFromRoute) {
+  selectedRepositoryId.value = repositoryIdFromRoute;
+  filterType.value = "repository";
 }
 
 // Computed property for filtered tasks

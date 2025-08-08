@@ -5,25 +5,26 @@ definePageMeta({
 
 const email = ref("");
 const password = ref("");
-const errorMsg = ref("");
 const loading = ref(false);
 
 const authStore = useAuthStore();
+import { useNotificationsStore } from "~/stores/notifications";
+const notifications = useNotificationsStore();
 
 async function login() {
   try {
     loading.value = true;
-    errorMsg.value = "";
 
     const result = await authStore.login(email.value, password.value);
 
     if (result.success) {
+      notifications.success("Welcome back!");
       await navigateTo("/");
     } else {
-      errorMsg.value = result.error || "Invalid credentials";
+      notifications.error(result.error || "Invalid credentials");
     }
   } catch (e) {
-    errorMsg.value = "Login failed";
+    notifications.error("Login failed");
   } finally {
     loading.value = false;
   }
@@ -48,16 +49,12 @@ async function login() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <DButton :loading type="submit" text-center>Login</DButton>
+          <DButton :loading="loading" type="submit" text-center>Login</DButton>
           <DButton to="/register" variant="secondary" text-center>No account yet?</DButton>
           <DButton to="/forgot-password" variant="secondary" text-center>Forgot Password?</DButton>
-
-        </div>
-
-        <div v-if="errorMsg" class="mb-2 rounded-md bg-red-100 px-4 py-2 text-center text-sm text-red-600">
-          {{ errorMsg }}
         </div>
       </form>
     </div>
+    <DSnackbar />
   </div>
 </template>

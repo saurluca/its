@@ -46,19 +46,8 @@ if (documentIdFromRoute) {
   filterType.value = "repository";
 }
 
-// Computed property for filtered tasks
-const filteredTasks = computed(() => {
-  if (filterType.value === "document" && selectedDocumentId.value) {
-    return tasks.value.filter(
-      (task) => task.document_id === selectedDocumentId.value,
-    );
-  } else if (filterType.value === "repository" && selectedRepositoryId.value) {
-    return tasks.value.filter(
-      (task) => task.repository_id === selectedRepositoryId.value,
-    );
-  }
-  return tasks.value;
-});
+// tasks are already filtered by the backend
+const filteredTasks = computed(() => tasks.value);
 
 // Toggle filter type
 function toggleFilterType() {
@@ -115,6 +104,7 @@ onMounted(async () => {
     console.log("tasksResponse", tasksResponse);
     console.log("documentsResponse", documentsResponse);
 
+    // Default to all tasks; may be overridden by route-based filtering below
     tasks.value = (tasksResponse || []).map((task: any) => ({
       ...task,
       id: task.id,
@@ -136,6 +126,13 @@ onMounted(async () => {
         value: doc.id,
         label: doc.title,
       }));
+    }
+
+    // Apply route-based filtering on initial load
+    if (documentIdFromRoute) {
+      await fetchTasksByDocument(documentIdFromRoute);
+    } else if (repositoryIdFromRoute) {
+      await fetchTasksByRepository(repositoryIdFromRoute);
     }
   } catch (error) {
     console.error("Error fetching data:", error);
@@ -188,14 +185,20 @@ async function fetchTasksByRepository(repositoryId: string) {
 
 // Watch for filter changes and fetch tasks accordingly
 watch(selectedDocumentId, (newValue) => {
-  if (newValue && filterType.value === "document") {
+  if (filterType.value !== "document") return;
+  if (newValue) {
     fetchTasksByDocument(newValue);
+  } else {
+    fetchAllTasks();
   }
 });
 
 watch(selectedRepositoryId, (newValue) => {
-  if (newValue && filterType.value === "repository") {
+  if (filterType.value !== "repository") return;
+  if (newValue) {
     fetchTasksByRepository(newValue);
+  } else {
+    fetchAllTasks();
   }
 });
 
@@ -330,26 +333,6 @@ function handleSaveTask(taskData: TaskFormData) {
 
 function handleEditTask(task: Task) {
   editingTask.value = { ...task };
-}
-
-// Functions for student view
-async function submitAnswers() {
-  submittedAnswers.value = { ...studentAnswers.value };
-  showResults.value = true;
-}
-
-function resetAnswers() {
-  studentAnswers.value = {};
-  submittedAnswers.value = {};
-  showResults.value = false;
-}
-
-function isAnswerCorrect(taskId: string): boolean {
-  const task = tasks.value.find((t) => t.id === taskId);
-  if (!task) return false;
-
-  const correctOption = task.answer_options.find(option => option.is_correct);
-  return !!correctOption && submittedAnswers.value[taskId] === correctOption.answer;
 }
 </script>
 

@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { UploadIcon } from "lucide-vue-next";
 import type { Repository } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -19,6 +20,8 @@ const uploading = ref(false);
 const selectedRepositories = ref<string[]>([]);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
+
+const notifications = useNotificationsStore();
 
 function triggerFilePicker() {
     if (uploading.value) return;
@@ -65,7 +68,7 @@ async function handleUpload() {
         close();
     } catch (error) {
         console.error("Error uploading document:", error);
-        alert("Failed to upload document. Please try again. " + error);
+        notifications.error("Failed to upload document. Please try again. " + error);
     } finally {
         uploading.value = false;
     }

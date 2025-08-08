@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import type { Repository } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 interface TaskForm {
   type: "multiple_choice" | "free_text";
@@ -26,6 +27,8 @@ const task = ref<TaskForm>({
   options: ["", "", ""],
   correctAnswer: "",
 });
+
+const notifications = useNotificationsStore();
 
 // Initialize with initial task if provided
 watch(
@@ -79,13 +82,13 @@ function removeOption(index: number) {
 
 function saveTask() {
   if (!task.value.question || !task.value.chunkId) {
-    alert("Please fill in all required fields");
+    notifications.warning("Please fill in all required fields");
     return;
   }
 
   // Validate correct answer based on task type
   if (task.value.type === "multiple_choice" && !task.value.correctAnswer) {
-    alert("Please select a correct answer");
+    notifications.warning("Please select a correct answer");
     return;
   }
   console.log("task.value", task.value);

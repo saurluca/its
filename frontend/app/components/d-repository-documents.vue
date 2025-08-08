@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { TrashIcon, PencilIcon, EyeIcon } from "lucide-vue-next";
 import type { Document } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -30,6 +31,8 @@ const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
+
+const notifications = useNotificationsStore();
 
 onMounted(async () => {
     await fetchDocuments();
@@ -86,7 +89,7 @@ async function uploadDocumentFromInput(event: Event) {
         await fetchDocuments();
         emit("refresh-repositories");
     } catch (error) {
-        alert("Failed to upload document. Please try again. " + error);
+        notifications.error("Failed to upload document. Please try again. " + error);
     } finally {
         uploadingDocument.value = false;
     }
@@ -101,7 +104,7 @@ async function deleteDocument(documentId: string) {
         emit("refresh-repositories");
     } catch (error) {
         console.error("Error deleting document:", error);
-        alert("Failed to delete document. Please try again. " + error);
+        notifications.error("Failed to delete document. Please try again. " + error);
     }
 }
 
@@ -153,7 +156,7 @@ async function confirmEditTitle() {
         closeEditTitleModal();
     } catch (error) {
         console.error("Error updating title:", error);
-        alert("Failed to update title. Please try again. " + error);
+        notifications.error("Failed to update title. Please try again. " + error);
     }
 }
 
@@ -169,7 +172,7 @@ async function confirmGenerateTasks() {
         );
         closeGenerateTasksModal();
     } catch (error) {
-        alert("Failed to generate tasks. Please try again. " + error);
+        notifications.error("Failed to generate tasks. Please try again. " + error);
     } finally {
         generatingTasks.value = false;
     }

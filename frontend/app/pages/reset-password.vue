@@ -13,6 +13,9 @@ const password = ref("");
 const loading = ref(false);
 const success = ref(false);
 
+import { useNotificationsStore } from "~/stores/notifications";
+const notifications = useNotificationsStore();
+
 async function requestPasswordReset() {
   loading.value = true;
   try {
@@ -29,9 +32,9 @@ async function requestPasswordReset() {
     // const statusCode = e.statusCode
     if (e.statusCode === 429) {
       // handle rate limit error
-      alert("Too many requests. Please try again later.");
+      notifications.error("Too many requests. Please try again later.");
     } else {
-      alert("An unknown error occurred. Please try again later.");
+      notifications.error("An unknown error occurred. Please try again later.");
     }
   } finally {
     loading.value = false;
@@ -71,4 +74,5 @@ async function requestPasswordReset() {
       </div>
     </div>
   </div>
+  <DSnackbar />
 </template>

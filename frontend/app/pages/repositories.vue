@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon, FileTextIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -36,6 +37,7 @@ const htmlContent = ref("");
 const loadingHtml = ref(false);
 const htmlError = ref("");
 const selectedDocumentId = ref<string | null>(null);
+const notifications = useNotificationsStore();
 
 // Load repositories on component mount
 onMounted(async () => {
@@ -50,7 +52,7 @@ async function fetchRepositories() {
         repositories.value = (response.repositories || response) as Repository[];
     } catch (error) {
         console.error("Error fetching repositories:", error);
-        alert("Failed to load repositories. Please try again. " + error);
+        notifications.error("Failed to load repositories. Please try again. " + error);
     } finally {
         loading.value = false;
     }
@@ -67,7 +69,7 @@ async function createRepository(repositoryData: Partial<Repository>) {
         showForm.value = false;
     } catch (error) {
         console.error("Error creating repository:", error);
-        alert("Failed to create repository. Please try again. " + error);
+        notifications.error("Failed to create repository. Please try again. " + error);
     }
 }
 
@@ -86,7 +88,7 @@ async function updateRepository(repositoryData: Repository) {
         editingRepository.value = null;
     } catch (error) {
         console.error("Error updating repository:", error);
-        alert("Failed to update repository. Please try again. " + error);
+        notifications.error("Failed to update repository. Please try again. " + error);
     }
 }
 
@@ -99,7 +101,7 @@ async function deleteRepository(id: string) {
         repositories.value = repositories.value.filter((r) => r.id !== id);
     } catch (error) {
         console.error("Error deleting repository:", error);
-        alert("Failed to delete repository. Please try again. " + error);
+        notifications.error("Failed to delete repository. Please try again. " + error);
     }
 }
 
@@ -109,11 +111,6 @@ function handleSave(repositoryData: Partial<Repository>) {
     } else {
         createRepository(repositoryData);
     }
-}
-
-function editRepository(repository: Repository) {
-    editingRepository.value = repository;
-    showForm.value = true;
 }
 
 function cancelEdit() {
@@ -176,7 +173,7 @@ async function confirmEditTitle() {
         closeEditTitleModal();
     } catch (error) {
         console.error("Error updating title:", error);
-        alert("Failed to update title. Please try again. " + error);
+        notifications.error("Failed to update title. Please try again. " + error);
     }
 }
 
@@ -219,7 +216,7 @@ async function openGenerateTasksModal(repository: Repository) {
         }));
     } catch (error) {
         console.error("Error fetching repository documents:", error);
-        alert("Failed to load repository documents. Please try again.");
+        notifications.error("Failed to load repository documents. Please try again.");
         return;
     }
 
@@ -236,7 +233,7 @@ function closeGenerateTasksModal() {
 
 async function confirmGenerateTasks() {
     if (!selectedRepositoryForTasks.value || selectedDocuments.value.size === 0) {
-        alert("Please select at least one document to generate tasks from.");
+        notifications.warning("Please select at least one document to generate tasks from.");
         return;
     }
 
@@ -257,10 +254,10 @@ async function confirmGenerateTasks() {
         closeGenerateTasksModal();
         // Refresh repositories to show updated task counts
         await fetchRepositories();
-        alert("Tasks generated successfully!");
+        notifications.success("Tasks generated successfully!");
     } catch (error) {
         console.error("Error generating tasks:", error);
-        alert("Failed to generate tasks. Please try again. " + error);
+        notifications.error("Failed to generate tasks. Please try again. " + error);
     } finally {
         generatingTasks.value = false;
     }

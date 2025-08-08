@@ -11,6 +11,7 @@ import {
   FolderIcon,
 } from "lucide-vue-next";
 import type { Document, Repository } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -41,6 +42,7 @@ const htmlContent = ref("");
 const loadingHtml = ref(false);
 const htmlError = ref("");
 const selectedDocumentId = ref<string | null>(null);
+const notifications = useNotificationsStore();
 
 async function fetchDocuments() {
   loadingDocuments.value = true;
@@ -58,7 +60,7 @@ async function fetchDocuments() {
     }));
   } catch (error) {
     console.error("Error fetching documents:", error);
-    alert("Failed to load documents. Please try again. " + error);
+    notifications.error("Failed to load documents. Please try again. " + error);
   } finally {
     loadingDocuments.value = false;
   }
@@ -71,7 +73,7 @@ async function fetchRepositories() {
     repositories.value = data.repositories || data;
   } catch (error) {
     console.error("Error fetching repositories:", error);
-    alert("Failed to load repositories. Please try again. " + error);
+    notifications.error("Failed to load repositories. Please try again. " + error);
   } finally {
     loadingRepositories.value = false;
   }
@@ -103,7 +105,7 @@ async function uploadDocumentFromInput(event: Event) {
     // Refresh the document list
     await fetchDocuments();
   } catch (error) {
-    alert("Failed to upload document. Please try again. " + error);
+    notifications.error("Failed to upload document. Please try again. " + error);
   } finally {
     uploadingDocument.value = false;
   }
@@ -130,7 +132,7 @@ async function deleteDocument(documentId: string) {
     await fetchDocuments();
   } catch (error) {
     console.error("Error deleting document:", error);
-    alert("Failed to delete document. Please try again. " + error);
+    notifications.error("Failed to delete document. Please try again. " + error);
   } finally {
     deletingDocument.value = false;
   }
@@ -193,7 +195,7 @@ async function confirmGenerateTasks() {
     closeGenerateTasksModal();
     // Optionally refresh documents or show a success message
   } catch (error) {
-    alert("Failed to generate tasks. Please try again. " + error);
+    notifications.error("Failed to generate tasks. Please try again. " + error);
   } finally {
     generatingTasks.value = false;
   }
@@ -222,7 +224,7 @@ async function confirmAddToRepository() {
     await fetchRepositories();
   } catch (error) {
     console.error("Error adding document to repository:", error);
-    alert("Failed to add document to repository. Please try again. " + error);
+    notifications.error("Failed to add document to repository. Please try again. " + error);
   }
 }
 
@@ -254,7 +256,7 @@ async function confirmEditTitle() {
     closeEditTitleModal();
   } catch (error) {
     console.error("Error updating title:", error);
-    alert("Failed to update title. Please try again. " + error);
+    notifications.error("Failed to update title. Please try again. " + error);
   }
 }
 

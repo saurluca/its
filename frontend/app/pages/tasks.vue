@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from "vue";
 import DViewToggle from "~/components/d-view-toggle.vue";
 import type { Task, Repository } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -21,6 +22,7 @@ const loading = ref(true);
 const repositoriesList = ref<Repository[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
 const editingTask = ref<Task | null>(null);
+const notifications = useNotificationsStore();
 
 // For student answers
 const studentAnswers = ref<Record<string, string>>({});
@@ -232,7 +234,7 @@ async function createTask(taskData: TaskFormData) {
     });
   } catch (error) {
     console.error("Error creating task:", error);
-    alert("Failed to create task. Please try again.");
+    notifications.error("Failed to create task. Please try again.");
   }
 }
 
@@ -266,7 +268,7 @@ async function updateTask(taskData: Task) {
     editingTask.value = null;
   } catch (error) {
     console.error("Error updating task:", error);
-    alert("Failed to update task. Please try again.");
+    notifications.error("Failed to update task. Please try again.");
   }
 }
 
@@ -279,7 +281,7 @@ async function deleteTask(id: string) {
     tasks.value = tasks.value.filter((t) => t.id !== id);
   } catch (error) {
     console.error("Error deleting task:", error);
-    alert("Failed to delete task. Please try again.");
+    notifications.error("Failed to delete task. Please try again.");
   }
 }
 

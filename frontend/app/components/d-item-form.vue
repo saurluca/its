@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useNotificationsStore } from "~/stores/notifications";
 
 interface BaseItem {
   id?: string;
@@ -24,6 +25,8 @@ const formData = ref<BaseItem>({
   description: "",
 });
 
+const notifications = useNotificationsStore();
+
 onMounted(() => {
   if (props.item) {
     formData.value = { ...props.item };
@@ -32,7 +35,7 @@ onMounted(() => {
 
 function saveItem() {
   if (!formData.value.name) {
-    alert("Name is required");
+    notifications.warning("Name is required");
     return;
   }
 

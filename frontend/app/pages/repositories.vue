@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon, FileTextIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -42,6 +42,11 @@ const notifications = useNotificationsStore();
 // Load repositories on component mount
 onMounted(async () => {
     await fetchRepositories();
+    window.addEventListener("keydown", handleKeyDown);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("keydown", handleKeyDown);
 });
 
 async function fetchRepositories() {
@@ -116,6 +121,12 @@ function handleSave(repositoryData: Partial<Repository>) {
 function cancelEdit() {
     editingRepository.value = null;
     showForm.value = false;
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape" && showForm.value) {
+        cancelEdit();
+    }
 }
 
 function navigateToStudy(repositoryId: string) {
@@ -317,9 +328,16 @@ async function viewDocument(documentId: string) {
                         </DButton>
                     </div>
 
-                    <DItemForm v-if="showForm" :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
-                        :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
-                        @cancel="cancelEdit" />
+                    <div v-if="showForm" class="relative">
+                        <button type="button" aria-label="Close"
+                            class="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            @click="cancelEdit">
+                            ×
+                        </button>
+                        <DItemForm :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
+                            :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
+                            @cancel="cancelEdit" />
+                    </div>
 
                     <div v-if="repositories.length > 0" class="space-y-4">
                         <div v-for="repository in repositories" :key="repository.id"

@@ -48,7 +48,6 @@ function close(id: number) {
             </TransitionGroup>
         </div>
     </Teleport>
-
 </template>
 
 <style scoped>

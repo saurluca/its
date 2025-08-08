@@ -77,6 +77,12 @@ async def read_users_me(
     db: Session = Depends(get_db_session),
 ):
     """Get current user information"""
+    # Ensure email is present
+    if current_user.email is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
     user = await get_user_by_email(current_user.email, db)
     if not user:
         raise HTTPException(

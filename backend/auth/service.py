@@ -42,13 +42,13 @@ def get_user_model_from_db(session: Session, email: str) -> User:
     return user
 
 
-def authenticate_user(session: Session, email: str, password: str) -> User:
+def authenticate_user(session: Session, email: str, password: str) -> User | None:
     """Authenticate user with database"""
     user = get_user_model_from_db(session, email)
     if not user:
-        return False
+        return None
     if not verify_password(password, user.hashed_password):
-        return False
+        return None
     return user
 
 
@@ -80,7 +80,11 @@ async def get_current_user(
         token_data = TokenData(email=email)
     except InvalidTokenError:
         raise credentials_exception
-    user = get_user_model_from_db(session, email=token_data.email)
+    # Narrow Optional[str] to str for type-checker
+    email_value = token_data.email
+    if email_value is None:
+        raise credentials_exception
+    user = get_user_model_from_db(session, email=email_value)
     if user is None:
         raise credentials_exception
     return user
@@ -104,7 +108,7 @@ async def get_current_active_user_from_cookie(
 
 
 # Database CRUD operations
-async def create_user(user_data: UserCreate, session: Session) -> UserResponse:
+async def create_user(user_data: UserCreate, session: Session) -> User:
     """Create a new user"""
     # Check if email already exists
     existing_user = session.exec(
@@ -143,7 +147,7 @@ async def create_user(user_data: UserCreate, session: Session) -> UserResponse:
     return db_user
 
 
-async def get_user_by_id(user_id: UUID, session: Session) -> UserResponse:
+async def get_user_by_id(user_id: UUID, session: Session) -> User | None:
     """Get user by ID"""
     user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:
@@ -151,7 +155,7 @@ async def get_user_by_id(user_id: UUID, session: Session) -> UserResponse:
     return user
 
 
-async def get_user_by_email(email: str, session: Session) -> UserResponse:
+async def get_user_by_email(email: str, session: Session) -> User | None:
     """Get user by email"""
     user = session.exec(select(User).where(User.email == email)).first()
     if not user:
@@ -161,7 +165,7 @@ async def get_user_by_email(email: str, session: Session) -> UserResponse:
 
 async def update_user(
     user_id: UUID, user_data: UserUpdate, session: Session
-) -> UserResponse:
+) -> User | None:
     """Update user by ID"""
     user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:

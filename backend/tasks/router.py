@@ -17,6 +17,7 @@ from tasks.models import (
     GenerateTasksForMultipleDocumentsRequest,
 )
 from uuid import UUID
+from typing import Any, cast
 from sqlmodel import select, Session
 from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
@@ -67,7 +68,9 @@ async def get_tasks_by_document(
     chunk_ids = [chunk.id for chunk in chunks]
 
     # Get all tasks for these chunks
-    db_tasks = session.exec(select(Task).where(Task.chunk_id.in_(chunk_ids))).all()
+    db_tasks = session.exec(
+        select(Task).where(cast(Any, Task.chunk_id).in_(chunk_ids))
+    ).all()
     return db_tasks
 
 

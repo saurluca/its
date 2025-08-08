@@ -71,13 +71,9 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     print(f"Time taken to convert: {time.time() - start_time} seconds")
 
     print("Chunking")
-    # Use HybridChunker to split document into chunks, excluding images and documents
+    # Use HybridChunker to split document into chunks
     chunker = HybridChunker(
-        merge_peers=True,  # Merge undersized successive chunks with same headings
-        include_images=False,  # Exclude images from chunks
-        include_tables=False,  # Exclude tables from chunks
-        include_figures=False,  # Exclude figures from chunks
-        include_formulas=False,  # Exclude formulas from chunks
+        merge_peers=True,
     )
     chunk_iter = chunker.chunk(dl_doc=docling_doc)
 

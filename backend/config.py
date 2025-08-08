@@ -20,26 +20,37 @@ class LLMConfig:
 
     @staticmethod
     def configure_dspy():
-        if os.getenv("USE_OLLAMA", "False").lower() == "true" and os.getenv(
-            "OLLAMA_MODEL"
-        ):
-            lm = dspy.LM(
-                os.getenv("OLLAMA_MODEL"),
-                api_base=os.getenv("OLLAMA_API_BASE"),
-                api_key="",
-            )
+        if os.getenv("USE_OLLAMA", "False").lower() == "true":
+            ollama_model = os.getenv("OLLAMA_MODEL")
+            if ollama_model:
+                lm = dspy.LM(
+                    ollama_model,
+                    api_base=os.getenv("OLLAMA_API_BASE") or "",
+                    api_key="",
+                )
+            else:
+                raise ValueError("OLLAMA_MODEL is required when USE_OLLAMA is true")
         elif os.getenv("GROK_API_KEY") and os.getenv("GROK_MODEL"):
-            lm = dspy.LM(os.getenv("GROK_MODEL"), api_key=os.getenv("GROK_API_KEY"))
+            grok_model = os.getenv("GROK_MODEL")
+            grok_api_key = os.getenv("GROK_API_KEY")
+            if grok_model and grok_api_key:
+                lm = dspy.LM(grok_model, api_key=grok_api_key)
+            else:
+                raise ValueError("GROK_MODEL and GROK_API_KEY must be set together")
         elif os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_MODEL"):
-            lm = dspy.LM(
-                os.getenv("GEMINI_MODEL"),
-                api_key=os.getenv("GEMINI_API_KEY"),
-            )
+            gemini_model = os.getenv("GEMINI_MODEL")
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if gemini_model and gemini_api_key:
+                lm = dspy.LM(gemini_model, api_key=gemini_api_key)
+            else:
+                raise ValueError("GEMINI_MODEL and GEMINI_API_KEY must be set together")
         elif os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL"):
-            lm = dspy.LM(
-                os.getenv("OPENAI_MODEL"),
-                api_key=os.getenv("OPENAI_API_KEY"),
-            )
+            openai_model = os.getenv("OPENAI_MODEL")
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if openai_model and openai_api_key:
+                lm = dspy.LM(openai_model, api_key=openai_api_key)
+            else:
+                raise ValueError("OPENAI_MODEL and OPENAI_API_KEY must be set together")
         else:
             raise ValueError("No LLM configured")
 

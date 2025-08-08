@@ -19,18 +19,20 @@ export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
+  const $authFetch = $fetch.create({
+    baseURL: config.public.apiBase,
+    onRequest({ options }) {
+      // Include credentials (cookies) in all requests
+      options.credentials = "include";
+    },
+    onResponseError({ response }) {
+      if (response.status === 401) {
+        authStore.logout();
+      }
+    },
+  });
+
   return {
-    $authFetch: $fetch.create({
-      baseURL: config.public.apiBase,
-      onRequest({ options }) {
-        // Include credentials (cookies) in all requests
-        options.credentials = "include";
-      },
-      onResponseError({ response }) {
-        if (response.status === 401) {
-          authStore.logout();
-        }
-      },
-    }),
+    $authFetch: $authFetch as any,
   };
 };

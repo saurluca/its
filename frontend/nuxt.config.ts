@@ -35,11 +35,9 @@ export default defineNuxtConfig({
   },
 
   eslint: {
-    config: {
-      rules: {
-        // Ensure ESLint doesn't enforce formatting; Prettier handles it
-        "prettier/prettier": "off",
-      },
+    rules: {
+      // Ensure ESLint doesn't enforce formatting; Prettier handles it
+      "prettier/prettier": "off",
     },
   },
 

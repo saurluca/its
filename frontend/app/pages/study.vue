@@ -95,7 +95,7 @@ async function startStudy() {
   error.value = null;
 
   try {
-    const responseData = await $authFetch<Task[]>(`/tasks/repository/${repositoryId.value}`);
+    const responseData = await $authFetch(`/tasks/repository/${repositoryId.value}`) as Task[];
 
     if (responseData && responseData.length > 0) {
       // Randomize order of tasks for this study session
@@ -171,10 +171,10 @@ async function evaluateAnswer() {
     }
     // Incorrect multiple choice: request backend feedback
     try {
-      const responseData = await $authFetch<{ feedback: string; }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+      const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
         method: "POST",
         body: { student_answer: currentAnswer.value },
-      });
+      }) as { feedback: string; };
       feedback.value = responseData.feedback || null;
     } catch (e: any) {
       error.value = e.message || "Failed to evaluate answer.";
@@ -185,10 +185,10 @@ async function evaluateAnswer() {
   } else {
     // Free text: wait for backend response, use score thresholds
     try {
-      const responseData = await $authFetch<{ feedback: string; score: number; }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+      const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
         method: "POST",
         body: { student_answer: currentAnswer.value },
-      });
+      }) as { feedback: string; score: number; };
       feedback.value = responseData.feedback || null;
       const scoreNum = responseData.score;
       if (scoreNum > 7) {
@@ -258,7 +258,7 @@ async function showSource() {
     const chunkUrl = `/documents/chunks/${currentTask.value.chunk_id}`;
     console.log("Fetching chunk from:", chunkUrl);
 
-    const chunkData = await $authFetch<{ chunk_text: string }>(chunkUrl);
+    const chunkData = await $authFetch(chunkUrl) as { chunk_text: string };
 
     console.log("Chunk data received:", chunkData);
 

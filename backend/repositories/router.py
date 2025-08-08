@@ -19,7 +19,7 @@ router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
 @router.get("/", response_model=list[RepositoryResponse])
-def get_repositories(session: Session = Depends(get_db_session)):
+async def get_repositories(session: Session = Depends(get_db_session)):
     db_repositories = session.exec(select(Repository)).all()
 
     # Create response objects with task counts
@@ -43,7 +43,9 @@ def get_repositories(session: Session = Depends(get_db_session)):
 
 
 @router.get("/{repository_id}", response_model=RepositoryResponseDetail)
-def get_repository(repository_id: UUID, session: Session = Depends(get_db_session)):
+async def get_repository(
+    repository_id: UUID, session: Session = Depends(get_db_session)
+):
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -57,7 +59,7 @@ def get_repository(repository_id: UUID, session: Session = Depends(get_db_sessio
 
 
 @router.get("/{repository_id}/documents", response_model=list[DocumentResponse])
-def get_repository_documents(
+async def get_repository_documents(
     repository_id: UUID, session: Session = Depends(get_db_session)
 ):
     db_repository = session.get(Repository, repository_id)
@@ -77,7 +79,7 @@ def get_repository_documents(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Repository)
-def create_repository(
+async def create_repository(
     repository: RepositoryCreate, session: Session = Depends(get_db_session)
 ):
     db_repository = Repository.model_validate(repository)
@@ -88,7 +90,7 @@ def create_repository(
 
 
 @router.put("/{repository_id}", response_model=Repository)
-def update_repository(
+async def update_repository(
     repository_id: UUID,
     repository: RepositoryUpdate,
     session: Session = Depends(get_db_session),
@@ -107,7 +109,9 @@ def update_repository(
 
 
 @router.delete("/{repository_id}")
-def delete_repository(repository_id: UUID, session: Session = Depends(get_db_session)):
+async def delete_repository(
+    repository_id: UUID, session: Session = Depends(get_db_session)
+):
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -123,7 +127,7 @@ def delete_repository(repository_id: UUID, session: Session = Depends(get_db_ses
     status_code=status.HTTP_201_CREATED,
     response_model=RepositoryDocumentLinkResponse,
 )
-def create_repository_document_link(
+async def create_repository_document_link(
     link: RepositoryDocumentLinkCreate, session: Session = Depends(get_db_session)
 ):
     # Check if repository exists
@@ -171,7 +175,7 @@ def create_repository_document_link(
 
 
 @router.delete("/links/{repository_id}/{document_id}")
-def delete_repository_document_link(
+async def delete_repository_document_link(
     repository_id: UUID, document_id: UUID, session: Session = Depends(get_db_session)
 ):
     # Check if link exists

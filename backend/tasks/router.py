@@ -26,13 +26,15 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.get("/", response_model=list[TaskRead])
-def get_tasks(session: Session = Depends(get_db_session)):
+async def get_tasks(session: Session = Depends(get_db_session)):
     db_tasks = session.exec(select(Task)).all()
     return db_tasks
 
 
 @router.get("/chunk/{chunk_id}", response_model=list[TaskRead])
-def get_tasks_by_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
+async def get_tasks_by_chunk(
+    chunk_id: UUID, session: Session = Depends(get_db_session)
+):
     """
     Get all tasks for a specific chunk.
     """
@@ -48,7 +50,9 @@ def get_tasks_by_chunk(chunk_id: UUID, session: Session = Depends(get_db_session
 
 
 @router.get("/document/{document_id}", response_model=list[TaskRead])
-def get_tasks_by_document(document_id: str, session: Session = Depends(get_db_session)):
+async def get_tasks_by_document(
+    document_id: str, session: Session = Depends(get_db_session)
+):
     """
     Get all tasks for a specific document by fetching tasks from all chunks of that document.
     """
@@ -68,7 +72,7 @@ def get_tasks_by_document(document_id: str, session: Session = Depends(get_db_se
 
 
 @router.get("/repository/{repository_id}", response_model=list[TaskRead])
-def get_tasks_by_repository(
+async def get_tasks_by_repository(
     repository_id: UUID, session: Session = Depends(get_db_session)
 ):
     """
@@ -93,7 +97,7 @@ def get_tasks_by_repository(
 
 
 @router.get("/{task_id}", response_model=TaskRead)
-def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
+async def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
@@ -103,7 +107,7 @@ def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
-def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
+async def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
     # Verify chunk exists
     db_chunk = session.get(Chunk, task.chunk_id)
     if not db_chunk:
@@ -133,7 +137,7 @@ def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
 
 
 @router.put("/{task_id}", response_model=TaskRead)
-def update_task(
+async def update_task(
     task_id: UUID,
     task: TaskUpdate,
     session: Session = Depends(get_db_session),
@@ -179,7 +183,7 @@ def update_task(
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
+async def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
@@ -201,7 +205,7 @@ def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
 
 # Answer Option specific endpoints
 @router.post("/{task_id}/answer-options", response_model=AnswerOptionRead)
-def create_answer_option(
+async def create_answer_option(
     task_id: UUID,
     answer_option: AnswerOptionCreate,
     session: Session = Depends(get_db_session),
@@ -221,7 +225,7 @@ def create_answer_option(
 
 
 @router.get("/{task_id}/answer-options", response_model=list[AnswerOptionRead])
-def get_answer_options(
+async def get_answer_options(
     task_id: UUID,
     session: Session = Depends(get_db_session),
 ):
@@ -239,7 +243,7 @@ def get_answer_options(
 
 
 @router.put("/{task_id}/answer-options/{option_id}", response_model=AnswerOptionRead)
-def update_answer_option(
+async def update_answer_option(
     task_id: UUID,
     option_id: UUID,
     answer_option_update: AnswerOptionUpdate,
@@ -260,7 +264,7 @@ def update_answer_option(
 
 
 @router.delete("/{task_id}/answer-options/{option_id}")
-def delete_answer_option(
+async def delete_answer_option(
     task_id: UUID,
     option_id: UUID,
     session: Session = Depends(get_db_session),
@@ -277,7 +281,7 @@ def delete_answer_option(
 
 
 @router.post("/generate/{doc_id}", response_model=list[TaskRead])
-def generate_tasks_from_document(
+async def generate_tasks_from_document(
     doc_id: UUID,
     repository_id: UUID | None = None,
     num_tasks: int = DEFAULT_NUM_QUESTIONS,
@@ -318,7 +322,7 @@ def generate_tasks_from_document(
 
 
 @router.post("/generate_for_multiple_documents", response_model=list[TaskRead])
-def generate_tasks_for_multiple_documents(
+async def generate_tasks_for_multiple_documents(
     request: GenerateTasksForMultipleDocumentsRequest,
     session: Session = Depends(get_db_session),
 ):
@@ -366,7 +370,7 @@ def generate_tasks_for_multiple_documents(
     "/evaluate_answer/{task_id}",
     response_model=TeacherResponseMultipleChoice | TeacherResponseFreeText,
 )
-def evaluate_answer(
+async def evaluate_answer(
     task_id: UUID,
     request: EvaluateAnswerRequest,
     session: Session = Depends(get_db_session),

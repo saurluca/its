@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   css: ["@/app.css"],
-  modules: ["@vueuse/nuxt", "@nuxt/fonts", "@pinia/nuxt"],
+  modules: ["@vueuse/nuxt", "@nuxt/fonts", "@pinia/nuxt", "@nuxt/eslint"],
 
   fonts: { experimental: { processCSSVariables: true } },
 
@@ -28,6 +28,10 @@ export default defineNuxtConfig({
         driver: "memory",
       },
     },
+  },
+
+  typescript: {
+    typeCheck: true,
   },
 
   app: {

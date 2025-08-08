@@ -18,6 +18,18 @@ const error = ref<string | null>(null);
 const feedback = ref<string | null>(null);
 const router = useRouter();
 
+// Utility: Fisher-Yates shuffle to randomize tasks each session
+function shuffleArray<T>(items: T[]): T[] {
+  const array = [...items];
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = array[i]!;
+    array[i] = array[j]!;
+    array[j] = temp;
+  }
+  return array;
+}
+
 // Task generation state
 const showGenerateTasksModal = ref(false);
 const generatingTasks = ref(false);
@@ -78,7 +90,9 @@ async function startStudy() {
     const responseData = await $authFetch<Task[]>(`/tasks/repository/${repositoryId.value}`);
 
     if (responseData && responseData.length > 0) {
-      tasks.value = responseData;
+      // Randomize order of tasks for this study session
+      tasks.value = shuffleArray(responseData);
+      currentTaskIndex.value = 0;
       console.log("Loaded tasks:", responseData.length, responseData);
       console.log("First task structure:", responseData[0]);
       pageState.value = "studying";
@@ -149,8 +163,9 @@ async function evaluateAnswer() {
     try {
       const responseData = await $authFetch<{
         feedback: string;
-      }>(`/tasks/evaluate_answer/${currentTask.value?.id}?student_answer=${encodeURIComponent(currentAnswer.value)}`, {
+      }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
         method: "POST",
+        body: { student_answer: currentAnswer.value },
       });
       feedback.value = responseData.feedback || null;
     } catch (e: any) {

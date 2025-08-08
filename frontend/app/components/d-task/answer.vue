@@ -117,7 +117,7 @@ console.log("task", props.task);
 
     <!-- Free Text Answer -->
     <div v-else class="mt-4">
-      <DInputArea v-model="answer" rows="4" placeholder="Enter your answer" />
+      <DInputArea v-model="answer" rows="4" placeholder="Enter your answer" :disabled="disabled" />
     </div>
   </div>
 </template>

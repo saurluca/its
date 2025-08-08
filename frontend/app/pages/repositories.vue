@@ -45,7 +45,6 @@ onMounted(async () => {
 async function fetchRepositories() {
     loading.value = true;
     try {
-        console.log("fetching repositories");
         const response = await $authFetch("/repositories/") as any;
         console.log("response", response);
         repositories.value = (response.repositories || response) as Repository[];

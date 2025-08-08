@@ -33,11 +33,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     authStore.isLoggedIn &&
     ["/login", "/register"].includes(to.path)
   ) {
-    return navigateTo("/documents");
+    return navigateTo("/repositories");
   }
 
   // Redirect root to documents
   if (to.path === "/") {
-    return navigateTo("/documents");
+    return navigateTo("/repositories");
   }
 });

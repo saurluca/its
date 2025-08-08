@@ -1,14 +1,19 @@
 <script lang="ts" setup>
 import { ChevronDownIcon, ChevronUpIcon, CheckIcon } from "lucide-vue-next";
 
-interface Props {
-  options: { value: string | number | boolean | null; display: string }[];
+interface SelectOption<T extends string | number | boolean | null = string | number | boolean | null> {
+  value: T;
+  display: string;
+}
+
+interface Props<T extends string | number | boolean | null = string | number | boolean | null> {
+  options: SelectOption<T>[];
   placeholder?: string;
 }
 
 const { options } = defineProps<Props>();
 
-const model = defineModel<string | null>();
+const model = defineModel<string | number | boolean | null>();
 
 const open = ref(false);
 
@@ -22,8 +27,8 @@ onClickOutside(container, () => (open.value = false));
 
 onKeyStroke("Escape", () => (open.value = false));
 
-function select(option: any) {
-  emit("change", option.value);
+function select(option: SelectOption) {
+  emit("change", (option.value as unknown) as string | null);
   model.value = option.value;
   open.value = false;
 }
@@ -116,41 +121,23 @@ const popoverStyle = computed(() => {
 
 <template>
   <div ref="container" class="relative">
-    <div
-      ref="input"
-      @click="onOpen"
-      tabindex="0"
-      @keypress.enter="onOpen({ keyboard: true })"
-      class="flex w-full cursor-default items-center justify-between rounded-md bg-neutral-100 px-2.5 py-1.5 text-sm ring-blue-600 outline-none focus:ring-2 focus:outline-0"
-    >
-      <div
-        v-if="placeholder && model === null"
-        class="overflow-hidden text-sm text-nowrap overflow-ellipsis text-neutral-700"
-      >
+    <div ref="input" :tabindex="0" @click="() => onOpen()" @keypress.enter="onOpen({ keyboard: true })"
+      class="flex w-full cursor-default items-center justify-between rounded-md bg-neutral-100 px-2.5 py-1.5 text-sm ring-blue-600 outline-none focus:ring-2 focus:outline-0">
+      <div v-if="placeholder && model === null"
+        class="overflow-hidden text-sm text-nowrap overflow-ellipsis text-neutral-700">
         {{ placeholder }}
       </div>
-      <div
-        v-else
-        class="overflow-hidden text-sm text-nowrap overflow-ellipsis text-neutral-900"
-      >
-        {{ options.find((o) => o.value == model)?.display }}
+      <div v-else class="overflow-hidden text-sm text-nowrap overflow-ellipsis text-neutral-900">
+        {{options.find((o) => o.value == model)?.display}}
       </div>
       <ChevronDownIcon v-show="!open" class="ml-2 size-4 text-neutral-700" />
       <ChevronUpIcon v-show="open" class="ml-2 size-4 text-neutral-700" />
     </div>
-    <div
-      v-if="open"
-      :style="popoverStyle"
-      class="fixed z-100 flex max-h-48 flex-col gap-1 overflow-scroll rounded-md border border-neutral-200 bg-white p-1 text-sm shadow"
-    >
-      <div
-        ref="options"
-        v-for="option in options"
-        @click="select(option)"
-        @keypress.enter="select(option)"
-        tabindex="0"
-        class="flex cursor-default items-center justify-between rounded px-2.5 py-1.5 text-sm text-neutral-900 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-0"
-      >
+    <div v-if="open" :style="popoverStyle"
+      class="fixed z-100 flex max-h-48 flex-col gap-1 overflow-scroll rounded-md border border-neutral-200 bg-white p-1 text-sm shadow">
+      <div v-for="option in options" ref="options" :key="String(option.value)" @click="select(option)"
+        @keypress.enter="select(option)" tabindex="0"
+        class="flex cursor-default items-center justify-between rounded px-2.5 py-1.5 text-sm text-neutral-900 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-0">
         <div class="overflow-hidden text-nowrap overflow-ellipsis">
           {{ option.display }}
         </div>

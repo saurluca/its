@@ -47,9 +47,9 @@ const notifications = useNotificationsStore();
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
-    const data = await $authFetch("/documents/") as any;
+    const data = await $authFetch("/documents/") as Document[];
     // Transform the API response to match our Document interface
-    documents.value = data.map((doc: any) => ({
+    documents.value = data.map((doc: Document) => ({
       id: doc.id,
       title: doc.title,
       content: doc.content,
@@ -69,8 +69,8 @@ async function fetchDocuments() {
 async function fetchRepositories() {
   loadingRepositories.value = true;
   try {
-    const data = await $authFetch("/repositories/") as any;
-    repositories.value = data.repositories || data;
+    const data = await $authFetch("/repositories/") as Repository[];
+    repositories.value = data;
   } catch (error) {
     console.error("Error fetching repositories:", error);
     notifications.error("Failed to load repositories. Please try again. " + error);
@@ -100,7 +100,7 @@ async function uploadDocumentFromInput(event: Event) {
     const data = await $authFetch("/documents/upload/", {
       method: "POST",
       body: formData,
-    }) as any;
+    }) as { id: string };
     uploadedDocumentId.value = data.id;
     // Refresh the document list
     await fetchDocuments();
@@ -275,7 +275,7 @@ async function viewDocument(documentId: string) {
   showHtmlViewer.value = true;
 
   try {
-    const data = await $authFetch(`/documents/${documentId}/`) as any;
+    const data = await $authFetch(`/documents/${documentId}/`) as Document;
 
     if (data.content) {
       htmlContent.value = data.content;
@@ -301,7 +301,7 @@ async function viewDocument(documentId: string) {
         </div>
 
         <div class="flex items-center gap-4 mb-8">
-          <DButton @click="triggerFilePicker" :loading="uploadingDocument" :iconLeft="UploadIcon">
+          <DButton @click="triggerFilePicker" :loading="uploadingDocument" :icon-left='UploadIcon'>
             New Document
           </DButton>
           <div v-if="uploadingDocument">
@@ -326,11 +326,11 @@ async function viewDocument(documentId: string) {
                 </div>
 
                 <div class="flex gap-2">
-                  <DButton @click="navigateToStudy(document.id)" variant="primary" :iconLeft="BookOpenIcon">
+                  <DButton @click="navigateToStudy(document.id)" variant="primary" :icon-left="BookOpenIcon">
                     Study
                   </DButton>
                   <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                    :loading="generatingTasks" variant="tertiary" :iconLeft="PlusIcon" class="!p-2" />
+                    :loading="generatingTasks" variant="tertiary" :icon-left="PlusIcon" class="!p-2" />
 
                   <DHamburgerMenu>
                     <template #default="{ close }">

@@ -4,10 +4,8 @@ import {
   LogOutIcon,
   PanelLeftClose,
   PanelRightClose,
-  HomeIcon,
   BookOpenIcon,
   ClipboardCheck,
-  Lightbulb,
 } from "lucide-vue-next";
 import { useSessionStorage } from "@vueuse/core";
 

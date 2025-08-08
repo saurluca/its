@@ -13,7 +13,14 @@ const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
-const { data: users, refresh } = await useFetch(
+type MemberShare = {
+  id: string;
+  name: string;
+  email: string;
+  permission: string | null;
+};
+
+const { data: users, refresh } = await useFetch<MemberShare[]>(
   () => `${apiUrl}/files/${fileId}/shares/`,
   {
     cache: "no-cache",
@@ -49,27 +56,16 @@ async function onPermissionChange(userId: string, value: string | null) {
 </script>
 
 <template>
-  <DModal
-    titel="Mitglieder verwalten"
-    v-if="open"
-    @close="close"
-    @confirm="close"
-  >
+  <DModal titel="Mitglieder verwalten" v-if="open" @close="close" @confirm="close">
     <div class="flex flex-col gap-2 p-4 text-sm">
-      <div
-        v-for="user in users"
-        class="flex items-center justify-between gap-4"
-      >
+      <div v-for="user in users" class="flex items-center justify-between gap-4">
         <div>
           <div class="text-medium text-neutral-900">{{ user.name }}</div>
           <div class="text-xs text-neutral-500">{{ user.email }}</div>
         </div>
         <div class="w-[160px]">
-          <DSelect
-            v-model="user.permission"
-            :options="permissionOptions"
-            @change="(value) => onPermissionChange(user.id, value)"
-          />
+          <DSelect v-model="user.permission" :options="permissionOptions"
+            @change="(value) => onPermissionChange(user.id, value)" />
         </div>
       </div>
     </div>

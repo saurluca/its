@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import type { Task } from "~/types/models";
 
 const props = defineProps<{
@@ -20,24 +20,41 @@ const answer = computed({
   set: (value: string) => emit("update:modelValue", value),
 });
 
-// Shuffle function for randomizing options
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+// Shuffle function for randomizing options (Fisher–Yates)
+function shuffleArray<T>(items: T[]): T[] {
+  const array = [...items];
+  for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const temp = array[i]!;
+    array[i] = array[j]!;
+    array[j] = temp;
   }
-  return shuffled;
+  return array;
 }
 
-// Computed property for shuffled multiple choice options
-const shuffledOptions = computed(() => {
+// Keep a stable shuffled order for the current question until it changes
+const shuffledOptions = ref<string[]>([]);
+
+function computeShuffledOptions() {
   if (props.task.type === 'multiple_choice' && props.task.answer_options) {
-    const options = props.task.answer_options.map(option => option.answer);
-    return shuffleArray(options);
+    const options = props.task.answer_options.map((option) => option.answer);
+    shuffledOptions.value = shuffleArray(options);
+  } else {
+    shuffledOptions.value = [];
   }
-  return [];
+}
+
+onMounted(() => {
+  computeShuffledOptions();
 });
+
+// Recompute when the question changes (use id as a stable switch)
+watch(
+  () => props.task.id,
+  () => {
+    computeShuffledOptions();
+  }
+);
 
 // Hotkey handler function
 function handleKeyPress(event: KeyboardEvent) {
@@ -47,14 +64,14 @@ function handleKeyPress(event: KeyboardEvent) {
   }
 
   const key = event.key;
-  const optionIndex = parseInt(key) - 1; // Convert 1-4 to 0-3
+  // Only digits 1..N without modifiers
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (!/^\d$/.test(key)) return;
 
-  // Check if it's a valid number key (1-4) and within range of available options
-  if (key >= '1' && key <= '4' && optionIndex < shuffledOptions.value.length) {
-    // Select the answer
-    answer.value = shuffledOptions.value[optionIndex];
-
-    // Automatically evaluate the answer
+  const optionIndex = parseInt(key, 10) - 1; // Convert 1..N to 0..N-1
+  if (optionIndex >= 0 && optionIndex < shuffledOptions.value.length) {
+    event.preventDefault();
+    answer.value = shuffledOptions.value[optionIndex]!;
     emit("evaluate");
   }
 }

@@ -34,13 +34,6 @@ export default defineNuxtConfig({
     typeCheck: true,
   },
 
-  eslint: {
-    rules: {
-      // Ensure ESLint doesn't enforce formatting; Prettier handles it
-      "prettier/prettier": "off",
-    },
-  },
-
   app: {
     head: {
       title: "ITS",

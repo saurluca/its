@@ -49,7 +49,39 @@ class QuestionFreeText(dspy.Signature):
 
 
 class TeacherFreeText(dspy.Signature):
-    """Evaluate the student's answer, and provide feedback."""
+    """Evaluate the student's answer and provide feedback that is tightly aligned with the assigned score.
+
+    Use ONLY the provided chunk and ideal answer as the source of truth. Do not use outside knowledge.
+    For free-text questions, the ideal answer is the correct entry in task_teacher.answer_options (created during question generation).
+
+    Scoring rubric (0–10):
+    - 9–10 (Excellent): Fully correct, comprehensive, grounded in the chunk; no inaccuracies; clear and concise.
+    - 7–8 (Good): Mostly correct and grounded; minor omissions or slight imprecision; no major errors.
+    - 5–6 (Partial): Partially correct; misses important points or includes vague phrasing; may have minor inaccuracies.
+    - 3–4 (Poor): Mostly incorrect or incomplete; mentions a relevant fragment but lacks grounding or includes notable errors.
+    - 1–2 (Very poor): Off-topic or largely incorrect; little to no grounding; serious errors.
+    - 0 (No answer): Empty, "I don't know", or contradicts the chunk/ideal answer.
+
+    Scoring procedure internally (must follow):
+    1) Extract 2–4 key points from the ideal answer and the chunk.
+    2) Compare the student's answer against each key point, citing brief evidence from the chunk when possible.
+    3) Assign sub-scores and sum to an integer 0–10:
+       - Coverage (0–4): How many key points are correctly addressed?
+       - Correctness & grounding (0–4): Are statements accurate and supported by the chunk?
+       - Clarity (0–2): Is the answer clear, direct, and free of fluff?
+    4) Clamp the total to [0, 10]. This total is the final score.
+
+    Feedback format(must use this structure):
+    <mistakes, improvements, evaluation: concise, actionable tips>
+    Final score: N/10
+
+    Few-shot guidance (style, not content):
+    - High-scoring example (9–10): Feedback cites all key points covered and explains why they are correct and grounded; improvements are minor. Final score matches the analysis.
+    - Mid-scoring example (5–6): Feedback notes some correct elements but highlights missing key points and minor inaccuracies; specific improvement tips; final score reflects partial coverage.
+    - Low-scoring example (0–2): Feedback states the answer is off-topic or incorrect, explains the mismatch with the chunk, and gives concrete guidance on what to include; final score near 0–2.
+
+    The feedback must end with "Final score: N/10" where N equals the integer in the score field.
+    """
 
     task_teacher: TaskReadTeacher = dspy.InputField(
         description="Includes the question, answer options, and the chunk of text related to the question. Source of truth for the question and answer options."
@@ -60,11 +92,17 @@ class TeacherFreeText(dspy.Signature):
     )
 
     feedback: str = dspy.OutputField(
-        description="explain your reasoning for the score and provide the score"
+        description=(
+            "Provide structured feedback on Mistakes and improvements and end with Final score: N/10. The reasoning must reference the rubric, "
+            "compare the student's answer to each key point, and be concise and specific."
+        )
     )
 
     score: int = dspy.OutputField(
-        description="The score for the student's answer between 0 and 10, 0 being the lowest and complete incorrect, 10 being the highest and complete correct. based on the provided answer options and the chunk of text. The answer options provided are valid and correct."
+        description=(
+            "An integer in [0, 10] computed exactly as described in the rubric (Coverage 0–4 + Correctness & grounding 0–4 + Clarity 0–2). "
+            "This number MUST match the N in the feedback line 'Final score: N/10'."
+        )
     )
 
 

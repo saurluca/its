@@ -234,23 +234,6 @@ function closeGenerateTasksModal() {
     selectedDocuments.value.clear();
 }
 
-function toggleDocumentSelection(documentId: string) {
-    if (selectedDocuments.value.has(documentId)) {
-        selectedDocuments.value.delete(documentId);
-    } else {
-        selectedDocuments.value.add(documentId);
-    }
-}
-
-function selectAllDocuments() {
-    repositoryDocuments.value.forEach(doc => {
-        selectedDocuments.value.add(doc.id);
-    });
-}
-
-function deselectAllDocuments() {
-    selectedDocuments.value.clear();
-}
 
 async function confirmGenerateTasks() {
     if (!selectedRepositoryForTasks.value || selectedDocuments.value.size === 0) {
@@ -353,30 +336,25 @@ async function viewDocument(documentId: string) {
                                             class="h-4 w-4" />
                                         <ChevronRightIcon v-else class="h-4 w-4" />
                                     </button>
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex flex-col">
                                         <h3 class="text-lg font-medium cursor-pointer"
                                             @click="toggleRepositoryExpansion(repository.id)">
                                             {{ repository.name }}
                                         </h3>
-
+                                        <span v-if="repository.task_count !== undefined"
+                                            class="text-xs font-medium text-gray-500">
+                                            {{ repository.task_count }} {{ repository.task_count === 1 ? 'task' :
+                                                'tasks' }}
+                                        </span>
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-
                                     <DButton @click="navigateToStudy(repository.id)" variant="primary"
                                         :iconLeft="BookOpenIcon">
                                         Study
                                     </DButton>
-
                                     <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
                                         :iconLeft="PlusIcon" class="!p-2" />
-
-                                    <span v-if="repository.task_count !== undefined"
-                                        class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                                        {{ repository.task_count }} {{ repository.task_count === 1 ? 'task' :
-                                            'tasks' }}
-                                    </span>
-
                                     <DHamburgerMenu>
                                         <template #default="{ close }">
                                             <button @click="
@@ -479,42 +457,25 @@ async function viewDocument(documentId: string) {
 
             <!-- Document Selection -->
             <div>
-                <div class="flex items-center justify-between mb-2">
-                    <label class="font-medium">Select documents to generate tasks from:</label>
-                    <div class="flex gap-2">
-                        <button @click="selectAllDocuments" class="text-sm text-blue-600 hover:text-blue-800">
-                            Select All
-                        </button>
-                        <button @click="deselectAllDocuments" class="text-sm text-gray-600 hover:text-gray-800">
-                            Deselect All
-                        </button>
-                    </div>
-                </div>
-
-                <div class="max-h-60 overflow-y-auto border rounded p-2 space-y-2">
+                <label class="block mb-2 font-medium">Select documents to generate tasks from:</label>
+                <div class="space-y-2 max-h-60 overflow-y-auto border rounded p-2">
                     <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
                         No documents found in this repository.
                     </div>
-                    <div v-for="document in repositoryDocuments" :key="document.id"
-                        class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
-                        <input type="checkbox" :id="'doc-' + document.id" :value="document.id"
-                            :checked="selectedDocuments.has(document.id)" @change="toggleDocumentSelection(document.id)"
-                            class="rounded" />
-                        <label :for="'doc-' + document.id" class="flex-1 cursor-pointer">
-                            {{ document.title }}
-                        </label>
-                    </div>
+                    <label v-for="document in repositoryDocuments" :key="document.id"
+                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
+                        <input type="checkbox" :value="document.id" v-model="selectedDocuments"
+                            class="w-4 h-4 accent-black" style="accent-color: black;" />
+                        <span>{{ document.title }}</span>
+                    </label>
                 </div>
             </div>
 
             <!-- Summary -->
             <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
                 <p>Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
-                    'free text' }} tasks from {{ selectedDocuments.size }} selected document{{ selectedDocuments.size
-                        === 1
-                        ?
-                        '' :
-                        's' }}.</p>
+                    'free text' }} tasks from {{ selectedDocuments.size }} selected document
+                    {{ selectedDocuments.size === 1 ? '' : 's' }}.</p>
                 <p>Tasks will be linked to the repository "{{ selectedRepositoryForTasks?.name }}".</p>
             </div>
         </div>

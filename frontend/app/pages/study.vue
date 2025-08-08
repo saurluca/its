@@ -11,12 +11,15 @@ const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
 const showEvaluation = ref(false);
+const evaluationStatus = ref<"correct" | "partial" | "incorrect">("incorrect");
 const isCorrect = ref<boolean | null>(null);
 const score = ref(0);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const feedback = ref<string | null>(null);
 const router = useRouter();
+const evaluating = ref<boolean>(false);
+
 
 // Utility: Fisher-Yates shuffle to randomize tasks each session
 function shuffleArray<T>(items: T[]): T[] {
@@ -49,6 +52,11 @@ const collapsed = useSessionStorage("collapsed", false);
 
 // Keyboard handler for Enter key
 function handleKeyPress(event: KeyboardEvent) {
+  // Block navigation while evaluating
+  if (evaluating.value) {
+    event.preventDefault();
+    return;
+  }
   // Handle Enter key when evaluation is shown
   if (event.key === 'Enter' && showEvaluation.value) {
     event.preventDefault();
@@ -149,21 +157,21 @@ async function evaluateAnswer() {
   }
 
   feedback.value = "Evaluating...";
+  evaluating.value = true
 
-  const correct = currentTask.value?.type === 'multiple_choice'
-    ? currentAnswer.value === currentTask.value.answer_options.find(option => option.is_correct)?.answer
-    : false; // For free text questions, we'll let the backend evaluate the answer
-  isCorrect.value = correct;
-
-  showEvaluation.value = true;
-
-  if (correct) {
-    score.value++;
-  } else {
+  if (currentTask.value?.type === 'multiple_choice') {
+    const correct = currentAnswer.value === currentTask.value.answer_options.find(option => option.is_correct)?.answer;
+    isCorrect.value = correct;
+    evaluationStatus.value = correct ? 'correct' : 'incorrect';
+    showEvaluation.value = true;
+    if (correct) {
+      score.value++;
+      evaluating.value = false;
+      return;
+    }
+    // Incorrect multiple choice: request backend feedback
     try {
-      const responseData = await $authFetch<{
-        feedback: string;
-      }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+      const responseData = await $authFetch<{ feedback: string; }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
         method: "POST",
         body: { student_answer: currentAnswer.value },
       });
@@ -171,6 +179,35 @@ async function evaluateAnswer() {
     } catch (e: any) {
       error.value = e.message || "Failed to evaluate answer.";
       return;
+    } finally {
+      evaluating.value = false;
+    }
+  } else {
+    // Free text: wait for backend response, use score thresholds
+    try {
+      const responseData = await $authFetch<{ feedback: string; score: number; }>(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+        method: "POST",
+        body: { student_answer: currentAnswer.value },
+      });
+      feedback.value = responseData.feedback || null;
+      const scoreNum = responseData.score;
+      if (scoreNum > 7) {
+        evaluationStatus.value = 'correct';
+        isCorrect.value = true;
+        score.value++;
+      } else if (scoreNum < 4) {
+        evaluationStatus.value = 'incorrect';
+        isCorrect.value = false;
+      } else {
+        evaluationStatus.value = 'partial';
+        isCorrect.value = false;
+      }
+      showEvaluation.value = true;
+    } catch (e: any) {
+      error.value = e.message || "Failed to evaluate answer.";
+      return;
+    } finally {
+      evaluating.value = false;
     }
   }
 }
@@ -306,11 +343,11 @@ function restart() {
             pageState === 'studying' && tasks.length > 0 && currentTask
           " class="space-y-2">
             <DTaskAnswer :task="currentTask" :index="currentTaskIndex" v-model="currentAnswer"
-              :disabled="showEvaluation" @evaluate="evaluateAnswer" />
+              :disabled="showEvaluation || evaluating" @evaluate="evaluateAnswer" />
 
             <div v-if="showEvaluation">
               <DTaskResult :task="currentTask" :index="currentTaskIndex" :userAnswer="currentAnswer"
-                :isCorrect="isCorrect ?? false" :feedback="feedback ?? ''" class="mt-4" />
+                :status="evaluationStatus" :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
                 <DButton @click="showSource" variant="secondary" class="mt-4">
                   Show Source
@@ -319,12 +356,23 @@ function restart() {
                   {{
                     currentTaskIndex < tasks.length - 1 ? "Next Question" : "Show Results" }} </DButton>
               </div>
+              <div v-if="evaluating" class="mt-4 flex justify-center">
+                <DSpinner />
+              </div>
               <div class="text-xs text-gray-500 text-center mt-2">
                 💡 Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
               </div>
             </div>
-            <div v-else class="flex justify-end">
-              <DButton @click="evaluateAnswer">Evaluate</DButton>
+            <div v-else class="flex justify-end items-center min-h-10">
+              <template v-if="evaluating">
+                <div class="flex items-center gap-2 text-gray-600">
+                  <DSpinner size="sm" />
+                  <span>Evaluating…</span>
+                </div>
+              </template>
+              <template v-else>
+                <DButton @click="evaluateAnswer">Evaluate</DButton>
+              </template>
             </div>
           </div>
 

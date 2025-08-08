@@ -8,5 +8,6 @@
     <main class="flex-1 overflow-scroll">
       <slot></slot>
     </main>
+    <DSnackbar />
   </div>
 </template>

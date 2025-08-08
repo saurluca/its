@@ -7,5 +7,6 @@
     <main class="h-full">
       <slot></slot>
     </main>
+    <DSnackbar />
   </div>
 </template>

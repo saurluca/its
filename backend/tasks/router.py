@@ -13,7 +13,7 @@ from tasks.models import (
     EvaluateAnswerRequest,
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
-    TeacherResponseOpen,
+    TeacherResponseFreeText,
     GenerateTasksForMultipleDocumentsRequest,
 )
 from uuid import UUID
@@ -364,7 +364,7 @@ def generate_tasks_for_multiple_documents(
 
 @router.post(
     "/evaluate_answer/{task_id}",
-    response_model=TeacherResponseMultipleChoice | TeacherResponseOpen,
+    response_model=TeacherResponseMultipleChoice | TeacherResponseFreeText,
 )
 def evaluate_answer(
     task_id: UUID,

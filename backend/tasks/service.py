@@ -14,7 +14,7 @@ from tasks.models import (
     AnswerOption,
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
-    TeacherResponseOpen,
+    TeacherResponseFreeText,
 )
 
 
@@ -31,8 +31,8 @@ class QuestionMultipleChoice(dspy.Signature):
     )
 
 
-class QuestionOpen(dspy.Signature):
-    """Generate a single open question from a text chunk and an ideal answer."""
+class QuestionFreeText(dspy.Signature):
+    """Generate a single free text question from a text chunk and an ideal answer."""
 
     text: str = dspy.InputField(description="The text to generate a question from.")
 
@@ -48,7 +48,7 @@ class QuestionOpen(dspy.Signature):
     )
 
 
-class TeacherOpen(dspy.Signature):
+class TeacherFreeText(dspy.Signature):
     """Evaluate the student's answer, and provide feedback."""
 
     task_teacher: TaskReadTeacher = dspy.InputField(
@@ -89,8 +89,8 @@ def _get_question_generator(question_type: str):
     """Get the appropriate question generator based on question type."""
     if question_type == "multiple_choice":
         return dspy.ChainOfThought(QuestionMultipleChoice)
-    elif question_type == "open":
-        return dspy.ChainOfThought(QuestionOpen)
+    elif question_type == "free_text":
+        return dspy.ChainOfThought(QuestionFreeText)
     else:
         raise ValueError(f"Invalid question type: {question_type}")
 
@@ -133,7 +133,7 @@ def _create_task_from_response(qg_response, question_type: str, chunk_id: UUID) 
             )
             task.answer_options.append(answer_option)
     # For free text questions, create a single answer option with the ideal answer
-    elif question_type == "open":
+    elif question_type == "free_text":
         answer_option = AnswerOption(
             answer=qg_response.answer,
             is_correct=True,  # The ideal answer is always correct
@@ -196,11 +196,11 @@ def evaluate_student_answer(
     task_teacher: TaskReadTeacher,
     student_answer: str,
     task_type: TaskType,
-) -> TeacherResponseMultipleChoice | TeacherResponseOpen:
+) -> TeacherResponseMultipleChoice | TeacherResponseFreeText:
     if task_type == TaskType.MULTIPLE_CHOICE:
         teacher = dspy.ChainOfThought(TeacherMultipleChoice)
     elif task_type == TaskType.FREE_TEXT:
-        teacher = dspy.ChainOfThought(TeacherOpen)
+        teacher = dspy.ChainOfThought(TeacherFreeText)
 
     try:
         response = teacher(

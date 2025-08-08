@@ -103,7 +103,7 @@ class TeacherResponseMultipleChoice(SQLModel):
     feedback: str
 
 
-class TeacherResponseOpen(SQLModel):
+class TeacherResponseFreeText(SQLModel):
     feedback: str
     score: int
 

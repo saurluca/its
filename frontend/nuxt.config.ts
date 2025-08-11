@@ -1,10 +1,11 @@
 import tailwindcss from "@tailwindcss/vite";
+import type { PluginOption } from "vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-23",
   future: { compatibilityVersion: 4 },
-  vite: { plugins: [tailwindcss()] },
+  vite: { plugins: [tailwindcss()] as PluginOption[] },
   ssr: false,
 
   devtools: { enabled: false },
@@ -21,7 +22,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    preset: "bun",
+    preset: "static",
 
     storage: {
       limiter: {

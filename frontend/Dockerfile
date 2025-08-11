@@ -1,31 +1,33 @@
-# use the official Bun image
-# see all versions at https://hub.docker.com/r/oven/bun/tags
-FROM oven/bun:1 AS build
+# Build Stage 1
+
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# Set environment variables for build-time
-ARG NUXT_SESSION_PASSWORD
-ARG NUXT_PUBLIC_API_BASE
-ENV NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
-ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+RUN corepack enable
 
-COPY package.json bun.lock ./
+# Copy package.json and your lockfile, here we add pnpm-lock.yaml for illustration
+COPY package.json pnpm-lock.yaml ./
 
-# use ignore-scripts to avoid builting node modules like better-sqlite3
-RUN bun install --frozen-lockfile --ignore-scripts
+# Install dependencies
+RUN pnpm i
 
 # Copy the entire project
-COPY . .
+COPY . ./
 
-RUN bun --bun run build
+# Build the project
+RUN pnpm run build
 
-# copy production dependencies and source code into final image
-FROM oven/bun:1 AS production
-WORKDIR /app
+# Build Stage 2
 
-# Only `.output` folder is needed from the build stage
-COPY --from=build /app/.output /app
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
 
-# run the app
-EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "--bun", "run", "/app/server/index.mjs" ]
+# Copy the static files from the build stage
+COPY --from=build /app/.output/public/ ./
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

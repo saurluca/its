@@ -3,6 +3,13 @@
 FROM oven/bun:1 AS base
 WORKDIR /usr/src/app
 
+# Set environment variables for build-time
+ARG NUXT_SESSION_PASSWORD
+ARG NUXT_PUBLIC_API_BASE
+ENV NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
+ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+
+
 # install dependencies into temp directory
 # this will cache them and speed up future builds
 FROM base AS install

@@ -31,6 +31,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+        - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
     ports:
       - "3000:80"
     depends_on:

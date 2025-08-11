@@ -48,6 +48,34 @@ class QuestionFreeText(dspy.Signature):
     )
 
 
+class QuestionFreeTextBinary(dspy.Signature):
+    """You are grading 20 year old students' responses to short answer-questions about the {text} below.
+
+    Students have been asked this question:  {question}
+
+    A correct answer to this question is: {correct_answer}
+
+    Your task is to decide if the student’s answer is correct or wrong.
+
+    A student answer is wrong if it misses a key part of the correct answer.
+
+    If the student response is correct, you will respond OUTPUT = 1.
+    If the student response is wrong, you will respond OUTPUT = 0.."""
+
+    text: str = dspy.InputField(description="The text to generate a question from.")
+
+    question: str = dspy.OutputField(
+        description="""
+        A single question generated from the text, that is answerable in 1 to 3 sentences, based on the provided text.
+        The question should be relevant to the text and require a deep understanding of the material to answer.
+        The question should be short and concise.
+        """
+    )
+    answer: str = dspy.OutputField(
+        description="The ideal, correct answer to the question. The user's answer will be compared to this answer."
+    )
+
+
 class TeacherFreeText(dspy.Signature):
     """Evaluate the student's answer and provide feedback that is tightly aligned with the assigned score.
 
@@ -103,6 +131,39 @@ class TeacherFreeText(dspy.Signature):
             "An integer in [0, 10] computed exactly as described in the rubric (Coverage 0–4 + Correctness & grounding 0–4 + Clarity 0–2). "
             "This number MUST match the N in the feedback line 'Final score: N/10'."
         )
+    )
+
+
+class TeacherFreeTextBinary(dspy.Signature):
+    """You are grading a student's response to a short answer-question  about the {chunk} below.
+
+    Students have been asked this question:  {question}
+
+    A correct answer to this question is: {correct_answer}
+
+    Your task is to decide if the student’s answer is correct or wrong.
+
+    A student answer is wrong if it misses a key part of the correct answer.
+    Ignore Grammar and Spelling mistakes, only evaluate the content.
+
+    If the student response is correct, you will respond with output = 1.
+    If the student response is wrong, you will respond with output = 0.
+    """
+
+    chunk: str = dspy.InputField(
+        description="The chunk of text related to the question."
+    )
+    question: str = dspy.InputField(description="The question asked to the student.")
+    correct_answer: str = dspy.InputField(
+        description="The correct answer to the question."
+    )
+
+    student_answer: str = dspy.InputField(
+        description="The student's answer to the question."
+    )
+
+    output: int = dspy.OutputField(
+        description="1 if the content of the student's answer is correct, 0 if it is wrong."
     )
 
 
@@ -238,16 +299,24 @@ def evaluate_student_answer(
     if task_type == TaskType.MULTIPLE_CHOICE:
         teacher = dspy.ChainOfThought(TeacherMultipleChoice)
     elif task_type == TaskType.FREE_TEXT:
-        teacher = dspy.ChainOfThought(TeacherFreeText)
+        # teacher = dspy.ChainOfThought(TeacherFreeText)
+        teacher = dspy.ChainOfThought(TeacherFreeTextBinary)
 
     try:
+        # print("task_teacher", task_teacher)
+        # print("student_answer", student_answer)
         response = teacher(
-            task_teacher=task_teacher,
+            chunk=task_teacher.chunk,
+            question=task_teacher.question,
+            correct_answer=task_teacher.answer_options[0].answer,
             student_answer=student_answer,
         )
 
         # inspect history and print the last 3 messages
         # print(teacher.history[-1:])
+        response.feedback = "This is a test feedback"
+
+        print("response", response)
 
         return response
     except Exception as e:

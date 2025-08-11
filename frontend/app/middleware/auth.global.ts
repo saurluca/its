@@ -1,3 +1,5 @@
+import type { RouteLocationNormalized } from "vue-router";
+
 const publicRoutes = [
   "/login",
   "/logout",
@@ -8,9 +10,9 @@ const publicRoutes = [
   "/reset-password",
 ];
 
-export default defineNuxtRouteMiddleware(async (to, from) => {
+export default defineNuxtRouteMiddleware(async (to: RouteLocationNormalized, _from: RouteLocationNormalized) => {
   // Skip middleware on server-side during SSR
-  if (process.server) return;
+  if (import.meta.server) return;
 
   const authStore = useAuthStore();
 

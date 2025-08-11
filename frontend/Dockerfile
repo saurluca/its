@@ -9,7 +9,7 @@ ARG NUXT_PUBLIC_API_BASE
 ENV NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
 ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
 
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 
 # use ignore-scripts to avoid builting node modules like better-sqlite3
 RUN bun install --frozen-lockfile --ignore-scripts

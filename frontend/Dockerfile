@@ -16,6 +16,9 @@ RUN pnpm i
 # Copy the entire project
 COPY . ./
 
+# Prepare Nuxt (generates .nuxt directory and type definitions)
+RUN pnpm run postinstall
+
 # Build the project
 RUN pnpm run build
 

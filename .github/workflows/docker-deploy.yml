@@ -1,0 +1,39 @@
+name: Build and Push Docker
+
+on:
+  push:
+    branches: ["main", "live"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Frontend Image
+        run: |
+          docker build ./frontend --file ./frontend/Dockerfile \
+            --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
+            --build-arg NUXT_SESSION_PASSWORD=${{ secrets.NUXT_SESSION_PASSWORD }} \
+            --build-arg NUXT_PUBLIC_API_BASE=${{ secrets.NUXT_PUBLIC_API_BASE }} \
+            --no-cache
+
+      - name: Build backend Image
+        run: |
+          docker build ./backend --file ./backend/Dockerfile \
+            --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
+            --no-cache
+
+      - name: Push frontend Image
+        run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
+
+      - name: Push backend Image
+        run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}

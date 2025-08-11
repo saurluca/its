@@ -372,17 +372,17 @@ async function viewDocument(documentId: string) {
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Right side - HTML viewer -->
-        <div class="w-1/2 border-l border-gray-200">
-          <div v-if="showHtmlViewer" class="h-full p-4">
-            <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-          </div>
-          <div v-else class="h-full flex items-center justify-center text-gray-500">
-            <div class="text-center">
-              <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Select a Document by clicking on it to preview its content</p>
-            </div>
+      <!-- Right side - HTML viewer -->
+      <div class="w-1/2 border-l border-gray-200">
+        <div v-if="showHtmlViewer" class="h-full p-4">
+          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+        </div>
+        <div v-else class="h-full flex items-center justify-center text-gray-500">
+          <div class="text-center">
+            <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Select a Document by clicking on it to preview its content</p>
           </div>
         </div>
       </div>

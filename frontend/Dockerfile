@@ -1,7 +1,9 @@
 # Build Stage 1
-
 FROM node:22-alpine AS build
 WORKDIR /app
+
+ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+ENV NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
 
 RUN corepack enable
 
@@ -19,15 +21,16 @@ RUN pnpm run build
 
 # Build Stage 2
 
-FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
+FROM caddy:2-alpine
+WORKDIR /srv
 
 # Copy the static files from the build stage
 COPY --from=build /app/.output/public/ ./
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy Caddyfile configuration
+COPY Caddyfile /etc/caddy/Caddyfile
 
 EXPOSE 80
+EXPOSE 443
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

@@ -5,19 +5,43 @@ from documents.models import (
     Document,
     DocumentUpdate,
     DocumentResponse,
+    DocumentListResponse,
 )
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import extract_text_from_file_and_chunk, generate_document_title
 from starlette.concurrency import run_in_threadpool
+import dspy
+
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/", response_model=list[DocumentResponse])
+class DocumentSummary(dspy.Signature):
+    """You are summarizing a document.
+
+    Your task is to summarize the document and extract the key points and purpose.
+
+    MUST: Always respond with a summary.
+    MUST: Always respond with the key points and purpose.
+    """
+
+    document: str = dspy.InputField(description="The document to summarize.")
+
+    summary: str = dspy.OutputField(description="The summary of the document.")
+
+    key_points: list[str] = dspy.OutputField(
+        description="The key points of the document."
+    )
+
+
+document_summary = dspy.ChainOfThought(DocumentSummary)
+
+
+@router.get("/", response_model=list[DocumentListResponse])
 async def get_documents(session: Session = Depends(get_db_session)):
     db_documents = session.exec(select(Document)).all()
-    return [DocumentResponse.model_validate(doc) for doc in db_documents]
+    return [DocumentListResponse.model_validate(doc) for doc in db_documents]
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -143,3 +167,17 @@ async def get_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
             status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
         )
     return db_chunk
+
+
+@router.post("/{document_id}/summary")
+async def get_document_summary(
+    document_id: UUID, session: Session = Depends(get_db_session)
+):
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+
+    summary = document_summary(document=db_document.content)
+    return summary

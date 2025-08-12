@@ -44,6 +44,15 @@ class DocumentResponse(DocumentBase):
     repository_ids: list[UUID] = []
 
 
+class DocumentListResponse(SQLModel):
+    id: UUID
+    title: str
+    source_file: str | None = None
+    created_at: datetime
+    deleted_at: datetime | None = None
+    repository_ids: list[UUID] = []
+
+
 class DocumentUpdate(SQLModel):
     title: str | None = None
     content: str | None = None

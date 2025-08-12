@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon, FileTextIcon } from "lucide-vue-next";
+import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -252,7 +252,7 @@ async function confirmGenerateTasks() {
     try {
         const documentIds = Array.from(selectedDocuments.value);
 
-        await $authFetch("/tasks/generate_for_multiple_documents", {
+        await $authFetch("/tasks/generate_for_multiple_documents/", {
             method: "POST",
             body: {
                 repository_id: selectedRepositoryForTasks.value.id,
@@ -421,77 +421,78 @@ async function viewDocument(documentId: string) {
                 <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
             </div>
         </div>
-    </div>
 
-    <!-- Document Upload Modal -->
-    <DDocumentUploadModal v-if="showUploadModal" :repositories="repositories" @close="closeUploadModal"
-        @upload-complete="handleUploadComplete" />
+        <!-- Document Upload Modal -->
+        <DDocumentUploadModal v-if="showUploadModal" :repositories="repositories" @close="closeUploadModal"
+            @upload-complete="handleUploadComplete" />
 
-    <!-- Edit Title Modal -->
-    <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirmText="Save" @close="closeEditTitleModal"
-        @confirm="confirmEditTitle">
-        <div class="p-4">
-            <label for="edit-title" class="block mb-2 font-medium">Repository Name:</label>
-            <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
-                placeholder="Enter new name" @keyup.enter="confirmEditTitle" />
-        </div>
-    </DModal>
-
-    <!-- Delete Modal -->
-    <DModal v-if="showDeleteModal" titel="Delete Repository" confirmText="Delete" @close="closeDeleteModal"
-        @confirm="confirmDelete">
-        <div class="p-4">
-            <p>
-                Are you sure you want to delete the repository "{{ deleteRepositoryName }}"?
-            </p>
-            <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
-        </div>
-    </DModal>
-
-    <!-- Generate Tasks Modal -->
-    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-        :confirmText="generatingTasks ? 'Generating...' : 'Generate Tasks'" :wide="true"
-        @close="closeGenerateTasksModal" @confirm="confirmGenerateTasks">
-        <div class="p-4 space-y-4">
-            <!-- Task Generation Settings -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
-                    <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
-                        class="w-full border rounded px-3 py-2 text-sm" />
-                </div>
-                <div>
-                    <label for="task-type" class="block mb-2 font-medium">Task type:</label>
-                    <select id="task-type" v-model="taskType" class="w-full border rounded px-3 py-2 text-sm">
-                        <option value="multiple_choice">Multiple Choice</option>
-                        <option value="free_text">Free Text</option>
-                    </select>
-                </div>
+        <!-- Edit Title Modal -->
+        <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirmText="Save" @close="closeEditTitleModal"
+            @confirm="confirmEditTitle">
+            <div class="p-4">
+                <label for="edit-title" class="block mb-2 font-medium">Repository Name:</label>
+                <input id="edit-title" type="text" v-model="editingTitle"
+                    class="w-full border rounded px-3 py-2 text-sm" placeholder="Enter new name"
+                    @keyup.enter="confirmEditTitle" />
             </div>
+        </DModal>
 
-            <!-- Document Selection -->
-            <div>
-                <label class="block mb-2 font-medium">Select documents to generate tasks from:</label>
-                <div class="space-y-2 max-h-60 overflow-y-auto border rounded p-2">
-                    <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
-                        No documents found in this repository.
+        <!-- Delete Modal -->
+        <DModal v-if="showDeleteModal" titel="Delete Repository" confirmText="Delete" @close="closeDeleteModal"
+            @confirm="confirmDelete">
+            <div class="p-4">
+                <p>
+                    Are you sure you want to delete the repository "{{ deleteRepositoryName }}"?
+                </p>
+                <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+            </div>
+        </DModal>
+
+        <!-- Generate Tasks Modal -->
+        <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+            :confirmText="generatingTasks ? 'Generating...' : 'Generate Tasks'" :wide="true"
+            @close="closeGenerateTasksModal" @confirm="confirmGenerateTasks">
+            <div class="p-4 space-y-4">
+                <!-- Task Generation Settings -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
+                        <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
+                            class="w-full border rounded px-3 py-2 text-sm" />
                     </div>
-                    <label v-for="document in repositoryDocuments" :key="document.id"
-                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
-                        <input type="checkbox" :value="document.id" v-model="selectedDocuments"
-                            class="w-4 h-4 accent-black" style="accent-color: black;" />
-                        <span>{{ document.title }}</span>
-                    </label>
+                    <div>
+                        <label for="task-type" class="block mb-2 font-medium">Task type:</label>
+                        <select id="task-type" v-model="taskType" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="multiple_choice">Multiple Choice</option>
+                            <option value="free_text">Free Text</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Document Selection -->
+                <div>
+                    <label class="block mb-2 font-medium">Select documents to generate tasks from:</label>
+                    <div class="space-y-2 max-h-60 overflow-y-auto border rounded p-2">
+                        <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
+                            No documents found in this repository.
+                        </div>
+                        <label v-for="document in repositoryDocuments" :key="document.id"
+                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
+                            <input type="checkbox" :value="document.id" v-model="selectedDocuments"
+                                class="w-4 h-4 accent-black" style="accent-color: black;" />
+                            <span>{{ document.title }}</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
+                    <p>Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
+                        'free text' }} tasks from {{ selectedDocuments.size }} selected document
+                        {{ selectedDocuments.size === 1 ? '' : 's' }}.</p>
+                    <p>Tasks will be linked to the repository "{{ selectedRepositoryForTasks?.name }}".</p>
                 </div>
             </div>
-
-            <!-- Summary -->
-            <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
-                <p>Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
-                    'free text' }} tasks from {{ selectedDocuments.size }} selected document
-                    {{ selectedDocuments.size === 1 ? '' : 's' }}.</p>
-                <p>Tasks will be linked to the repository "{{ selectedRepositoryForTasks?.name }}".</p>
-            </div>
-        </div>
-    </DModal>
+        </DModal>
+    </div>
 </template>

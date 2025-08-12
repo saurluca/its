@@ -10,10 +10,9 @@ interface Props {
     repositories: Repository[];
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<{
-    (e: "close"): void;
-    (e: "upload-complete"): void;
+    (e: "close" | "upload-complete"): void;
 }>();
 
 const uploading = ref(false);
@@ -32,6 +31,8 @@ function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
         selectedFile.value = input.files[0] || null;
+        // Automatically start upload when file is selected
+        handleUpload();
     }
 }
 
@@ -47,7 +48,7 @@ async function handleUpload() {
         const uploadResponse = await $authFetch("/documents/upload/", {
             method: "POST",
             body: formData,
-        }) as any;
+        }) as { id: string };
 
         // Add document to selected repositories
         if (selectedRepositories.value.length > 0) {
@@ -74,8 +75,6 @@ async function handleUpload() {
     }
 }
 
-
-
 function close() {
     selectedRepositories.value = [];
     selectedFile.value = null;
@@ -84,15 +83,12 @@ function close() {
 </script>
 
 <template>
-    <DModal titel="Upload Document" :confirmText="uploading ? 'Uploading...' : 'Upload Document'" @close="close"
-        @confirm="handleUpload">
-        <div class="p-4 space-y-4">
+    <DModal titel="Upload Document" :confirmText="uploading ? 'Uploading...' : 'Upload Document'"
+        :confirmIcon="UploadIcon" @close="close" @confirm="triggerFilePicker">
+        <div class="p-4 ">
             <div>
-                <DButton @click="triggerFilePicker" :loading="uploading" :iconLeft="UploadIcon" variant="primary">
-                    Choose File
-                </DButton>
                 <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
-                <div v-if="selectedFile" class="mt-2 text-sm text-gray-600">
+                <div v-if="selectedFile" class="text-sm text-gray-600">
                     Selected: {{ selectedFile.name }}
                 </div>
             </div>

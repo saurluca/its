@@ -2,17 +2,19 @@
 import { XIcon } from "lucide-vue-next";
 import { onClickOutside, onKeyDown } from "@vueuse/core";
 import type { MaybeElement, MaybeElementRef } from "@vueuse/core";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, type Component } from "vue";
 
 interface Props {
   titel: string;
   confirmText?: string;
   wide?: boolean;
+  confirmIcon?: Component;
 }
 
 withDefaults(defineProps<Props>(), {
   confirmText: "Save",
   wide: false,
+  confirmIcon: undefined,
 });
 
 const emit = defineEmits(["close", "confirm"]);
@@ -53,7 +55,7 @@ onKeyDown("Escape", () => emit("close"));
               </div>
               <div class="flex justify-end space-x-2 rounded-b border-t border-gray-200 p-4">
                 <DButton ref="cancelButton" id="cancel" variant="secondary" @click="close">Cancel</DButton>
-                <DButton variant="primary" @click="save">{{
+                <DButton :icon-left="confirmIcon" variant="primary" @click="save">{{
                   confirmText
                   }}</DButton>
               </div>

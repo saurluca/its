@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { UploadIcon } from "lucide-vue-next";
 import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -22,8 +22,13 @@ const selectedFile = ref<File | null>(null);
 
 const notifications = useNotificationsStore();
 
+// Computed property to check if upload is allowed
+const canUpload = computed(() => {
+    return selectedRepositories.value.length > 0;
+});
+
 function triggerFilePicker() {
-    if (uploading.value) return;
+    if (uploading.value || !canUpload.value) return;
     fileInput.value?.click();
 }
 
@@ -37,7 +42,12 @@ function handleFileSelect(event: Event) {
 }
 
 async function handleUpload() {
-    if (uploading.value || !selectedFile.value) return;
+    if (uploading.value || !selectedFile.value || !canUpload.value) {
+        if (!canUpload.value) {
+            notifications.warning("Please select at least one repository before uploading a document.");
+        }
+        return;
+    }
 
     uploading.value = true;
     try {
@@ -83,19 +93,15 @@ function close() {
 </script>
 
 <template>
-    <DModal titel="Upload Document" :confirmText="uploading ? 'Uploading...' : 'Upload Document'"
-        :confirmIcon="UploadIcon" @close="close" @confirm="triggerFilePicker">
-        <div class="p-4 ">
-            <div>
-                <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
-                <div v-if="selectedFile" class="text-sm text-gray-600">
-                    Selected: {{ selectedFile.name }}
-                </div>
-            </div>
-
+    <DModal titel="Upload Document" :confirmText="uploading ? 'Uploading...' : 'Select File & Upload'"
+        :confirmIcon="UploadIcon" :disabled="!canUpload" @close="close" @confirm="triggerFilePicker">
+        <div class="p-4 space-y-4">
+            <!-- Repository Selection (Required) -->
             <div v-if="repositories.length > 0">
-                <label class="block mb-2 font-medium">Add to Repositories:</label>
-                <div class="space-y-2 max-h-40 overflow-y-auto">
+                <label class="block mb-2 font-medium">
+                    Select Repositories <span class="text-red-500">*</span>
+                </label>
+                <div class="space-y-2 max-h-40 overflow-y-auto border rounded border-gray-300 p-2">
                     <label v-for="repository in repositories" :key="repository.id"
                         class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
                         <input type="checkbox" :value="repository.id" v-model="selectedRepositories"
@@ -103,13 +109,25 @@ function close() {
                         <span>{{ repository.name }}</span>
                     </label>
                 </div>
-                <p class="text-sm text-gray-500 mt-1">
-                    Select repositories where you want to add this document
+                <p class="text-sm text-gray-500 mt-2">
+                    You must select at least one repository to upload a document
+                </p>
+                <p v-if="selectedRepositories.length > 0" class="text-sm text-green-600 mt-1">
+                    ✓ {{ selectedRepositories.length }} repository{{ selectedRepositories.length === 1 ? '' : 'ies' }}
+                    selected
                 </p>
             </div>
 
-            <div v-else class="text-sm text-gray-500">
-                No repositories available. Create a repository first.
+            <div v-else class="text-sm text-gray-500 bg-yellow-50 p-3 rounded border border-yellow-200">
+                <strong>No repositories available.</strong> Create a repository first before uploading documents.
+            </div>
+
+            <!-- File Selection -->
+            <div v-if="canUpload">
+                <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
+                <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                    Selected: {{ selectedFile.name }}
+                </div>
             </div>
         </div>
     </DModal>

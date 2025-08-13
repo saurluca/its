@@ -9,33 +9,16 @@ from documents.models import (
 )
 from uuid import UUID
 from sqlmodel import select, Session
-from documents.service import extract_text_from_file_and_chunk, generate_document_title
+from documents.service import (
+    extract_text_from_file_and_chunk,
+    generate_document_title,
+    get_document_summary,
+    filter_important_chunks,
+)
 from starlette.concurrency import run_in_threadpool
-import dspy
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-class DocumentSummary(dspy.Signature):
-    """You are summarizing a document.
-
-    Your task is to summarize the document and extract the key points and purpose.
-
-    MUST: Always respond with a summary.
-    MUST: Always respond with the key points and purpose.
-    """
-
-    document: str = dspy.InputField(description="The document to summarize.")
-
-    summary: str = dspy.OutputField(description="The summary of the document.")
-
-    key_points: list[str] = dspy.OutputField(
-        description="The key points of the document."
-    )
-
-
-document_summary = dspy.ChainOfThought(DocumentSummary)
 
 
 @router.get("/", response_model=list[DocumentListResponse])
@@ -61,20 +44,17 @@ async def get_document(document_id: UUID, session: Session = Depends(get_db_sess
 async def upload_and_chunk_document(
     file: UploadFile = File(...), session: Session = Depends(get_db_session)
 ):
+    # extract text from file and chunk
     document, chunks = await run_in_threadpool(
         extract_text_from_file_and_chunk,
         file.file,
         mime_type=file.content_type,
     )
 
-    title_context = "\n".join([chunk.chunk_text for chunk in chunks[:4]])
-
-    # create title for document based on first chunk
-    title = await run_in_threadpool(generate_document_title, title_context)
-
-    # Update document with generated title
-    document.title = title
+    # set source file
     document.source_file = file.filename
+
+    # commit to generate id, then used by chunks
     session.add(document)
     session.commit()
     session.refresh(document)
@@ -86,6 +66,36 @@ async def upload_and_chunk_document(
 
     session.commit()
     session.refresh(document)
+
+    # Get document summary
+    summary_result = await run_in_threadpool(get_document_summary, document.content)
+    document.summary = summary_result.summary
+
+    # print(summary_result)
+    # print(f"length of document: {len(document.content)}")
+    # print(f"length of summary: {len(summary_result.summary)}")
+    # print(
+    #     f"percentage of document covered by summary: {len(document.content) / len(summary_result.summary) * 100}%"
+    # )
+
+    # create title for document based on summary
+    document.title = await run_in_threadpool(
+        generate_document_title, summary_result.summary
+    )
+    session.add(document)
+
+    # Filter important chunks using the new service function
+    result = await run_in_threadpool(
+        filter_important_chunks, document.chunks, summary_result
+    )
+
+    # mark chunks as important or unimportant
+    for chunk in document.chunks:
+        chunk.important = chunk.chunk_index not in result["unimportant_chunks_ids"]
+        session.add(chunk)
+    session.commit()
+    session.refresh(document)
+
     return document
 
 
@@ -169,8 +179,8 @@ async def get_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
     return db_chunk
 
 
-@router.post("/{document_id}/summary")
-async def get_document_summary(
+@router.post("/{document_id}/important_chunks")
+async def filter_important_chunks_endpoint(
     document_id: UUID, session: Session = Depends(get_db_session)
 ):
     db_document = session.get(Document, document_id)
@@ -179,5 +189,19 @@ async def get_document_summary(
             status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
         )
 
-    summary = document_summary(document=db_document.content)
-    return summary
+    # Get document summary first
+    summary = await run_in_threadpool(get_document_summary, db_document.content)
+
+    print(summary)
+    print(f"length of document: {len(db_document.content)}")
+    print(f"length of summary: {len(summary.summary)}")
+    print(
+        f"percentage of document covered by summary: {len(db_document.content) / len(summary.summary) * 100}%"
+    )
+
+    # Filter important chunks using the new service function
+    result = await run_in_threadpool(
+        filter_important_chunks, db_document.chunks, summary
+    )
+
+    return result

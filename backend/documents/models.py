@@ -20,6 +20,7 @@ class Document(DocumentBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
+    summary: str | None = None
 
     # Relationships
     chunks: list["Chunk"] = Relationship(
@@ -74,6 +75,7 @@ class Chunk(ChunkBase, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
     chunk_length: int
+    important: bool = True
 
     # Relationships
     document_id: UUID = Field(foreign_key="document.id")

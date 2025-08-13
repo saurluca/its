@@ -341,7 +341,7 @@ async function viewDocument(documentId: string) {
 
                     <div v-if="repositories.length > 0" class="space-y-4">
                         <div v-for="repository in repositories" :key="repository.id"
-                            class="bg-white p-4 rounded-lg shadow border border-gray-100">
+                            class="bg-white p-4 rounded-lg shadow border border-gray-200">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-2">
                                     <button @click="toggleRepositoryExpansion(repository.id)"
@@ -432,7 +432,7 @@ async function viewDocument(documentId: string) {
             <div class="p-4">
                 <label for="edit-title" class="block mb-2 font-medium">Repository Name:</label>
                 <input id="edit-title" type="text" v-model="editingTitle"
-                    class="w-full border rounded px-3 py-2 text-sm" placeholder="Enter new name"
+                    class="w-full border rounded px-3 py-2 text-sm border-gray-200" placeholder="Enter new name"
                     @keyup.enter="confirmEditTitle" />
             </div>
         </DModal>
@@ -458,11 +458,12 @@ async function viewDocument(documentId: string) {
                     <div>
                         <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
                         <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
-                            class="w-full border rounded px-3 py-2 text-sm" />
+                            class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200" />
                     </div>
                     <div>
                         <label for="task-type" class="block mb-2 font-medium">Task type:</label>
-                        <select id="task-type" v-model="taskType" class="w-full border rounded px-3 py-2 text-sm">
+                        <select id="task-type" v-model="taskType"
+                            class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200">
                             <option value="multiple_choice">Multiple Choice</option>
                             <option value="free_text">Free Text</option>
                         </select>
@@ -472,12 +473,12 @@ async function viewDocument(documentId: string) {
                 <!-- Document Selection -->
                 <div>
                     <label class="block mb-2 font-medium">Select documents to generate tasks from:</label>
-                    <div class="space-y-2 max-h-60 overflow-y-auto border rounded p-2">
+                    <div class="space-y-2 max-h-60 overflow-y-auto border rounded-lg border-gray-200 p-2">
                         <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
                             No documents found in this repository.
                         </div>
                         <label v-for="document in repositoryDocuments" :key="document.id"
-                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
+                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded-lg text-black">
                             <input type="checkbox" :value="document.id" v-model="selectedDocuments"
                                 class="w-4 h-4 accent-black" style="accent-color: black;" />
                             <span>{{ document.title }}</span>

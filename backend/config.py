@@ -21,6 +21,7 @@ class LLMConfig:
     @staticmethod
     def configure_dspy():
         if os.getenv("USE_OLLAMA", "False").lower() == "true":
+            print("configuring ollama")
             ollama_model = os.getenv("OLLAMA_MODEL")
             if ollama_model:
                 lm = dspy.LM(
@@ -30,7 +31,24 @@ class LLMConfig:
                 )
             else:
                 raise ValueError("OLLAMA_MODEL is required when USE_OLLAMA is true")
+        elif os.getenv("USE_AZURE", "False").lower() == "true":
+            print("configuring azure")
+            azure_model = os.getenv("AZURE_MODEL")
+            azure_api_key = os.getenv("AZURE_API_KEY")
+            azure_api_base = os.getenv("AZURE_API_BASE")
+            if azure_model and azure_api_key and azure_api_base:
+                lm = dspy.LM(
+                    azure_model,
+                    api_base=azure_api_base,
+                    api_key=azure_api_key,
+                    api_version="2024-12-01-preview",
+                )
+            else:
+                raise ValueError(
+                    "AZURE_MODEL, AZURE_API_KEY, and AZURE_API_BASE are required when USE_AZURE is true"
+                )
         elif os.getenv("GROK_API_KEY") and os.getenv("GROK_MODEL"):
+            print("configuring grok")
             grok_model = os.getenv("GROK_MODEL")
             grok_api_key = os.getenv("GROK_API_KEY")
             if grok_model and grok_api_key:
@@ -38,6 +56,7 @@ class LLMConfig:
             else:
                 raise ValueError("GROK_MODEL and GROK_API_KEY must be set together")
         elif os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_MODEL"):
+            print("configuring gemini")
             gemini_model = os.getenv("GEMINI_MODEL")
             gemini_api_key = os.getenv("GEMINI_API_KEY")
             if gemini_model and gemini_api_key:
@@ -45,6 +64,7 @@ class LLMConfig:
             else:
                 raise ValueError("GEMINI_MODEL and GEMINI_API_KEY must be set together")
         elif os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL"):
+            print("configuring openai")
             openai_model = os.getenv("OPENAI_MODEL")
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_model and openai_api_key:

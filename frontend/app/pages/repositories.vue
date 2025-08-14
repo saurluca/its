@@ -402,7 +402,7 @@ async function viewDocument(documentId: string) {
         <!-- Left side - Repositories list -->
         <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto ml-2' : 'w-full p-4 ml-2'">
             <div class="max-w-4xl mx-auto">
-                <div class="flex justify-between items-center mb-8">
+                <div class="flex justify-between items-center mb-8 mt-4">
                     <h1 class="text-3xl font-bold">Repositories</h1>
                 </div>
 

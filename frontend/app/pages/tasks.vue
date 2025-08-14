@@ -338,10 +338,9 @@ function handleEditTask(task: Task) {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="h-full max-w-4xl mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-8">
       <h1 class="text-3xl font-bold">Tasks</h1>
-
       <DViewToggle v-model="isTeacherView" />
     </div>
 

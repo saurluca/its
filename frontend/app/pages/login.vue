@@ -32,7 +32,7 @@ async function login() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 px-8 pt-24">
+  <div class="h-full bg-gray-100 px-8 pt-24">
     <div class="mx-auto max-w-sm rounded-lg border border-gray-50 bg-white p-8 shadow">
       <h1 class="mb-4 text-center text-2xl font-semibold text-gray-900">ITS</h1>
 

@@ -168,14 +168,23 @@ class TeacherFreeTextBinary(dspy.Signature):
 
 
 class TeacherMultipleChoice(dspy.Signature):
-    """Evaluate the student's answer, and provide feedback."""
+    """You are a teacher for undergraduate students. Your job is to evaluate the student's answers to a Multiple Choice question
+    based on the chunk of text, which is an excerpt from the lecture, and the question.
 
-    task_teacher: TaskReadTeacher = dspy.InputField(
-        description="Includes the question, answer options, and the chunk of text related to the question."
+    Evaluate the student's answer, and provide feedback.
+    """
+
+    chunk: str = dspy.InputField(
+        description="The chunk of text related to the question."
+    )
+    question: str = dspy.InputField(description="The question asked to the student.")
+
+    correct_answer: str = dspy.InputField(
+        description="The correct answer to the question."
     )
 
     student_answer: str = dspy.InputField(
-        description="The student's answer to the question."
+        description="The student's answer to the question. One of multiple predefined answer options."
     )
 
     feedback: str = dspy.OutputField(
@@ -272,9 +281,16 @@ def generate_questions(
 
     tasks = []
     start_time = time.time()
-
-    # Randomly select num_questions chunks with replacement
-    selected_chunks = [random.choice(chunks) for _ in range(num_questions)]
+    # Select up to len(chunks) chunks without replacement, then the rest with replacement
+    if num_questions <= len(chunks):
+        selected_chunks = random.sample(chunks, num_questions)
+    else:
+        # First, all chunks without replacement
+        selected_chunks = list(chunks)
+        # Then, the remaining with replacement
+        selected_chunks += [
+            random.choice(chunks) for _ in range(num_questions - len(chunks))
+        ]
 
     for chunk in tqdm(selected_chunks):
         qg_response = _generate_single_question(
@@ -301,10 +317,12 @@ def evaluate_student_answer(
     lm: dspy.LM,
 ) -> TeacherResponseMultipleChoice | TeacherResponseFreeText:
     if task_type == TaskType.MULTIPLE_CHOICE:
+        print("Evaluating multiple choice question")
         teacher = dspy.ChainOfThought(TeacherMultipleChoice)
     elif task_type == TaskType.FREE_TEXT:
-        # teacher = dspy.ChainOfThought(TeacherFreeText)
-        teacher = dspy.ChainOfThought(TeacherFreeTextBinary)
+        print("Evaluating free text question")
+        teacher = dspy.ChainOfThought(TeacherFreeText)
+        # teacher = dspy.ChainOfThought(TeacherFreeTextBinary)
 
     try:
         # print("task_teacher", task_teacher)
@@ -319,7 +337,7 @@ def evaluate_student_answer(
 
         # inspect history and print the last 3 messages
         # print(teacher.history[-1:])
-        response.feedback = "This is a test feedback"
+        # response.feedback = "This is a test feedback"
 
         print("response", response)
 

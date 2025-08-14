@@ -69,7 +69,7 @@ def get_large_llm_no_cache():
             api_key=azure_api_key,
             api_version="2024-12-01-preview",
             cache=False,
-            temperature=0.1,
+            temperature=0.4,
         )
     else:
         raise ValueError("AZURE_API_KEY and AZURE_API_BASE are required.")

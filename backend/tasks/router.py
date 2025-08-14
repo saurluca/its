@@ -346,7 +346,7 @@ async def generate_tasks_for_multiple_documents(
 
     for document_id in request.document_ids:
         chunks = session.exec(
-            select(Chunk).where(Chunk.document_id == document_id)
+            select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
         ).all()
         if not chunks:
             raise HTTPException(

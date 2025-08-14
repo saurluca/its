@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
-from dependencies import get_db_session
+from dependencies import get_db_session, get_large_llm, get_large_llm_no_cache
 from documents.models import Chunk
 from tasks.models import (
     Task,
@@ -22,6 +22,7 @@ from sqlmodel import select, Session
 from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
 from repositories.models import Repository, RepositoryTaskLink
+from dspy import dspy
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -290,6 +291,7 @@ async def generate_tasks_from_document(
     num_tasks: int = DEFAULT_NUM_QUESTIONS,
     task_type: str = "multiple_choice",
     session: Session = Depends(get_db_session),
+    lm: dspy.LM = Depends(get_large_llm_no_cache),
 ):
     """
     Generates a specified number of questions for a given document ID.
@@ -305,7 +307,7 @@ async def generate_tasks_from_document(
             status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
         )
 
-    tasks = generate_questions(doc_id, chunks, num_tasks, task_type)
+    tasks = generate_questions(doc_id, chunks, lm, num_tasks, task_type)
 
     # Save tasks and their answer options to database
     for task in tasks:
@@ -328,10 +330,12 @@ async def generate_tasks_from_document(
 async def generate_tasks_for_multiple_documents(
     request: GenerateTasksForMultipleDocumentsRequest,
     session: Session = Depends(get_db_session),
+    lm: dspy.LM = Depends(get_large_llm_no_cache),
 ):
     """
     Generate tasks for a number of documents and link them to the repository.
     """
+
     db_repository = session.get(Repository, request.repository_id)
     if not db_repository:
         raise HTTPException(
@@ -349,7 +353,7 @@ async def generate_tasks_for_multiple_documents(
                 status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
             )
         tasks = generate_questions(
-            document_id, chunks, request.num_tasks, request.task_type
+            document_id, chunks, lm, request.num_tasks, request.task_type
         )
 
         # Save tasks and create repository-task links
@@ -377,6 +381,7 @@ async def evaluate_answer(
     task_id: UUID,
     request: EvaluateAnswerRequest,
     session: Session = Depends(get_db_session),
+    lm: dspy.LM = Depends(get_large_llm),
 ):
     """
     Evaluate a student's answer for a specific task.
@@ -398,5 +403,6 @@ async def evaluate_answer(
         task_teacher,
         request.student_answer,
         db_task.type,
+        lm,
     )
     return response

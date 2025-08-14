@@ -194,10 +194,12 @@ def _get_question_generator(question_type: str):
         raise ValueError(f"Invalid question type: {question_type}")
 
 
-def _generate_single_question(chunk: Chunk, question_generator, question_type: str):
+def _generate_single_question(
+    chunk: Chunk, question_generator, question_type: str, lm: dspy.LM
+):
     """Generate a single question from a chunk."""
     try:
-        qg_response = question_generator(text=chunk.chunk_text)
+        qg_response = question_generator(text=chunk.chunk_text, lm=lm)
 
         # Validate multiple choice questions have the correct number of answer options
         if (
@@ -246,6 +248,7 @@ def _create_task_from_response(qg_response, question_type: str, chunk_id: UUID) 
 def generate_questions(
     document_id: UUID,
     chunks: List[Chunk],
+    lm: dspy.LM,
     num_questions: int = 3,
     question_type: str = "multiple_choice",
 ) -> List[Task]:
@@ -275,7 +278,7 @@ def generate_questions(
 
     for chunk in tqdm(selected_chunks):
         qg_response = _generate_single_question(
-            chunk, question_generator, question_type
+            chunk, question_generator, question_type, lm
         )
 
         if qg_response is not None:
@@ -295,6 +298,7 @@ def evaluate_student_answer(
     task_teacher: TaskReadTeacher,
     student_answer: str,
     task_type: TaskType,
+    lm: dspy.LM,
 ) -> TeacherResponseMultipleChoice | TeacherResponseFreeText:
     if task_type == TaskType.MULTIPLE_CHOICE:
         teacher = dspy.ChainOfThought(TeacherMultipleChoice)
@@ -310,6 +314,7 @@ def evaluate_student_answer(
             question=task_teacher.question,
             correct_answer=task_teacher.answer_options[0].answer,
             student_answer=student_answer,
+            lm=lm,
         )
 
         # inspect history and print the last 3 messages

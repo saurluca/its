@@ -46,12 +46,18 @@ class ChunkImportance(dspy.Signature):
     )
 
 
-# Initialize DSPy models
-document_summary_model = dspy.ChainOfThought(DocumentSummary)
-chunk_importance_model = dspy.Predict(ChunkImportance)
+class DocumentTitle(dspy.Signature):
+    """
+    Generate a title for the document based on the summary.
+    """
+
+    summary: str = dspy.InputField(description="The summary of the document.")
+    document_title: str = dspy.OutputField(
+        description=f"A short title for the document based on the summary. The document is part of a lecture course. Max title length: {MAX_TITLE_LENGTH} characters."
+    )
 
 
-def get_document_summary(document_content: str):
+def get_document_summary(document_content: str, lm: dspy.LM):
     """
     Generate a summary of the document.
 
@@ -61,10 +67,14 @@ def get_document_summary(document_content: str):
     Returns:
         DocumentSummary result with summary
     """
-    return document_summary_model(document=document_content)
+    document_summary_model = dspy.ChainOfThought(DocumentSummary)
+
+    return document_summary_model(document=document_content, lm=lm)
 
 
-def filter_important_chunks(chunks: list[Chunk], document_summary: DocumentSummary):
+def filter_important_chunks(
+    chunks: list[Chunk], document_summary: DocumentSummary, lm: dspy.LM
+):
     """
     Filter chunks by evaluating each chunk individually for importance.
 
@@ -77,12 +87,14 @@ def filter_important_chunks(chunks: list[Chunk], document_summary: DocumentSumma
     """
     unimportant_chunks_ids = []
     chunk_evaluations = []
+    chunk_importance_model = dspy.Predict(ChunkImportance)
 
     for chunk in chunks:
         # Evaluate each chunk individually
         evaluation = chunk_importance_model(
             chunk_text=chunk.chunk_text,
             summary_of_document=document_summary.summary,
+            lm=lm,
         )
 
         chunk_evaluations.append(
@@ -295,21 +307,10 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
     return document, chunk_objects
 
 
-class DocumentTitle(dspy.Signature):
-    """
-    Generate a title for the document based on the summary.
-    """
-
-    summary: str = dspy.InputField(description="The summary of the document.")
-    document_title: str = dspy.OutputField(
-        description=f"A short title for the document based on the summary. The document is part of a lecture course. Max title length: {MAX_TITLE_LENGTH} characters."
-    )
-
-
-def generate_document_title(summary: str) -> str:
+def generate_document_title(summary: str, lm: dspy.LM) -> str:
     try:
         model = dspy.ChainOfThought(DocumentTitle)
-        result = model(summary=summary)
+        result = model(summary=summary, lm=lm)
         return result.document_title
     except Exception as e:
         print(f"Error generating document title: {e}")

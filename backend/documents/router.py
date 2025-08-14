@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, Query, File
-from dependencies import get_db_session
+from dependencies import get_db_session, get_small_llm, get_large_llm
 from documents.models import (
     Chunk,
     Document,
@@ -16,6 +16,7 @@ from documents.service import (
     filter_important_chunks,
 )
 from starlette.concurrency import run_in_threadpool
+from dspy import dspy
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -42,7 +43,10 @@ async def get_document(document_id: UUID, session: Session = Depends(get_db_sess
 
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
-    file: UploadFile = File(...), session: Session = Depends(get_db_session)
+    file: UploadFile = File(...),
+    session: Session = Depends(get_db_session),
+    large_lm: dspy.LM = Depends(get_large_llm),
+    small_lm: dspy.LM = Depends(get_small_llm),
 ):
     # extract text from file and chunk
     document, chunks = await run_in_threadpool(
@@ -69,27 +73,22 @@ async def upload_and_chunk_document(
 
     print("Summarising document...")
     # Get document summary
-    summary_result = await run_in_threadpool(get_document_summary, document.content)
+    summary_result = await run_in_threadpool(
+        get_document_summary, document.content, large_lm
+    )
     document.summary = summary_result.summary
-
-    # print(summary_result)
-    # print(f"length of document: {len(document.content)}")
-    # print(f"length of summary: {len(summary_result.summary)}")
-    # print(
-    #     f"percentage of document covered by summary: {len(document.content) / len(summary_result.summary) * 100}%"
-    # )
 
     print("Generating title...")
     # create title for document based on summary
     document.title = await run_in_threadpool(
-        generate_document_title, summary_result.summary
+        generate_document_title, summary_result.summary, small_lm
     )
     session.add(document)
 
     print("Filtering important chunks...")
     # Filter important chunks using the new service function
     result = await run_in_threadpool(
-        filter_important_chunks, document.chunks, summary_result
+        filter_important_chunks, document.chunks, summary_result, small_lm
     )
 
     # mark chunks as important or unimportant
@@ -186,7 +185,10 @@ async def get_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
 
 @router.post("/{document_id}/important_chunks")
 async def filter_important_chunks_endpoint(
-    document_id: UUID, session: Session = Depends(get_db_session)
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    large_lm: dspy.LM = Depends(get_large_llm),
+    small_lm: dspy.LM = Depends(get_small_llm),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -195,7 +197,9 @@ async def filter_important_chunks_endpoint(
         )
 
     # Get document summary first
-    summary = await run_in_threadpool(get_document_summary, db_document.content)
+    summary = await run_in_threadpool(
+        get_document_summary, db_document.content, large_lm
+    )
 
     print(summary)
     print(f"length of document: {len(db_document.content)}")
@@ -206,7 +210,7 @@ async def filter_important_chunks_endpoint(
 
     # Filter important chunks using the new service function
     result = await run_in_threadpool(
-        filter_important_chunks, db_document.chunks, summary
+        filter_important_chunks, db_document.chunks, summary, small_lm
     )
 
     return result

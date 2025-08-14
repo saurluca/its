@@ -67,6 +67,7 @@ async def upload_and_chunk_document(
     session.commit()
     session.refresh(document)
 
+    print("Summarising document...")
     # Get document summary
     summary_result = await run_in_threadpool(get_document_summary, document.content)
     document.summary = summary_result.summary
@@ -78,12 +79,14 @@ async def upload_and_chunk_document(
     #     f"percentage of document covered by summary: {len(document.content) / len(summary_result.summary) * 100}%"
     # )
 
+    print("Generating title...")
     # create title for document based on summary
     document.title = await run_in_threadpool(
         generate_document_title, summary_result.summary
     )
     session.add(document)
 
+    print("Filtering important chunks...")
     # Filter important chunks using the new service function
     result = await run_in_threadpool(
         filter_important_chunks, document.chunks, summary_result
@@ -95,6 +98,8 @@ async def upload_and_chunk_document(
         session.add(chunk)
     session.commit()
     session.refresh(document)
+
+    print(f"Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant")
 
     return document
 

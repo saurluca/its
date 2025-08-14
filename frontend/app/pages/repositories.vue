@@ -327,9 +327,12 @@ async function confirmGenerateTasks() {
         return;
     }
 
-    // Close modal immediately and show processing notification
-    const repositoryName = selectedRepositoryForTasks.value.name;
-    const documentCount = selectedDocuments.value.size;
+    // Capture all data before closing modal
+    const repository = selectedRepositoryForTasks.value;
+    const repositoryName = repository.name;
+    const repositoryId = repository.id;
+    const documentIds = Array.from(selectedDocuments.value);
+    const documentCount = documentIds.length;
     const taskCount = numTasksToGenerate.value;
     const taskTypeText = taskType.value === 'multiple_choice' ? 'multiple choice' : 'free text';
 
@@ -339,12 +342,10 @@ async function confirmGenerateTasks() {
     const processingId = notifications.loading(`Generating ${taskCount} ${taskTypeText} tasks for "${repositoryName}" from ${documentCount} document${documentCount === 1 ? '' : 's'}. This may take a while.`);
 
     try {
-        const documentIds = Array.from(selectedDocuments.value);
-
         await $authFetch("/tasks/generate_for_multiple_documents/", {
             method: "POST",
             body: {
-                repository_id: selectedRepositoryForTasks.value.id,
+                repository_id: repositoryId,
                 document_ids: documentIds,
                 num_tasks: numTasksToGenerate.value,
                 task_type: taskType.value,

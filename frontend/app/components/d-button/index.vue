@@ -5,12 +5,12 @@ import type { Component } from "vue";
 
 interface Props {
   variant?:
-    | "primary"
-    | "secondary"
-    | "tertiary"
-    | "danger"
-    | "danger-light"
-    | "transparent";
+  | "primary"
+  | "secondary"
+  | "tertiary"
+  | "danger"
+  | "danger-light"
+  | "transparent";
   iconLeft?: Component;
   to?: string | Record<string, unknown>;
   type?: "submit" | "button";
@@ -31,16 +31,12 @@ const {
 </script>
 
 <template>
-  <component
-    :is="to ? RouterLink : 'button'"
-    :type="type"
-    :to="to"
-    :disabled="disabled || loading"
+  <component :is="to ? RouterLink : 'button'" :type="type" :to="to" :disabled="disabled || loading"
     class="relative flex h-fit items-center gap-2 rounded-md px-2.5 py-1.5 text-sm ring-blue-600 ring-offset-2 outline-none focus:ring-2"
     :class="{
       'bg-gray-900 text-gray-50 hover:bg-gray-700':
         variant === 'primary' && !disabled && !loading,
-      'bg-gray-100 text-gray-700 hover:bg-gray-200':
+      'bg-gray-200 text-gray-700 hover:bg-gray-300':
         variant === 'secondary' && !disabled && !loading,
       'bg-red-600 text-white hover:bg-red-700':
         variant === 'danger' && !disabled && !loading,
@@ -52,16 +48,12 @@ const {
         variant === 'tertiary' && !disabled && !loading,
       'bg-gray-300 text-gray-500 cursor-not-allowed': disabled || loading,
       'justify-center': textCenter,
-    }"
-  >
+    }">
     <component v-if="iconLeft" :is="iconLeft" class="size-4" />
     <div v-if="$slots.default" class="inline" :class="{ 'opacity-0': loading }">
       <slot></slot>
     </div>
-    <div
-      v-if="loading"
-      class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform"
-    >
+    <div v-if="loading" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
       <LoaderCircleIcon class="size-5 animate-spin" />
     </div>
   </component>

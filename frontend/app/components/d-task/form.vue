@@ -96,7 +96,6 @@ function saveTask() {
     notifications.warning("Please select a correct answer");
     return;
   }
-  console.log("task.value", task.value);
   emit("save", task.value);
 }
 

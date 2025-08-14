@@ -85,7 +85,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyPress);
 });
 
-console.log("task", props.task);
 </script>
 
 <template>

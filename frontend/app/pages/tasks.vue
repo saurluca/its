@@ -101,10 +101,6 @@ onMounted(async () => {
         $authFetch("/documents/"),
       ]) as [Task[], { repositories?: Repository[] } | Repository[], ApiDocument[]];
 
-    console.log("repositoriesResponse", repositoriesResponse);
-    console.log("tasksResponse", tasksResponse);
-    console.log("documentsResponse", documentsResponse);
-
     // Default to all tasks; may be overridden by route-based filtering below
     tasks.value = (tasksResponse || []).map((task: Task) => ({
       ...task,

@@ -126,7 +126,6 @@ async function uploadDocumentFromInput(event: Event) {
 }
 
 function triggerFilePicker() {
-  console.log("Triggering file picker");
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "*/*";
@@ -136,7 +135,6 @@ function triggerFilePicker() {
 
 async function deleteDocument(documentId: string) {
   deletingDocument.value = true;
-  console.log("Deleting document:", documentId);
   try {
     await fetchJson(`/documents/${documentId}/`, {
       method: "DELETE",

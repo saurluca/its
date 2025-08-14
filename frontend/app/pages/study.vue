@@ -101,8 +101,6 @@ async function startStudy() {
       // Randomize order of tasks for this study session
       tasks.value = shuffleArray(responseData);
       currentTaskIndex.value = 0;
-      console.log("Loaded tasks:", responseData.length, responseData);
-      console.log("First task structure:", responseData[0]);
       pageState.value = "studying";
     } else {
       pageState.value = "no-tasks";
@@ -213,12 +211,6 @@ async function evaluateAnswer() {
 }
 
 function nextQuestion() {
-  console.log(
-    "Next question called. Current index:",
-    currentTaskIndex.value,
-    "Total tasks:",
-    tasks.value.length,
-  );
   if (currentTaskIndex.value < tasks.value.length - 1) {
     currentTaskIndex.value++;
     currentAnswer.value = "";
@@ -226,18 +218,12 @@ function nextQuestion() {
     showEvaluation.value = false;
     // Hide HTML viewer when moving to next question
     closeHtmlViewer();
-    console.log("Moving to question:", currentTaskIndex.value + 1);
   } else {
-    console.log("Study session finished");
     pageState.value = "finished";
   }
 }
 
 async function showSource() {
-  console.log("Showing source for chunk:", currentTask.value?.chunk_id);
-  console.log("Current task:", currentTask.value);
-  console.log("Repository ID:", repositoryId.value);
-
   if (!repositoryId.value || !currentTask.value?.chunk_id) {
     console.error("Missing repositoryId or chunk_id:", {
       repositoryId: repositoryId.value,
@@ -256,11 +242,8 @@ async function showSource() {
   try {
     // First, fetch the specific chunk data
     const chunkUrl = `/documents/chunks/${currentTask.value.chunk_id}`;
-    console.log("Fetching chunk from:", chunkUrl);
 
     const chunkData = await $authFetch(chunkUrl) as { chunk_text: string };
-
-    console.log("Chunk data received:", chunkData);
 
     if (!chunkData.chunk_text) {
       throw new Error("Chunk data not found");

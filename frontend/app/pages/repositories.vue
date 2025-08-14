@@ -64,7 +64,6 @@ async function fetchRepositories() {
     loading.value = true;
     try {
         const response = await $authFetch("/repositories/") as { repositories?: Repository[] } | Repository[];
-        console.log("response", response);
         repositories.value = ('repositories' in response ? response.repositories : response) as Repository[];
     } catch (error) {
         console.error("Error fetching repositories:", error);

@@ -149,20 +149,20 @@ function viewDocument(documentId: string) {
                         <DHamburgerMenu>
                             <template #default="{ close }">
                                 <button @click="
-                                    openEditTitleModal(document.id, document.title);
-                                close();
-                                "
-                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <PencilIcon class="h-4 w-4" />
-                                    Edit Title
-                                </button>
-                                <button @click="
                                     navigateToTasks(document.id);
                                 close();
                                 "
                                     class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <EyeIcon class="h-4 w-4" />
                                     View Tasks
+                                </button>
+                                <button @click="
+                                    openEditTitleModal(document.id, document.title);
+                                close();
+                                "
+                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <PencilIcon class="h-4 w-4" />
+                                    Edit Title
                                 </button>
                                 <div class="border-t border-gray-200 my-1"></div>
                                 <button @click="

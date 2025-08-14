@@ -346,7 +346,7 @@ function restart() {
               :disabled="showEvaluation || evaluating" @evaluate="evaluateAnswer" />
 
             <div v-if="showEvaluation">
-              <DTaskResult :task="currentTask" :index="currentTaskIndex" :userAnswer="currentAnswer"
+              <DTaskResult :task="currentTask" :index="currentTaskIndex" :user-answer="currentAnswer"
                 :status="evaluationStatus" :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
                 <DButton @click="showSource" variant="secondary" class="mt-4">
@@ -413,7 +413,7 @@ function restart() {
 
   <!-- Generate Tasks Modal -->
   <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-    :confirmText="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
+    :confirm-text="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
     @confirm="confirmGenerateTasks">
     <div class="p-4">
       <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>

@@ -83,7 +83,7 @@ const options = computed(() => {
     <slot></slot>
 
     <!-- Delete Confirmation Modal -->
-    <DModal v-if="showDeleteModal" titel="Confirm Task Deletion" confirmText="Delete" @close="closeDeleteModal"
+    <DModal v-if="showDeleteModal" titel="Confirm Task Deletion" confirm-text="Delete" @close="closeDeleteModal"
       @confirm="confirmDelete">
       <div class="p-4">
         <p>Are you sure you want to delete the task "{{ task.question }}"?</p>

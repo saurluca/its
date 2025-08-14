@@ -62,7 +62,7 @@ function editItem() {
     <slot></slot>
 
     <!-- Delete Confirmation Modal -->
-    <DModal v-if="showDeleteModal" titel="Confirm Deletion" confirmText="Delete" @close="closeDeleteModal"
+    <DModal v-if="showDeleteModal" titel="Confirm Deletion" confirm-text="Delete" @close="closeDeleteModal"
       @confirm="confirmDelete">
       <div class="p-4">
         <p>Are you sure you want to delete "{{ item.name }}"?</p>

@@ -3,7 +3,7 @@
 </script>
 
 <template>
-  <div class="flex h-full max-h-screen flex-col sm:flex-row">
+  <div class="flex h-full max-h-screen flex-col sm:flex-row bg-gray-50">
     <DPageSidebar />
     <main class="flex-1 overflow-scroll">
       <slot></slot>

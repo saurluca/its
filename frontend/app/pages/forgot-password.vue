@@ -2,7 +2,7 @@
 import { useNotificationsStore } from "~/stores/notifications";
 
 definePageMeta({
-  layout: false,
+  layout: "minimal",
 });
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -65,6 +65,5 @@ async function requestPasswordReset() {
         <DButton to="/login" text-center>Back to Login</DButton>
       </div>
     </div>
-    <DSnackbar />
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useNotificationsStore } from "~/stores/notifications";
 definePageMeta({
-  layout: false,
+  layout: "minimal",
 });
 
 const email = ref("");
@@ -55,6 +55,5 @@ async function login() {
         </div>
       </form>
     </div>
-    <DSnackbar />
   </div>
 </template>

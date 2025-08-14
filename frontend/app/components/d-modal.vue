@@ -9,12 +9,14 @@ interface Props {
   confirmText?: string;
   wide?: boolean;
   confirmIcon?: Component;
+  disabled?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   confirmText: "Save",
   wide: false,
   confirmIcon: undefined,
+  disabled: false,
 });
 
 const emit = defineEmits(["close", "confirm"]);
@@ -55,7 +57,7 @@ onKeyDown("Escape", () => emit("close"));
               </div>
               <div class="flex justify-end space-x-2 rounded-b border-t border-gray-200 p-4">
                 <DButton ref="cancelButton" id="cancel" variant="secondary" @click="close">Cancel</DButton>
-                <DButton :icon-left="confirmIcon" variant="primary" @click="save">{{
+                <DButton :icon-left="confirmIcon" variant="primary" :disabled="disabled" @click="save">{{
                   confirmText
                   }}</DButton>
               </div>

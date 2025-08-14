@@ -49,10 +49,20 @@ async function handleUpload() {
         return;
     }
 
-    uploading.value = true;
+    // Capture file data before closing modal
+    const file = selectedFile.value;
+    const fileName = file.name;
+    const selectedRepos = [...selectedRepositories.value];
+
+    // Close modal immediately and show processing notification
+    close();
+
+    // Show processing notification
+    const processingId = notifications.loading(`Processing document "${fileName}". This may take a while.`);
+
     try {
         const formData = new FormData();
-        formData.append("file", selectedFile.value);
+        formData.append("file", file);
 
         // Upload the document
         const uploadResponse = await $authFetch("/documents/upload/", {
@@ -61,10 +71,10 @@ async function handleUpload() {
         }) as { id: string };
 
         // Add document to selected repositories
-        if (selectedRepositories.value.length > 0) {
+        if (selectedRepos.length > 0) {
             const documentId = uploadResponse.id;
 
-            for (const repositoryId of selectedRepositories.value) {
+            for (const repositoryId of selectedRepos) {
                 await $authFetch("/repositories/links/", {
                     method: "POST",
                     body: {
@@ -75,13 +85,15 @@ async function handleUpload() {
             }
         }
 
+        // Remove processing notification and show success
+        notifications.remove(processingId);
+        notifications.success(`Document "${fileName}" uploaded successfully!`);
         emit("upload-complete");
-        close();
     } catch (error) {
         console.error("Error uploading document:", error);
-        notifications.error("Failed to upload document. Please try again. " + error);
-    } finally {
-        uploading.value = false;
+        // Remove processing notification and show error
+        notifications.remove(processingId);
+        notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
     }
 }
 
@@ -93,8 +105,8 @@ function close() {
 </script>
 
 <template>
-    <DModal titel="Upload Document" :confirmText="uploading ? 'Uploading...' : 'Select File & Upload'"
-        :confirmIcon="UploadIcon" :disabled="!canUpload" @close="close" @confirm="triggerFilePicker">
+    <DModal titel="Upload Document" :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'"
+        :confirm-icon="UploadIcon" :disabled="!canUpload" @close="close" @confirm="triggerFilePicker">
         <div class="p-4 space-y-4">
             <!-- Repository Selection (Required) -->
             <div v-if="repositories.length > 0">

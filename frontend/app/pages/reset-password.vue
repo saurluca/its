@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useNotificationsStore } from "~/stores/notifications";
+
 definePageMeta({
   layout: false,
 });
@@ -13,7 +15,7 @@ const password = ref("");
 const loading = ref(false);
 const success = ref(false);
 
-import { useNotificationsStore } from "~/stores/notifications";
+
 const notifications = useNotificationsStore();
 
 async function requestPasswordReset() {

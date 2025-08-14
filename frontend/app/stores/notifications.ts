@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-export type NotificationKind = "success" | "error" | "warning";
+export type NotificationKind = "success" | "error" | "warning" | "loading";
 
 export interface NotificationItem {
   id: number;
@@ -46,6 +46,10 @@ export const useNotificationsStore = defineStore("notifications", {
 
     warning(message: string, durationMs?: number) {
       return this.notify(message, "warning", durationMs ?? 5000);
+    },
+
+    loading(message: string, durationMs?: number) {
+      return this.notify(message, "loading", durationMs ?? 0);
     },
 
     remove(id: number) {

@@ -3,6 +3,7 @@ import {
     CheckCircle2Icon,
     AlertTriangleIcon,
     CircleAlertIcon,
+    Loader2Icon,
     XIcon,
 } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
@@ -27,13 +28,15 @@ function close(id: number) {
                         'border-green-300 bg-green-50/95 text-green-800': n.kind === 'success',
                         'border-red-300 bg-red-50/95 text-red-800': n.kind === 'error',
                         'border-amber-300 bg-amber-50/95 text-amber-800': n.kind === 'warning',
+                        'border-blue-300 bg-blue-50/95 text-blue-800': n.kind === 'loading',
                     }">
                     <component
-                        :is="n.kind === 'success' ? CheckCircle2Icon : n.kind === 'warning' ? AlertTriangleIcon : CircleAlertIcon"
+                        :is="n.kind === 'success' ? CheckCircle2Icon : n.kind === 'warning' ? AlertTriangleIcon : n.kind === 'loading' ? Loader2Icon : CircleAlertIcon"
                         class="mt-0.5 size-5 flex-shrink-0" :class="{
                             'text-green-600': n.kind === 'success',
                             'text-red-600': n.kind === 'error',
                             'text-amber-600': n.kind === 'warning',
+                            'text-blue-600 loading-spinner': n.kind === 'loading',
                         }" />
 
                     <div class="min-w-0 flex-1 text-sm">
@@ -60,5 +63,20 @@ function close(id: number) {
 .snackbar-leave-to {
     opacity: 0;
     transform: translateY(-6px) translateX(6px) scale(0.98);
+}
+
+/* Loading spinner animation */
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>

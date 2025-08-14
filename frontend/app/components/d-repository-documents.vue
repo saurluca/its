@@ -19,13 +19,9 @@ const emit = defineEmits<{
 
 const documents = ref<Document[]>([]);
 const loading = ref(true);
-const uploadingDocument = ref(false);
-const generatingTasks = ref(false);
+
 const deletingDocument = ref(false);
-const showGenerateTasksModal = ref(false);
 const showDeleteModal = ref(false);
-const generateTasksDocumentId = ref<string | null>(null);
-const numTasksToGenerate = ref(1);
 const deleteDocumentId = ref<string | null>(null);
 const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
@@ -58,43 +54,6 @@ async function fetchDocuments() {
     }
 }
 
-async function uploadDocumentFromInput(event: Event) {
-    if (uploadingDocument.value) return;
-    uploadingDocument.value = true;
-    try {
-        const input = event.target as HTMLInputElement;
-        if (!input.files || input.files.length === 0) {
-            uploadingDocument.value = false;
-            return;
-        }
-        const formData = new FormData();
-        if (input.files && input.files[0]) {
-            formData.append("file", input.files[0]);
-        }
-
-        const data = await $authFetch("/documents/upload/", {
-            method: "POST",
-            body: formData,
-        }) as any;
-
-        // Add document to this repository
-        await $authFetch("/repositories/links/", {
-            method: "POST",
-            body: {
-                repository_id: props.repositoryId,
-                document_id: data.id,
-            },
-        });
-
-        await fetchDocuments();
-        emit("refresh-repositories");
-    } catch (error) {
-        notifications.error("Failed to upload document. Please try again. " + error);
-    } finally {
-        uploadingDocument.value = false;
-    }
-}
-
 async function deleteDocument(documentId: string) {
     try {
         await $authFetch(`/documents/${documentId}/`, {
@@ -106,11 +65,6 @@ async function deleteDocument(documentId: string) {
         console.error("Error deleting document:", error);
         notifications.error("Failed to delete document. Please try again. " + error);
     }
-}
-
-function closeGenerateTasksModal() {
-    showGenerateTasksModal.value = false;
-    generateTasksDocumentId.value = null;
 }
 
 function navigateToTasks(documentId: string) {
@@ -157,24 +111,6 @@ async function confirmEditTitle() {
     } catch (error) {
         console.error("Error updating title:", error);
         notifications.error("Failed to update title. Please try again. " + error);
-    }
-}
-
-async function confirmGenerateTasks() {
-    if (!generateTasksDocumentId.value) return;
-    generatingTasks.value = true;
-    try {
-        await $authFetch(
-            `/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
-            {
-                method: "POST",
-            },
-        );
-        closeGenerateTasksModal();
-    } catch (error) {
-        notifications.error("Failed to generate tasks. Please try again. " + error);
-    } finally {
-        generatingTasks.value = false;
     }
 }
 
@@ -243,7 +179,7 @@ function viewDocument(documentId: string) {
     </div>
 
     <!-- Delete Modal -->
-    <DModal v-if="showDeleteModal" titel="Delete Document" :confirmText="deletingDocument ? 'Deleting...' : 'Delete'"
+    <DModal v-if="showDeleteModal" titel="Delete Document" :confirm-text="deletingDocument ? 'Deleting...' : 'Delete'"
         @close="closeDeleteModal" @confirm="confirmDelete">
         <div class="p-4">
             <p>
@@ -254,7 +190,7 @@ function viewDocument(documentId: string) {
     </DModal>
 
     <!-- Edit Title Modal -->
-    <DModal v-if="showEditTitleModal" titel="Edit Document Title" confirmText="Save" @close="closeEditTitleModal"
+    <DModal v-if="showEditTitleModal" titel="Edit Document Title" confirm-text="Save" @close="closeEditTitleModal"
         @confirm="confirmEditTitle">
         <div class="p-4">
             <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>

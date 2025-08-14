@@ -24,7 +24,6 @@ const deleteRepositoryName = ref<string | null>(null);
 
 // Generate tasks modal state
 const showGenerateTasksModal = ref(false);
-const generatingTasks = ref(false);
 const selectedRepositoryForTasks = ref<Repository | null>(null);
 const repositoryDocuments = ref<Document[]>([]);
 const selectedDocuments = ref<Set<string>>(new Set());
@@ -37,6 +36,13 @@ const htmlContent = ref("");
 const loadingHtml = ref(false);
 const htmlError = ref("");
 const selectedDocumentId = ref<string | null>(null);
+
+// Upload state
+const uploading = ref(false);
+const selectedRepositories = ref<string[]>([]);
+const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<File | null>(null);
+
 const notifications = useNotificationsStore();
 
 // Load repositories on component mount
@@ -248,7 +254,17 @@ async function confirmGenerateTasks() {
         return;
     }
 
-    generatingTasks.value = true;
+    // Close modal immediately and show processing notification
+    const repositoryName = selectedRepositoryForTasks.value.name;
+    const documentCount = selectedDocuments.value.size;
+    const taskCount = numTasksToGenerate.value;
+    const taskTypeText = taskType.value === 'multiple_choice' ? 'multiple choice' : 'free text';
+
+    closeGenerateTasksModal();
+
+    // Show processing notification
+    const processingId = notifications.loading(`Generating ${taskCount} ${taskTypeText} tasks for "${repositoryName}" from ${documentCount} document${documentCount === 1 ? '' : 's'}. This may take a while.`);
+
     try {
         const documentIds = Array.from(selectedDocuments.value);
 
@@ -262,15 +278,17 @@ async function confirmGenerateTasks() {
             },
         });
 
-        closeGenerateTasksModal();
         // Refresh repositories to show updated task counts
         await fetchRepositories();
-        notifications.success("Tasks generated successfully!");
+
+        // Remove processing notification and show success
+        notifications.remove(processingId);
+        notifications.success(`Successfully generated ${taskCount} ${taskTypeText} tasks for "${repositoryName}"!`);
     } catch (error) {
         console.error("Error generating tasks:", error);
-        notifications.error("Failed to generate tasks. Please try again. " + error);
-    } finally {
-        generatingTasks.value = false;
+        // Remove processing notification and show error
+        notifications.remove(processingId);
+        notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
     }
 }
 
@@ -320,10 +338,10 @@ async function viewDocument(documentId: string) {
 
                 <div v-else class="space-y-6">
                     <div v-if="!showForm" class="flex gap-3">
-                        <DButton @click="openUploadModal" variant="primary" :iconLeft="UploadIcon">
+                        <DButton @click="openUploadModal" variant="primary" :icon-left="UploadIcon">
                             Document
                         </DButton>
-                        <DButton @click="showForm = true" variant="secondary" :iconLeft="PlusIcon">
+                        <DButton @click="showForm = true" variant="secondary" :icon-left="PlusIcon">
                             Repository
                         </DButton>
                     </div>
@@ -364,11 +382,11 @@ async function viewDocument(documentId: string) {
                                 </div>
                                 <div class="flex gap-2">
                                     <DButton @click="navigateToStudy(repository.id)" variant="primary"
-                                        :iconLeft="BookOpenIcon">
+                                        :icon-left="BookOpenIcon">
                                         Study
                                     </DButton>
                                     <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
-                                        :iconLeft="PlusIcon" class="!p-2" />
+                                        :icon-left="PlusIcon" class="!p-2" />
                                     <DHamburgerMenu>
                                         <template #default="{ close }">
                                             <button @click="
@@ -427,7 +445,7 @@ async function viewDocument(documentId: string) {
             @upload-complete="handleUploadComplete" />
 
         <!-- Edit Title Modal -->
-        <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirmText="Save" @close="closeEditTitleModal"
+        <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirm-text="Save" @close="closeEditTitleModal"
             @confirm="confirmEditTitle">
             <div class="p-4">
                 <label for="edit-title" class="block mb-2 font-medium">Repository Name:</label>
@@ -438,7 +456,7 @@ async function viewDocument(documentId: string) {
         </DModal>
 
         <!-- Delete Modal -->
-        <DModal v-if="showDeleteModal" titel="Delete Repository" confirmText="Delete" @close="closeDeleteModal"
+        <DModal v-if="showDeleteModal" titel="Delete Repository" confirm-text="Delete" @close="closeDeleteModal"
             @confirm="confirmDelete">
             <div class="p-4">
                 <p>
@@ -449,8 +467,7 @@ async function viewDocument(documentId: string) {
         </DModal>
 
         <!-- Generate Tasks Modal -->
-        <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-            :confirmText="generatingTasks ? 'Generating...' : 'Generate Tasks'" :wide="true"
+        <DModal v-if="showGenerateTasksModal" titel="Generate Tasks" confirm-text="Generate Tasks" :wide="true"
             @close="closeGenerateTasksModal" @confirm="confirmGenerateTasks">
             <div class="p-4 space-y-4">
                 <!-- Task Generation Settings -->

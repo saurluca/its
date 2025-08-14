@@ -19,7 +19,7 @@ const documents = ref<Document[]>([]);
 const repositories = ref<Repository[]>([]);
 const loadingDocuments = ref(true);
 const loadingRepositories = ref(true);
-const uploadingDocument = ref(false);
+
 const uploadedDocumentId = ref<string | null>(null);
 const deletingDocument = ref(false);
 const generatingTasks = ref(false);
@@ -84,18 +84,25 @@ onMounted(async () => {
 });
 
 async function uploadDocumentFromInput(event: Event) {
-  if (uploadingDocument.value) return;
-  uploadingDocument.value = true;
+
+  const input = event.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) {
+    return;
+  }
+
+  // Capture file data before proceeding
+  const file = input.files[0];
+  if (!file) {
+    return;
+  }
+  const fileName = file.name || 'Unknown file';
+
+  // Show processing notification
+  const processingId = notifications.warning(`Processing document "${fileName}"... This may take a while.`);
+
   try {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) {
-      uploadingDocument.value = false;
-      return;
-    }
     const formData = new FormData();
-    if (input.files && input.files[0]) {
-      formData.append("file", input.files[0]);
-    }
+    formData.append("file", file);
 
     const data = await $authFetch("/documents/upload/", {
       method: "POST",
@@ -104,16 +111,19 @@ async function uploadDocumentFromInput(event: Event) {
     uploadedDocumentId.value = data.id;
     // Refresh the document list
     await fetchDocuments();
+
+    // Remove processing notification and show success
+    notifications.remove(processingId);
+    notifications.success(`Document "${fileName}" uploaded successfully!`);
   } catch (error) {
-    notifications.error("Failed to upload document. Please try again. " + error);
-  } finally {
-    uploadingDocument.value = false;
+    // Remove processing notification and show error
+    notifications.remove(processingId);
+    notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
   }
 }
 
 function triggerFilePicker() {
   console.log("Triggering file picker");
-  if (uploadingDocument.value) return;
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "*/*";
@@ -302,12 +312,9 @@ async function viewDocument(documentId: string) {
           </div>
 
           <div class="flex items-center gap-4 mb-8">
-            <DButton @click="triggerFilePicker" :loading="uploadingDocument" :icon-left='UploadIcon'>
+            <DButton @click="triggerFilePicker" :icon-left='UploadIcon'>
               New Document
             </DButton>
-            <div v-if="uploadingDocument">
-              Extracting text, this may take a while...
-            </div>
           </div>
 
           <div class=" rounded-md p-4 shadow-sm">

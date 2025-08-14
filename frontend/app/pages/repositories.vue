@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -11,7 +11,6 @@ const repositories = ref<Repository[]>([]);
 const loading = ref(true);
 const showForm = ref(false);
 const editingRepository = ref<Repository | null>(null);
-const showUploadModal = ref(false);
 const expandedRepositories = ref<Set<string>>(new Set());
 
 // Modal state for repository editing
@@ -42,6 +41,12 @@ const uploading = ref(false);
 const selectedRepositories = ref<string[]>([]);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
+const showUploadModal = ref(false);
+
+// Computed property to check if upload is allowed
+const canUpload = computed(() => {
+    return selectedRepositories.value.length > 0;
+});
 
 const notifications = useNotificationsStore();
 
@@ -157,6 +162,78 @@ function openUploadModal() {
 
 function closeUploadModal() {
     showUploadModal.value = false;
+    selectedRepositories.value = [];
+    selectedFile.value = null;
+}
+
+function triggerFilePicker() {
+    if (uploading.value || !canUpload.value) return;
+    fileInput.value?.click();
+}
+
+function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+        selectedFile.value = input.files[0] || null;
+        // Automatically start upload when file is selected
+        handleUpload();
+    }
+}
+
+async function handleUpload() {
+    if (uploading.value || !selectedFile.value || !canUpload.value) {
+        if (!canUpload.value) {
+            notifications.warning("Please select at least one repository before uploading a document.");
+        }
+        return;
+    }
+
+    // Capture file data before closing modal
+    const file = selectedFile.value;
+    const fileName = file.name;
+    const selectedRepos = [...selectedRepositories.value];
+
+    // Close modal immediately and show processing notification
+    closeUploadModal();
+
+    // Show processing notification
+    const processingId = notifications.loading(`Processing document "${fileName}". This may take a while.`);
+
+    try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // Upload the document
+        const uploadResponse = await $authFetch("/documents/upload/", {
+            method: "POST",
+            body: formData,
+        }) as { id: string };
+
+        // Add document to selected repositories
+        if (selectedRepos.length > 0) {
+            const documentId = uploadResponse.id;
+
+            for (const repositoryId of selectedRepos) {
+                await $authFetch("/repositories/links/", {
+                    method: "POST",
+                    body: {
+                        repository_id: repositoryId,
+                        document_id: documentId,
+                    },
+                });
+            }
+        }
+
+        // Remove processing notification and show success
+        notifications.remove(processingId);
+        notifications.success(`Document "${fileName}" uploaded successfully!`);
+        await fetchRepositories();
+    } catch (error) {
+        console.error("Error uploading document:", error);
+        // Remove processing notification and show error
+        notifications.remove(processingId);
+        notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
+    }
 }
 
 function handleUploadComplete() {
@@ -441,8 +518,46 @@ async function viewDocument(documentId: string) {
         </div>
 
         <!-- Document Upload Modal -->
-        <DDocumentUploadModal v-if="showUploadModal" :repositories="repositories" @close="closeUploadModal"
-            @upload-complete="handleUploadComplete" />
+        <DModal v-if="showUploadModal" titel="Upload Document"
+            :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
+            :disabled="!canUpload" @close="closeUploadModal" @confirm="triggerFilePicker">
+            <div class="p-4 space-y-4">
+                <!-- Repository Selection (Required) -->
+                <div v-if="repositories.length > 0">
+                    <label class="block mb-2 font-medium">
+                        Select Repositories <span class="text-red-500">*</span>
+                    </label>
+                    <div class="space-y-2 max-h-40 overflow-y-auto border rounded border-gray-300 p-2">
+                        <label v-for="repository in repositories" :key="repository.id"
+                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
+                            <input type="checkbox" :value="repository.id" v-model="selectedRepositories"
+                                class="w-4 h-4 accent-black" style="accent-color: black;" />
+                            <span>{{ repository.name }}</span>
+                        </label>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">
+                        You must select at least one repository to upload a document
+                    </p>
+                    <p v-if="selectedRepositories.length > 0" class="text-sm text-green-600 mt-1">
+                        ✓ {{ selectedRepositories.length }} repository{{ selectedRepositories.length === 1 ? '' : 'ies'
+                        }}
+                        selected
+                    </p>
+                </div>
+
+                <div v-else class="text-sm text-gray-500 bg-yellow-50 p-3 rounded border border-yellow-200">
+                    <strong>No repositories available.</strong> Create a repository first before uploading documents.
+                </div>
+
+                <!-- File Selection -->
+                <div v-if="canUpload">
+                    <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
+                    <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                        Selected: {{ selectedFile.name }}
+                    </div>
+                </div>
+            </div>
+        </DModal>
 
         <!-- Edit Title Modal -->
         <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirm-text="Save" @close="closeEditTitleModal"

@@ -302,95 +302,93 @@ async function viewDocument(documentId: string) {
 </script>
 
 <template>
-  <div>
-    <div class="h-full flex">
-      <!-- Left side - Documents list -->
-      <div class="w-1/2 p-6 overflow-y-auto">
-        <div class="max-w-4xl mx-auto">
-          <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold">Documents</h1>
+  <div class="h-full flex">
+    <!-- Left side - Documents list -->
+    <div class="w-1/2 p-6 overflow-y-auto h-full">
+      <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+          <h1 class="text-3xl font-bold">Documents</h1>
+        </div>
+
+        <div class="flex items-center gap-4 mb-8">
+          <DButton @click="triggerFilePicker" :icon-left='UploadIcon'>
+            New Document
+          </DButton>
+        </div>
+
+        <div class=" rounded-md p-4 shadow-sm">
+          <div v-if="loadingDocuments" class="py-8 text-center">
+            <div class="text-xl">Loading documents...</div>
           </div>
 
-          <div class="flex items-center gap-4 mb-8">
-            <DButton @click="triggerFilePicker" :icon-left='UploadIcon'>
-              New Document
-            </DButton>
+          <div v-else-if="documents.length === 0" class="py-2 text-center text-gray-500">
+            <p>No documents found. Upload a document to get started.</p>
           </div>
 
-          <div class=" rounded-md p-4 shadow-sm">
-            <div v-if="loadingDocuments" class="py-8 text-center">
-              <div class="text-xl">Loading documents...</div>
-            </div>
+          <div v-else class="space-y-3 w-full">
+            <div v-for="document in documents" :key="document.id">
+              <div class="flex justify-between items-center gap-2">
+                <div class="flex flex-col cursor-pointer" @click="viewDocument(document.id)">
+                  <p>{{ document.title }}</p>
+                </div>
 
-            <div v-else-if="documents.length === 0" class="py-2 text-center text-gray-500">
-              <p>No documents found. Upload a document to get started.</p>
-            </div>
+                <div class="flex gap-2">
+                  <DButton @click="navigateToStudy(document.id)" variant="primary" :icon-left="BookOpenIcon">
+                    Study
+                  </DButton>
+                  <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
+                    :loading="generatingTasks" variant="tertiary" :icon-left="PlusIcon" class="!p-2" />
 
-            <div v-else class="space-y-3 w-full">
-              <div v-for="document in documents" :key="document.id">
-                <div class="flex justify-between items-center gap-2">
-                  <div class="flex flex-col cursor-pointer" @click="viewDocument(document.id)">
-                    <p>{{ document.title }}</p>
-                  </div>
-
-                  <div class="flex gap-2">
-                    <DButton @click="navigateToStudy(document.id)" variant="primary" :icon-left="BookOpenIcon">
-                      Study
-                    </DButton>
-                    <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                      :loading="generatingTasks" variant="tertiary" :icon-left="PlusIcon" class="!p-2" />
-
-                    <DHamburgerMenu>
-                      <template #default="{ close }">
-                        <button @click="
-                          openEditTitleModal(document.id, document.title);
-                        close();
-                        " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          <PencilIcon class="h-4 w-4" />
-                          Edit Title
-                        </button>
-                        <button @click="
-                          navigateToTasks(document.id);
-                        close();
-                        " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          <EyeIcon class="h-4 w-4" />
-                          View Tasks
-                        </button>
-                        <button @click="
-                          openRepositoryModal(document.id);
-                        close();
-                        " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          <FolderIcon class="h-4 w-4" />
-                          Add to Repository
-                        </button>
-                        <div class="border-t border-gray-200 my-1"></div>
-                        <button @click="
-                          openDeleteModal(document.id, document.title);
-                        close();
-                        " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                          <TrashIcon class="h-4 w-4" />
-                          Delete
-                        </button>
-                      </template>
-                    </DHamburgerMenu>
-                  </div>
+                  <DHamburgerMenu>
+                    <template #default="{ close }">
+                      <button @click="
+                        openEditTitleModal(document.id, document.title);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <PencilIcon class="h-4 w-4" />
+                        Edit Title
+                      </button>
+                      <button @click="
+                        navigateToTasks(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <EyeIcon class="h-4 w-4" />
+                        View Tasks
+                      </button>
+                      <button @click="
+                        openRepositoryModal(document.id);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <FolderIcon class="h-4 w-4" />
+                        Add to Repository
+                      </button>
+                      <div class="border-t border-gray-200 my-1"></div>
+                      <button @click="
+                        openDeleteModal(document.id, document.title);
+                      close();
+                      " class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                        <TrashIcon class="h-4 w-4" />
+                        Delete
+                      </button>
+                    </template>
+                  </DHamburgerMenu>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Right side - HTML viewer -->
-      <div class="w-1/2 border-l border-gray-200">
-        <div v-if="showHtmlViewer" class="h-full p-4">
-          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-        </div>
-        <div v-else class="h-full flex items-center justify-center text-gray-500">
-          <div class="text-center">
-            <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>Select a Document by clicking on it to preview its content</p>
-          </div>
+    <!-- Right side - HTML viewer -->
+    <div class="w-1/2 border-l border-gray-200">
+      <div v-if="showHtmlViewer" class="h-full p-4">
+        <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+      </div>
+      <div v-else class="h-full flex items-center justify-center text-gray-500">
+        <div class="text-center">
+          <FileTextIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>Select a Document by clicking on it to preview its content</p>
         </div>
       </div>
     </div>

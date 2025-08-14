@@ -38,12 +38,12 @@ app.add_middleware(
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()
 
-
 create_db_and_tables()
 
 # Include all routers
-app.include_router(router)
+app.include_router(router)  # health check and root endpoints
 app.include_router(auth_router)
+# The get current user from request dependency is used to check if the user is authenticated
 app.include_router(
     repositories_router, dependencies=[Depends(get_current_user_from_request)]
 )

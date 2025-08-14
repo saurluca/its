@@ -16,10 +16,6 @@ DEFAULT_NUM_QUESTIONS = 1
 REQUIRED_ANSWER_OPTIONS = 4
 MAX_TITLE_LENGTH = 100
 
-# Response messages
-HEALTH_CHECK_MESSAGE = {"status": "ok"}
-ROOT_MESSAGE = "Hello, World!"
-
 # Database constraints
 MAX_CONTENT_PREVIEW_LENGTH = 1000
 

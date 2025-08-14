@@ -1,20 +1,6 @@
 from fastapi import HTTPException
 
 
-class DocumentNotFoundError(HTTPException):
-    """Raised when a document with the given ID is not found"""
-
-    def __init__(self, detail: str = "Document not found"):
-        super().__init__(status_code=404, detail=detail)
-
-
-class QuestionNotFoundError(HTTPException):
-    """Raised when a question with the given ID is not found"""
-
-    def __init__(self, detail: str = "Question not found"):
-        super().__init__(status_code=404, detail=detail)
-
-
 class InvalidFileFormatError(HTTPException):
     """Raised when an uploaded file has an unsupported format"""
 

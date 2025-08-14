@@ -15,6 +15,9 @@ import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
+type SimpleFetch = <T>(input: string, init?: { method?: string; body?: unknown; headers?: Record<string, string> }) => Promise<T>;
+const fetchJson = $authFetch as SimpleFetch;
+
 const documents = ref<Document[]>([]);
 const repositories = ref<Repository[]>([]);
 const loadingDocuments = ref(true);
@@ -47,7 +50,7 @@ const notifications = useNotificationsStore();
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
-    const data = await $authFetch("/documents/") as Document[];
+    const data = await fetchJson<Document[]>("/documents/");
     // Transform the API response to match our Document interface
     documents.value = data.map((doc: Document) => ({
       id: doc.id,
@@ -69,7 +72,7 @@ async function fetchDocuments() {
 async function fetchRepositories() {
   loadingRepositories.value = true;
   try {
-    const data = await $authFetch("/repositories/") as Repository[];
+    const data = await fetchJson<Repository[]>("/repositories/");
     repositories.value = data;
   } catch (error) {
     console.error("Error fetching repositories:", error);
@@ -104,10 +107,10 @@ async function uploadDocumentFromInput(event: Event) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const data = await $authFetch("/documents/upload/", {
+    const data = await fetchJson<{ id: string }>("/documents/upload/", {
       method: "POST",
       body: formData,
-    }) as { id: string };
+    });
     uploadedDocumentId.value = data.id;
     // Refresh the document list
     await fetchDocuments();
@@ -115,10 +118,10 @@ async function uploadDocumentFromInput(event: Event) {
     // Remove processing notification and show success
     notifications.remove(processingId);
     notifications.success(`Document "${fileName}" uploaded successfully!`);
-  } catch (error) {
+  } catch {
     // Remove processing notification and show error
     notifications.remove(processingId);
-    notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
+    notifications.error(`Failed to upload "${fileName}". Please try again.`);
   }
 }
 
@@ -135,7 +138,7 @@ async function deleteDocument(documentId: string) {
   deletingDocument.value = true;
   console.log("Deleting document:", documentId);
   try {
-    await $authFetch(`/documents/${documentId}/`, {
+    await fetchJson(`/documents/${documentId}/`, {
       method: "DELETE",
     });
     // Refresh the document list
@@ -196,7 +199,7 @@ async function confirmGenerateTasks() {
   generatingTasks.value = true;
   try {
     // Call the API to generate tasks
-    await $authFetch(
+    await fetchJson(
       `/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
       {
         method: "POST",
@@ -221,7 +224,7 @@ async function confirmAddToRepository() {
   if (!selectedDocumentId.value || !selectedRepositoryId.value) return;
 
   try {
-    await $authFetch("/repositories/links/", {
+    await fetchJson("/repositories/links/", {
       method: "POST",
       body: {
         repository_id: selectedRepositoryId.value,
@@ -254,7 +257,7 @@ async function confirmEditTitle() {
   if (!editingDocumentId.value || !editingTitle.value.trim()) return;
 
   try {
-    await $authFetch(
+    await fetchJson(
       `/documents/${editingDocumentId.value}/?title=${encodeURIComponent(editingTitle.value.trim())}`,
       {
         method: "PATCH",
@@ -285,7 +288,7 @@ async function viewDocument(documentId: string) {
   showHtmlViewer.value = true;
 
   try {
-    const data = await $authFetch(`/documents/${documentId}/`) as Document;
+    const data = await fetchJson<Document>(`/documents/${documentId}/`);
 
     if (data.content) {
       htmlContent.value = data.content;

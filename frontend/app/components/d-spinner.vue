@@ -5,7 +5,7 @@ interface Props {
     variant?: "border" | "border-b";
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const { size, color, variant } = withDefaults(defineProps<Props>(), {
     size: "md",
     color: "gray",
     variant: "border",

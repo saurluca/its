@@ -6,7 +6,7 @@ interface BaseItem {
   id?: string;
   name: string;
   description?: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | Date | string[] | null | undefined;
 }
 
 const props = defineProps<{

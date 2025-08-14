@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task } from "~/types/models";
 
-const props = defineProps<{
+defineProps<{
   task: Task;
   index: number;
   userAnswer: string;

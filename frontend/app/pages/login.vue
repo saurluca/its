@@ -23,7 +23,7 @@ async function login() {
     } else {
       notifications.error(result.error || "Invalid credentials");
     }
-  } catch (e) {
+  } catch {
     notifications.error("Login failed");
   } finally {
     loading.value = false;

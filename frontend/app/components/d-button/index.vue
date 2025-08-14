@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { LoaderCircleIcon } from "lucide-vue-next";
 import { RouterLink } from "vue-router";
+import type { Component } from "vue";
 
 interface Props {
   variant?:
@@ -10,9 +11,9 @@ interface Props {
     | "danger"
     | "danger-light"
     | "transparent";
-  iconLeft?: any;
-  to?: any;
-  type?: "submit" | "button" | any;
+  iconLeft?: Component;
+  to?: string | Record<string, unknown>;
+  type?: "submit" | "button";
   loading?: boolean;
   textCenter?: boolean;
   disabled?: boolean;
@@ -20,6 +21,8 @@ interface Props {
 
 const {
   variant = "primary",
+  iconLeft = undefined,
+  to = undefined,
   type = "button",
   loading = false,
   textCenter = false,

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
-import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 interface TaskForm {
@@ -11,9 +10,15 @@ interface TaskForm {
   correctAnswer: string;
 }
 
+interface Chunk {
+  id: string;
+  content: string;
+  [key: string]: unknown;
+}
+
 const props = defineProps<{
   initialTask?: TaskForm;
-  chunks: any[];
+  chunks: Chunk[];
 }>();
 
 const emit = defineEmits<{

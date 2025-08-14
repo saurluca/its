@@ -63,9 +63,9 @@ onBeforeUnmount(() => {
 async function fetchRepositories() {
     loading.value = true;
     try {
-        const response = await $authFetch("/repositories/") as any;
+        const response = await $authFetch("/repositories/") as { repositories?: Repository[] } | Repository[];
         console.log("response", response);
-        repositories.value = (response.repositories || response) as Repository[];
+        repositories.value = ('repositories' in response ? response.repositories : response) as Repository[];
     } catch (error) {
         console.error("Error fetching repositories:", error);
         notifications.error("Failed to load repositories. Please try again. " + error);
@@ -236,10 +236,6 @@ async function handleUpload() {
     }
 }
 
-function handleUploadComplete() {
-    fetchRepositories();
-}
-
 // Modal functions for repository editing
 function openEditTitleModal(repositoryId: string, currentTitle: string) {
     editingRepositoryId.value = repositoryId;
@@ -298,8 +294,8 @@ async function openGenerateTasksModal(repository: Repository) {
 
     // Fetch documents for this repository
     try {
-        const data = await $authFetch(`/repositories/${repository.id}/documents/`) as any;
-        repositoryDocuments.value = data.map((doc: any) => ({
+        const data = await $authFetch(`/repositories/${repository.id}/documents/`) as Document[];
+        repositoryDocuments.value = data.map((doc: Document) => ({
             id: doc.id,
             title: doc.title,
             content: doc.content,
@@ -384,7 +380,7 @@ async function viewDocument(documentId: string) {
     showHtmlViewer.value = true;
 
     try {
-        const data = await $authFetch(`/documents/${documentId}/`) as any;
+        const data = await $authFetch(`/documents/${documentId}/`) as Document;
 
         if (data.content) {
             htmlContent.value = data.content;

@@ -22,9 +22,9 @@ async function requestPasswordReset() {
       },
     });
     success.value = true;
-  } catch (e: any) {
+  } catch (e: unknown) {
     // const statusCode = e.statusCode
-    if (e.statusCode === 429) {
+    if (e && typeof e === 'object' && 'statusCode' in e && e.statusCode === 429) {
       // handle rate limit error
       notifications.error("Too many requests. Please try again later.");
     } else {
@@ -37,7 +37,7 @@ async function requestPasswordReset() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 px-8 pt-24">
+  <div class="h-full bg-gray-100 px-8 pt-24">
     <div class="mx-auto max-w-sm rounded-lg border border-gray-50 bg-white p-8 shadow">
       <h1 class="mb-4 text-center text-2xl font-semibold text-gray-900">
         Forgot Password?
@@ -65,6 +65,6 @@ async function requestPasswordReset() {
         <DButton to="/login" text-center>Back to Login</DButton>
       </div>
     </div>
+    <DSnackbar />
   </div>
-  <DSnackbar />
 </template>

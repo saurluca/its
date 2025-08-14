@@ -29,7 +29,7 @@ export const useAuthStore = defineStore("auth", {
         formData.append("username", email);
         formData.append("password", password);
 
-        const response = await $fetch<{ message: string }>(
+        await $fetch<{ message: string }>(
           `${apiUrl}/auth/token`,
           {
             method: "POST",
@@ -45,12 +45,12 @@ export const useAuthStore = defineStore("auth", {
         await this.fetchUser();
 
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Login error:", error);
         this.isAuthenticated = false;
         return {
           success: false,
-          error: error?.data?.detail || "Login failed",
+          error: error && typeof error === 'object' && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String(error.data.detail) : "Login failed",
         };
       }
     },
@@ -70,11 +70,11 @@ export const useAuthStore = defineStore("auth", {
         });
 
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Registration error:", error);
         return {
           success: false,
-          error: error?.data?.detail || "Registration failed",
+          error: error && typeof error === 'object' && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String(error.data.detail) : "Registration failed",
         };
       }
     },
@@ -89,8 +89,8 @@ export const useAuthStore = defineStore("auth", {
         });
 
         this.user = user;
-      } catch (error: any) {
-        if (error.status !== 401) {
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'status' in error && error.status !== 401) {
           console.error("Fetch user error:", error);
         }
         // If fetching user fails, clear state but don't call logout
@@ -110,8 +110,8 @@ export const useAuthStore = defineStore("auth", {
           method: "POST",
           credentials: "include",
         });
-      } catch (error) {
-        console.error("Logout error:", error);
+      } catch {
+        console.error("Logout error");
         // Continue with logout even if the API call fails
       }
 
@@ -128,7 +128,7 @@ export const useAuthStore = defineStore("auth", {
       try {
         await this.fetchUser();
         this.isAuthenticated = true;
-      } catch (error) {
+      } catch {
         // User is not authenticated
         this.isAuthenticated = false;
         this.user = null;

@@ -6,6 +6,9 @@ import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
+type SimpleFetch = <T>(input: string, init?: { method?: string; body?: unknown; headers?: Record<string, string> }) => Promise<T>;
+const fetchJson = $authFetch as SimpleFetch;
+
 interface Props {
     repositoryId: string;
     repositoryName: string;
@@ -37,8 +40,8 @@ onMounted(async () => {
 async function fetchDocuments() {
     loading.value = true;
     try {
-        const data = await $authFetch(`/repositories/${props.repositoryId}/documents/`) as any;
-        documents.value = data.map((doc: any) => ({
+        const data = await fetchJson<Document[]>(`/repositories/${props.repositoryId}/documents/`);
+        documents.value = data.map((doc: Document) => ({
             id: doc.id,
             title: doc.title,
             content: doc.content,

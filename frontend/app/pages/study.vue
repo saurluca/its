@@ -107,8 +107,8 @@ async function startStudy() {
     } else {
       pageState.value = "no-tasks";
     }
-  } catch (e: any) {
-    error.value = e.message;
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'An error occurred';
   } finally {
     loading.value = false;
   }
@@ -143,8 +143,8 @@ async function confirmGenerateTasks() {
     closeGenerateTasksModal();
     // Reload the page to start the study session
     await startStudy();
-  } catch (err: any) {
-    error.value = "Failed to generate tasks. Please try again. " + err;
+  } catch (err: unknown) {
+    error.value = "Failed to generate tasks. Please try again. " + (err instanceof Error ? err.message : 'Unknown error');
   } finally {
     generatingTasks.value = false;
   }
@@ -176,8 +176,8 @@ async function evaluateAnswer() {
         body: { student_answer: currentAnswer.value },
       }) as { feedback: string; };
       feedback.value = responseData.feedback || null;
-    } catch (e: any) {
-      error.value = e.message || "Failed to evaluate answer.";
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
       return;
     } finally {
       evaluating.value = false;
@@ -203,8 +203,8 @@ async function evaluateAnswer() {
         isCorrect.value = false;
       }
       showEvaluation.value = true;
-    } catch (e: any) {
-      error.value = e.message || "Failed to evaluate answer.";
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
       return;
     } finally {
       evaluating.value = false;
@@ -307,12 +307,9 @@ function restart() {
 
 <template>
   <div class="h-full flex">
-    <!-- Study content - centered when no HTML viewer, left-aligned when HTML viewer is shown -->
-    <div :class="showHtmlViewer
-      ? 'w-1/2 p-6 overflow-y-auto'
-      : 'w-full flex justify-center px-6'
-      ">
-      <div :class="showHtmlViewer ? 'max-w-4xl mx-auto' : 'max-w-2xl w-full'">
+    <!-- Left side - Study interface -->
+    <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
+      <div class="max-w-4xl mx-auto">
         <DPageHeader title="Repository Study Mode" class="mt-4" />
         <div class="mx-auto max-w-2xl">
           <!-- Loading State -->
@@ -409,16 +406,16 @@ function restart() {
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Generate Tasks Modal -->
-  <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-    :confirm-text="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
-    @confirm="confirmGenerateTasks">
-    <div class="p-4">
-      <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
-      <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
-        class="border rounded px-2 py-1 w-24" />
-    </div>
-  </DModal>
+    <!-- Generate Tasks Modal -->
+    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
+      :confirm-text="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
+      @confirm="confirmGenerateTasks">
+      <div class="p-4">
+        <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
+        <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
+          class="border rounded px-2 py-1 w-24" />
+      </div>
+    </DModal>
+  </div>
 </template>

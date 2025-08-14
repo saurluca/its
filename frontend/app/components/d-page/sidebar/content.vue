@@ -56,11 +56,6 @@ const collapsed = useSessionStorage("collapsed", false);
 
 const organisationName = ref("ITS");
 
-const emit = defineEmits(["close"]);
-
-function close() {
-  emit("close");
-}
 </script>
 
 <template>
@@ -82,7 +77,7 @@ function close() {
       </div> -->
     </div>
     <hr class="mt-1 mb-1.5 text-gray-200" />
-    <NuxtLink v-for="link in links"
+    <NuxtLink v-for="link in links" :key="link.to"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200"
       :to="link.to" :class="route.path.startsWith(link.to) ? 'bg-gray-200 text-gray-700' : ''">
       <div class="flex h-5 items-center justify-center">
@@ -93,7 +88,7 @@ function close() {
   </nav>
 
   <nav class="flex flex-col gap-0.5 p-2">
-    <NuxtLink v-for="link in footerLinks"
+    <NuxtLink v-for="link in footerLinks" :key="link.to"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
       :to="link.to" :class="route.path.startsWith(link.to) ? 'bg-gray-200' : ''">
       <div class="flex h-5 items-center justify-center">

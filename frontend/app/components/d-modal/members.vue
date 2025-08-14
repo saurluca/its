@@ -58,7 +58,7 @@ async function onPermissionChange(userId: string, value: string | null) {
 <template>
   <DModal titel="Mitglieder verwalten" v-if="open" @close="close" @confirm="close">
     <div class="flex flex-col gap-2 p-4 text-sm">
-      <div v-for="user in users" class="flex items-center justify-between gap-4">
+      <div v-for="user in users" :key="user.id" class="flex items-center justify-between gap-4">
         <div>
           <div class="text-medium text-neutral-900">{{ user.name }}</div>
           <div class="text-xs text-neutral-500">{{ user.email }}</div>

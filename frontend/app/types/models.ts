@@ -25,7 +25,7 @@ export interface Item {
   id: string;
   name: string;
   description?: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | Date | undefined;
 }
 
 // Chunk type matching backend API structure

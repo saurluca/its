@@ -11,7 +11,7 @@ interface Props<T extends string | number | boolean | null = string | number | b
   placeholder?: string;
 }
 
-const { options } = defineProps<Props>();
+const { options, placeholder = undefined } = defineProps<Props>();
 
 const model = defineModel<string | number | boolean | null>();
 

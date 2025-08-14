@@ -35,6 +35,6 @@ export const useAuthenticatedFetch = () => {
   });
 
   return {
-    $authFetch: $authFetch as any,
+    $authFetch: $authFetch as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   };
 };

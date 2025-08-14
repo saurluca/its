@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import DViewToggle from "~/components/d-view-toggle.vue";
-import type { Task, Repository } from "~/types/models";
+import type { Task, Repository, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -27,7 +27,6 @@ const notifications = useNotificationsStore();
 // For student answers
 const studentAnswers = ref<Record<string, string>>({});
 const showResults = ref(false);
-const submittedAnswers = ref<Record<string, string>>({});
 
 // For filtering tasks
 const selectedRepositoryId = ref<string>("");
@@ -73,8 +72,8 @@ function resetFilters() {
 // Function to fetch all tasks
 async function fetchAllTasks() {
   try {
-    const response = await $authFetch("/tasks/") as any[];
-    tasks.value = response.map((task: any) => ({
+    const response = await $authFetch("/tasks/") as Task[];
+    tasks.value = response.map((task: Task) => ({
       ...task,
       id: task.id,
       type: task.type,
@@ -100,14 +99,14 @@ onMounted(async () => {
         $authFetch("/tasks/"),
         $authFetch("/repositories/"),
         $authFetch("/documents/"),
-      ]) as [any, any, any];
+      ]) as [Task[], { repositories?: Repository[] } | Repository[], ApiDocument[]];
 
     console.log("repositoriesResponse", repositoriesResponse);
     console.log("tasksResponse", tasksResponse);
     console.log("documentsResponse", documentsResponse);
 
     // Default to all tasks; may be overridden by route-based filtering below
-    tasks.value = (tasksResponse || []).map((task: any) => ({
+    tasks.value = (tasksResponse || []).map((task: Task) => ({
       ...task,
       id: task.id,
       type: task.type,
@@ -120,11 +119,11 @@ onMounted(async () => {
       updated_at: new Date(task.updated_at),
     })) as Task[];
 
-    repositoriesList.value = (repositoriesResponse.repositories || repositoriesResponse) as Repository[];
+    repositoriesList.value = ('repositories' in repositoriesResponse ? repositoriesResponse.repositories : repositoriesResponse) as Repository[];
 
     // Process documents for dropdown
     if (documentsResponse && Array.isArray(documentsResponse)) {
-      documentsList.value = documentsResponse.map((doc: any) => ({
+      documentsList.value = documentsResponse.map((doc: ApiDocument) => ({
         value: doc.id,
         label: doc.title,
       }));
@@ -146,8 +145,8 @@ onMounted(async () => {
 // Function to fetch tasks by document
 async function fetchTasksByDocument(documentId: string) {
   try {
-    const response = await $authFetch(`/tasks/document/${documentId}`) as any[];
-    tasks.value = response.map((task: any) => ({
+    const response = await $authFetch(`/tasks/document/${documentId}`) as Task[];
+    tasks.value = response.map((task: Task) => ({
       ...task,
       id: task.id,
       type: task.type,
@@ -167,8 +166,8 @@ async function fetchTasksByDocument(documentId: string) {
 // Function to fetch tasks by repository
 async function fetchTasksByRepository(repositoryId: string) {
   try {
-    const response = await $authFetch(`/tasks/repository/${repositoryId}`) as any[];
-    tasks.value = response.map((task: any) => ({
+    const response = await $authFetch(`/tasks/repository/${repositoryId}`) as Task[];
+    tasks.value = response.map((task: Task) => ({
       ...task,
       id: task.id,
       type: task.type,

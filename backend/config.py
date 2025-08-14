@@ -55,22 +55,6 @@ class LLMConfig:
                 lm = dspy.LM(grok_model, api_key=grok_api_key)
             else:
                 raise ValueError("GROK_MODEL and GROK_API_KEY must be set together")
-        elif os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_MODEL"):
-            print("configuring gemini")
-            gemini_model = os.getenv("GEMINI_MODEL")
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            if gemini_model and gemini_api_key:
-                lm = dspy.LM(gemini_model, api_key=gemini_api_key)
-            else:
-                raise ValueError("GEMINI_MODEL and GEMINI_API_KEY must be set together")
-        elif os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL"):
-            print("configuring openai")
-            openai_model = os.getenv("OPENAI_MODEL")
-            openai_api_key = os.getenv("OPENAI_API_KEY")
-            if openai_model and openai_api_key:
-                lm = dspy.LM(openai_model, api_key=openai_api_key)
-            else:
-                raise ValueError("OPENAI_MODEL and OPENAI_API_KEY must be set together")
         else:
             raise ValueError("No LLM configured")
 

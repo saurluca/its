@@ -38,12 +38,11 @@ function shuffleArray<T>(items: T[]): T[] {
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
 
-// HTML viewer state
-const showHtmlViewer = ref(false);
-const htmlContent = ref("");
-const loadingHtml = ref(false);
-const htmlError = ref("");
-const highlightedChunkText = ref("");
+// Text viewer state
+const showTextViewer = ref(false);
+const textContent = ref("");
+const loadingText = ref(false);
+const textError = ref("");
 
 // Sidebar state
 const collapsed = useSessionStorage("collapsed", false);
@@ -192,8 +191,8 @@ function nextQuestion() {
     currentAnswer.value = "";
     isCorrect.value = null;
     showEvaluation.value = false;
-    // Hide HTML viewer when moving to next question
-    closeHtmlViewer();
+    // Hide text viewer when moving to next question
+    closeTextViewer();
   } else {
     pageState.value = "finished";
   }
@@ -208,9 +207,9 @@ async function showSource() {
     return;
   }
 
-  loadingHtml.value = true;
-  htmlError.value = "";
-  showHtmlViewer.value = true;
+  loadingText.value = true;
+  textError.value = "";
+  showTextViewer.value = true;
 
   // Collapse sidebar to give more space
   collapsed.value = true;
@@ -226,20 +225,17 @@ async function showSource() {
     }
 
     // For repository-based study, we'll show the chunk text directly
-    // since we don't have a specific document to show
-    htmlContent.value = `<div class="p-4"><div class="bg-gray-50 p-4 rounded text-lg">${chunkData.chunk_text}</div></div>`;
-    highlightedChunkText.value = chunkData.chunk_text;
+    textContent.value = chunkData.chunk_text;
   } catch (err) {
     console.error("Error fetching chunk content:", err);
-    htmlError.value = "Failed to load chunk content";
+    textError.value = "Failed to load chunk content";
   } finally {
-    loadingHtml.value = false;
+    loadingText.value = false;
   }
 }
 
-function closeHtmlViewer() {
-  showHtmlViewer.value = false;
-  highlightedChunkText.value = "";
+function closeTextViewer() {
+  showTextViewer.value = false;
 }
 
 function restart() {
@@ -255,11 +251,10 @@ function restart() {
   error.value = null;
   feedback.value = null;
 
-  // Reset HTML viewer state
-  showHtmlViewer.value = false;
-  htmlContent.value = "";
-  htmlError.value = "";
-  highlightedChunkText.value = "";
+  // Reset text viewer state
+  showTextViewer.value = false;
+  textContent.value = "";
+  textError.value = "";
 
   router.push("/repositories");
 }
@@ -268,7 +263,7 @@ function restart() {
 <template>
   <div class="h-full flex">
     <!-- Left side - Study interface -->
-    <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
+    <div :class="showTextViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
       <div class="max-w-4xl mx-auto">
         <DPageHeader :title="repositoryName ? `Studying: ${repositoryName}` : 'Repository Study Mode'" class="mt-4" />
         <div class="mx-auto max-w-2xl">
@@ -346,18 +341,17 @@ function restart() {
       </div>
     </div>
 
-    <!-- Right side - HTML viewer -->
-    <div v-if="showHtmlViewer" class="w-1/2 border-l border-gray-200">
+    <!-- Right side - Text viewer -->
+    <div v-if="showTextViewer" class="w-1/2 border-l border-gray-200">
       <div class="h-full p-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Source Text</h2>
-          <DButton @click="closeHtmlViewer" variant="secondary" class="!p-2">
+          <DButton @click="closeTextViewer" variant="secondary" class="!p-2">
             Close
           </DButton>
         </div>
         <div class="h-[calc(100%-4rem)]">
-          <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError"
-            :highlighted-chunk-text="highlightedChunkText" />
+          <DTextViewer :text-content="textContent" :loading="loadingText" :error="textError" />
         </div>
       </div>
     </div>

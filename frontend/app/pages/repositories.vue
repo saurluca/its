@@ -404,11 +404,9 @@ async function viewDocument(documentId: string) {
 <template>
     <div class="h-full flex">
         <!-- Left side - Repositories list -->
-        <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto ml-2' : 'w-full p-4 ml-2'">
+        <div :class="showHtmlViewer ? 'w-1/2 overflow-y-auto mr-2 ml-6 my-8' : 'w-full mt-8'">
             <div class="max-w-4xl mx-auto">
-                <div class="flex justify-between items-center mb-8 mt-4">
-                    <h1 class="text-3xl font-bold">Repositories</h1>
-                </div>
+                <DPageHeader title="Repositories" />
 
                 <div v-if="loading" class="py-20 text-center">
                     <div class="text-xl">Loading repositories...</div>

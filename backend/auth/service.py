@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 import jwt
 from auth.models import UserCreate, UserUpdate, UserResponse, User
-import os
+from constants import SECRET_KEY, ALGORITHM
 from typing import Annotated, List
 from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
@@ -13,15 +13,6 @@ from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from uuid import UUID
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY environment variable is required")
-if len(SECRET_KEY) < 32:
-    raise ValueError("SECRET_KEY must be at least 32 characters long")
-if not ALGORITHM:
-    raise ValueError("ALGORITHM environment variable is required")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 

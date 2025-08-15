@@ -19,7 +19,7 @@ from typing import Annotated
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import APIRouter
-from auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES
+from constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session

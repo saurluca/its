@@ -5,11 +5,7 @@ from auth.models import TokenData, UserResponse
 from dependencies import get_db_session
 from sqlmodel import Session, select
 from auth.models import User
-import os
-
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+from constants import SECRET_KEY, ALGORITHM
 
 
 def get_user_from_db(db: Session, email: str):

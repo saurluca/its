@@ -1,8 +1,11 @@
 from datetime import datetime
-from sqlmodel import Field, SQLModel
-from typing import List, Optional
+from sqlmodel import Field, SQLModel, Relationship
+from typing import List, Optional, TYPE_CHECKING
 from pydantic import EmailStr
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from repositories.models import RepositoryAccess
 
 
 class UserBase(SQLModel):
@@ -16,6 +19,9 @@ class User(UserBase, table=True):
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    repository_access: list["RepositoryAccess"] = Relationship(back_populates="user")
 
 
 class UserCreate(SQLModel):

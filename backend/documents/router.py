@@ -7,6 +7,13 @@ from documents.models import (
     DocumentResponse,
     DocumentListResponse,
 )
+from repositories.access_control import (
+    create_document_access_dependency,
+    create_chunk_access_dependency,
+)
+from repositories.models import AccessLevel, RepositoryDocumentLink
+from auth.dependencies import get_current_user_from_request
+from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import (
@@ -23,13 +30,38 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 @router.get("/", response_model=list[DocumentListResponse])
-async def get_documents(session: Session = Depends(get_db_session)):
-    db_documents = session.exec(select(Document)).all()
-    return [DocumentListResponse.model_validate(doc) for doc in db_documents]
+async def get_documents(
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
+):
+    """Get all documents the current user has access to via repository links."""
+    from repositories.models import RepositoryAccess, Repository
+
+    # Get documents accessible through repositories the user has access to
+    accessible_documents = session.exec(
+        select(Document)
+        .join(RepositoryDocumentLink, Document.id == RepositoryDocumentLink.document_id)
+        .join(Repository, RepositoryDocumentLink.repository_id == Repository.id)
+        .outerjoin(RepositoryAccess, Repository.id == RepositoryAccess.repository_id)
+        .where(
+            (Repository.owner_id == current_user.id)
+            | (RepositoryAccess.user_id == current_user.id)
+        )
+        .distinct()
+    ).all()
+
+    return [DocumentListResponse.model_validate(doc) for doc in accessible_documents]
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-async def get_document(document_id: UUID, session: Session = Depends(get_db_session)):
+async def get_document(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.READ)
+    ),
+):
+    """Get a specific document if user has read access via repository links."""
     db_document = session.get(Document, document_id)
     if not db_document:
         raise HTTPException(
@@ -47,6 +79,7 @@ async def upload_and_chunk_document(
     session: Session = Depends(get_db_session),
     large_lm: dspy.LM = Depends(get_large_llm),
     small_lm: dspy.LM = Depends(get_small_llm),
+    current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     # extract text from file and chunk
     document, chunks = await run_in_threadpool(
@@ -108,6 +141,9 @@ async def update_document(
     document_id: UUID,
     document: DocumentUpdate,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -127,6 +163,9 @@ async def patch_document(
     document_id: UUID,
     title: str = Query(None, description="New title for the document"),
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -145,7 +184,11 @@ async def patch_document(
 
 @router.delete("/{document_id}")
 async def delete_document(
-    document_id: UUID, session: Session = Depends(get_db_session)
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:
@@ -159,7 +202,11 @@ async def delete_document(
 
 @router.get("/{document_id}/chunks", response_model=list[Chunk])
 async def get_document_chunks(
-    document_id: UUID, session: Session = Depends(get_db_session)
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.READ)
+    ),
 ):
     # First check if document exists
     db_document = session.get(Document, document_id)
@@ -174,7 +221,14 @@ async def get_document_chunks(
 
 
 @router.get("/chunks/{chunk_id}", response_model=Chunk)
-async def get_chunk(chunk_id: UUID, session: Session = Depends(get_db_session)):
+async def get_chunk(
+    chunk_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_chunk_access_dependency(AccessLevel.READ)
+    ),
+):
+    """Get a specific chunk if user has read access to its document's repositories."""
     db_chunk = session.get(Chunk, chunk_id)
     if not db_chunk:
         raise HTTPException(
@@ -189,6 +243,9 @@ async def filter_important_chunks_endpoint(
     session: Session = Depends(get_db_session),
     large_lm: dspy.LM = Depends(get_large_llm),
     small_lm: dspy.LM = Depends(get_small_llm),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_document = session.get(Document, document_id)
     if not db_document:

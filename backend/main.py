@@ -38,7 +38,7 @@ app.add_middleware(
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()
 
-create_db_and_tables()
+# create_db_and_tables()
 
 # Include all routers
 app.include_router(router)  # health check and root endpoints

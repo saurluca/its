@@ -10,7 +10,14 @@ from repositories.models import (
     RepositoryDocumentLinkResponse,
     RepositoryResponseDetail,
     RepositoryTaskLink,
+    AccessLevel,
 )
+from repositories.access_control import (
+    create_repository_access_dependency,
+    get_repository_access,
+)
+from auth.dependencies import get_current_user_from_request
+from auth.models import UserResponse
 from documents.models import Document, DocumentResponse
 from uuid import UUID
 from sqlmodel import select, Session
@@ -19,12 +26,27 @@ router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
 @router.get("/", response_model=list[RepositoryResponse])
-async def get_repositories(session: Session = Depends(get_db_session)):
-    db_repositories = session.exec(select(Repository)).all()
+async def get_repositories(
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
+):
+    """Get all repositories the current user has access to."""
+    # Get all repositories the user has access to via RepositoryAccess or ownership
+    from repositories.models import RepositoryAccess
+
+    accessible_repos = session.exec(
+        select(Repository)
+        .outerjoin(RepositoryAccess, Repository.id == RepositoryAccess.repository_id)
+        .where(
+            (Repository.owner_id == current_user.id)
+            | (RepositoryAccess.user_id == current_user.id)
+        )
+        .distinct()
+    ).all()
 
     # Create response objects with task counts
     repositories_with_task_counts = []
-    for repo in db_repositories:
+    for repo in accessible_repos:
         # Count tasks linked to this repository
         task_count = len(
             session.exec(
@@ -44,8 +66,13 @@ async def get_repositories(session: Session = Depends(get_db_session)):
 
 @router.get("/{repository_id}", response_model=RepositoryResponseDetail)
 async def get_repository(
-    repository_id: UUID, session: Session = Depends(get_db_session)
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.READ)
+    ),
 ):
+    """Get a specific repository if user has read access."""
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -60,8 +87,13 @@ async def get_repository(
 
 @router.get("/{repository_id}/documents", response_model=list[DocumentResponse])
 async def get_repository_documents(
-    repository_id: UUID, session: Session = Depends(get_db_session)
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.READ)
+    ),
 ):
+    """Get all documents in a repository if user has read access."""
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -82,9 +114,13 @@ async def get_repository_documents(
     "/", status_code=status.HTTP_201_CREATED, response_model=RepositoryResponse
 )
 async def create_repository(
-    repository: RepositoryCreate, session: Session = Depends(get_db_session)
+    repository: RepositoryCreate,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
 ):
+    """Create a new repository. The creating user becomes the owner."""
     db_repository = Repository.model_validate(repository)
+    db_repository.owner_id = current_user.id  # Set the current user as owner
     session.add(db_repository)
     session.commit()
     session.refresh(db_repository)
@@ -100,7 +136,11 @@ async def update_repository(
     repository_id: UUID,
     repository: RepositoryUpdate,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.WRITE)
+    ),
 ):
+    """Update a repository if user has write access."""
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -129,8 +169,13 @@ async def update_repository(
 
 @router.delete("/{repository_id}")
 async def delete_repository(
-    repository_id: UUID, session: Session = Depends(get_db_session)
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.OWNER)
+    ),
 ):
+    """Delete a repository if user is the owner."""
     db_repository = session.get(Repository, repository_id)
     if not db_repository:
         raise HTTPException(
@@ -147,8 +192,16 @@ async def delete_repository(
     response_model=RepositoryDocumentLinkResponse,
 )
 async def create_repository_document_link(
-    link: RepositoryDocumentLinkCreate, session: Session = Depends(get_db_session)
+    link: RepositoryDocumentLinkCreate,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
 ):
+    """Create a document-repository link if user has write access to the repository."""
+    # Check repository access
+    await get_repository_access(
+        link.repository_id, AccessLevel.WRITE, session, current_user
+    )
+
     # Check if repository exists
     db_repository = session.get(Repository, link.repository_id)
     if not db_repository:
@@ -157,7 +210,6 @@ async def create_repository_document_link(
         )
 
     # Check if document exists
-
     db_document = session.get(Document, link.document_id)
     if not db_document:
         raise HTTPException(
@@ -195,8 +247,14 @@ async def create_repository_document_link(
 
 @router.delete("/links/{repository_id}/{document_id}")
 async def delete_repository_document_link(
-    repository_id: UUID, document_id: UUID, session: Session = Depends(get_db_session)
+    repository_id: UUID,
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.WRITE)
+    ),
 ):
+    """Delete a document-repository link if user has write access to the repository."""
     # Check if link exists
     db_link = session.exec(
         select(RepositoryDocumentLink).where(

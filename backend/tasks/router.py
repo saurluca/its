@@ -16,29 +16,63 @@ from tasks.models import (
     TeacherResponseFreeText,
     GenerateTasksForMultipleDocumentsRequest,
 )
+from repositories.access_control import (
+    create_task_access_dependency,
+    create_repository_access_dependency,
+    create_document_access_dependency,
+    create_chunk_access_dependency,
+)
+from repositories.models import (
+    Repository,
+    RepositoryTaskLink,
+    AccessLevel,
+    RepositoryAccess,
+    RepositoryDocumentLink,
+)
+from auth.dependencies import get_current_user_from_request
+from auth.models import UserResponse
 from uuid import UUID
 from typing import Any, cast
 from sqlmodel import select, Session
 from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
-from repositories.models import Repository, RepositoryTaskLink
 import dspy
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.get("/", response_model=list[TaskRead])
-async def get_tasks(session: Session = Depends(get_db_session)):
-    db_tasks = session.exec(select(Task)).all()
-    return db_tasks
+async def get_tasks(
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
+):
+    """Get all tasks the current user has access to via repository links."""
+    # Get tasks accessible through repositories the user has access to
+    accessible_tasks = session.exec(
+        select(Task)
+        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
+        .join(Repository, RepositoryTaskLink.repository_id == Repository.id)
+        .outerjoin(RepositoryAccess, Repository.id == RepositoryAccess.repository_id)
+        .where(
+            (Repository.owner_id == current_user.id)
+            | (RepositoryAccess.user_id == current_user.id)
+        )
+        .distinct()
+    ).all()
+
+    return accessible_tasks
 
 
 @router.get("/chunk/{chunk_id}", response_model=list[TaskRead])
 async def get_tasks_by_chunk(
-    chunk_id: UUID, session: Session = Depends(get_db_session)
+    chunk_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_chunk_access_dependency(AccessLevel.READ)
+    ),
 ):
     """
-    Get all tasks for a specific chunk.
+    Get all tasks for a specific chunk if user has read access.
     """
     # Verify chunk exists
     db_chunk = session.get(Chunk, chunk_id)
@@ -53,10 +87,15 @@ async def get_tasks_by_chunk(
 
 @router.get("/document/{document_id}", response_model=list[TaskRead])
 async def get_tasks_by_document(
-    document_id: str, session: Session = Depends(get_db_session)
+    document_id: str,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.READ, "document_id")
+    ),
 ):
     """
     Get all tasks for a specific document by fetching tasks from all chunks of that document.
+    Requires read access to the document via repository links.
     """
     # Get all chunks for the document
     chunks = session.exec(select(Chunk).where(Chunk.document_id == document_id)).all()
@@ -77,10 +116,15 @@ async def get_tasks_by_document(
 
 @router.get("/repository/{repository_id}", response_model=list[TaskRead])
 async def get_tasks_by_repository(
-    repository_id: UUID, session: Session = Depends(get_db_session)
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.READ)
+    ),
 ):
     """
     Get all tasks for a specific repository using the direct task-repository relationship.
+    Requires read access to the repository.
     """
     # Get the repository to verify it exists
     repository = session.get(Repository, repository_id)
@@ -101,7 +145,14 @@ async def get_tasks_by_repository(
 
 
 @router.get("/{task_id}", response_model=TaskRead)
-async def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
+async def get_task(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.READ)
+    ),
+):
+    """Get a specific task if user has read access via repository links."""
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
@@ -111,12 +162,50 @@ async def get_task(task_id: UUID, session: Session = Depends(get_db_session)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
-async def create_task(task: TaskCreate, session: Session = Depends(get_db_session)):
+async def create_task(
+    task: TaskCreate,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
+):
+    """Create a task if user has write access to repositories containing the chunk's document."""
     # Verify chunk exists
     db_chunk = session.get(Chunk, task.chunk_id)
     if not db_chunk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
+        )
+
+    # Check if user has write access to any repository containing this chunk's document
+    from repositories.access_control import get_repository_access
+
+    repository_links = session.exec(
+        select(RepositoryDocumentLink).where(
+            RepositoryDocumentLink.document_id == db_chunk.document_id
+        )
+    ).all()
+
+    if not repository_links:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot create task: Document not linked to any repository",
+        )
+
+    # Check write access to at least one repository
+    access_granted = False
+    for link in repository_links:
+        try:
+            await get_repository_access(
+                link.repository_id, AccessLevel.WRITE, session, current_user
+            )
+            access_granted = True
+            break
+        except HTTPException:
+            continue
+
+    if not access_granted:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Write access required to repositories containing this document",
         )
 
     # Extract answer options from the request
@@ -145,6 +234,9 @@ async def update_task(
     task_id: UUID,
     task: TaskUpdate,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_task = session.get(Task, task_id)
     if not db_task:
@@ -187,7 +279,13 @@ async def update_task(
 
 
 @router.delete("/{task_id}")
-async def delete_task(task_id: UUID, session: Session = Depends(get_db_session)):
+async def delete_task(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.WRITE)
+    ),
+):
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
@@ -213,6 +311,9 @@ async def create_answer_option(
     task_id: UUID,
     answer_option: AnswerOptionCreate,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     # Verify task exists
     db_task = session.get(Task, task_id)
@@ -232,6 +333,9 @@ async def create_answer_option(
 async def get_answer_options(
     task_id: UUID,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.READ)
+    ),
 ):
     # Verify task exists
     db_task = session.get(Task, task_id)
@@ -252,6 +356,9 @@ async def update_answer_option(
     option_id: UUID,
     answer_option_update: AnswerOptionUpdate,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_answer_option = session.get(AnswerOption, option_id)
     if not db_answer_option or db_answer_option.task_id != task_id:
@@ -272,6 +379,9 @@ async def delete_answer_option(
     task_id: UUID,
     option_id: UUID,
     session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.WRITE)
+    ),
 ):
     db_answer_option = session.get(AnswerOption, option_id)
     if not db_answer_option or db_answer_option.task_id != task_id:
@@ -292,6 +402,9 @@ async def generate_tasks_from_document(
     task_type: str = "multiple_choice",
     session: Session = Depends(get_db_session),
     lm: dspy.LM = Depends(get_large_llm_no_cache),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.WRITE, "doc_id")
+    ),
 ):
     """
     Generates a specified number of questions for a given document ID.
@@ -331,10 +444,18 @@ async def generate_tasks_for_multiple_documents(
     request: GenerateTasksForMultipleDocumentsRequest,
     session: Session = Depends(get_db_session),
     lm: dspy.LM = Depends(get_large_llm_no_cache),
+    current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """
     Generate tasks for a number of documents and link them to the repository.
+    Requires write access to the repository.
     """
+    # Check repository access
+    from repositories.access_control import get_repository_access
+
+    await get_repository_access(
+        request.repository_id, AccessLevel.WRITE, session, current_user
+    )
 
     db_repository = session.get(Repository, request.repository_id)
     if not db_repository:
@@ -382,6 +503,9 @@ async def evaluate_answer(
     request: EvaluateAnswerRequest,
     session: Session = Depends(get_db_session),
     lm: dspy.LM = Depends(get_large_llm),
+    current_user: UserResponse = Depends(
+        create_task_access_dependency(AccessLevel.READ)
+    ),
 ):
     """
     Evaluate a student's answer for a specific task.

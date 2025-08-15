@@ -2,10 +2,48 @@ from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import TYPE_CHECKING
+from enum import Enum
 
 if TYPE_CHECKING:
     from documents.models import Document
     from tasks.models import Task
+    from auth.models import User
+
+
+class AccessLevel(str, Enum):
+    READ = "read"
+    WRITE = "write"
+    OWNER = "owner"
+
+
+class RepositoryAccess(SQLModel, table=True):
+    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id")
+    repository_id: UUID = Field(foreign_key="repository.id")
+    access_level: AccessLevel = Field(default=AccessLevel.READ)
+    granted_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    user: "User" = Relationship(back_populates="repository_access")
+    repository: "Repository" = Relationship(back_populates="user_access")
+
+
+class RepositoryAccessCreate(SQLModel):
+    user_id: UUID
+    repository_id: UUID
+    access_level: AccessLevel = AccessLevel.READ
+
+
+class RepositoryAccessUpdate(SQLModel):
+    access_level: AccessLevel
+
+
+class RepositoryAccessResponse(SQLModel):
+    id: UUID
+    user_id: UUID
+    repository_id: UUID
+    access_level: AccessLevel
+    granted_at: datetime
 
 
 class RepositoryBase(SQLModel):
@@ -36,6 +74,7 @@ class Repository(RepositoryBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
+    owner_id: UUID | None = Field(default=None, foreign_key="user.id")
 
     # Relationships
     documents: list["Document"] = Relationship(
@@ -46,6 +85,7 @@ class Repository(RepositoryBase, table=True):
         back_populates="repositories",
         link_model=RepositoryTaskLink,
     )
+    user_access: list["RepositoryAccess"] = Relationship(back_populates="repository")
 
 
 class RepositoryCreate(RepositoryBase):

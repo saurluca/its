@@ -621,7 +621,7 @@ async function viewDocument(documentId: string) {
                         <label v-for="document in repositoryDocuments" :key="document.id"
                             class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded-lg text-black">
                             <input type="checkbox" :value="document.id" v-model="selectedDocuments"
-                                class="w-4 h-4 accent-black" style="accent-color: black;" />
+                                class="w-5 h-5 accent-black" style="accent-color: black;" />
                             <span>{{ document.title }}</span>
                         </label>
                     </div>

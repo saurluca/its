@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useSessionStorage } from "@vueuse/core";
-import type { Task } from "~/types/models";
+import type { Task, Repository } from "~/types/models";
 
 const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
 const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
 const repositoryId = ref("");
+const repositoryName = ref("");
 const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
@@ -95,6 +96,10 @@ async function startStudy() {
   error.value = null;
 
   try {
+    // First, fetch repository details to get the name
+    const repoResponse = await $authFetch(`/repositories/${repositoryId.value}`) as Repository;
+    repositoryName.value = repoResponse.name;
+
     const responseData = await $authFetch(`/tasks/repository/${repositoryId.value}`) as Task[];
 
     if (responseData && responseData.length > 0) {
@@ -269,6 +274,7 @@ function closeHtmlViewer() {
 function restart() {
   pageState.value = "studying";
   repositoryId.value = "";
+  repositoryName.value = "";
   tasks.value = [];
   currentTaskIndex.value = 0;
   currentAnswer.value = "";
@@ -293,7 +299,7 @@ function restart() {
     <!-- Left side - Study interface -->
     <div :class="showHtmlViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
       <div class="max-w-4xl mx-auto">
-        <DPageHeader title="Repository Study Mode" class="mt-4" />
+        <DPageHeader :title="repositoryName ? `Studying: ${repositoryName}` : 'Repository Study Mode'" class="mt-4" />
         <div class="mx-auto max-w-2xl">
           <!-- Loading State -->
           <div v-if="loading" class="text-center space-y-4">

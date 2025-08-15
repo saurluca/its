@@ -6,7 +6,6 @@ from tasks.router import router as tasks_router
 from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
-from database import create_db_and_tables
 from config import LLMConfig, AppConfig
 
 # Import all models to register them with SQLModel.metadata

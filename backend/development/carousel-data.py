@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 import pandas as pd
 from dspy.evaluate import Evaluate
 from dspy.teleprompt import BootstrapFewShotWithRandomSearch
-from sklearn.metrics import precision_score, recall_score, f1_score, cohen_kappa_score
-from tqdm import tqdm
 
 load_dotenv()
 

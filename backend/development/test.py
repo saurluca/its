@@ -1,7 +1,6 @@
 # %%
 
 import os
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 import dspy
 from pprint import pprint

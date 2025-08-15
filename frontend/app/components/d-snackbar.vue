@@ -22,7 +22,7 @@ function close(id: number) {
         <div
             class="pointer-events-none fixed right-4 top-4 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:w-auto">
             <TransitionGroup name="snackbar" tag="div">
-                <div v-for="n in items" :key="n.id"
+                <div v-for="n in items.slice(0, 5)" :key="n.id"
                     class="pointer-events-auto flex items-start gap-3 rounded-md border p-3 shadow-md backdrop-blur-sm"
                     :class="{
                         'border-green-300 bg-green-50/95 text-green-800': n.kind === 'success',

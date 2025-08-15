@@ -1,12 +1,13 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from auth.dependencies import get_current_user_from_request
 from router import router
 from tasks.router import router as tasks_router
 from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
 from config import LLMConfig, AppConfig
+from dotenv import load_dotenv
+import os
 
 # Import all models to register them with SQLModel.metadata
 from auth.models import User  # noqa
@@ -14,16 +15,17 @@ from documents.models import Document, Chunk  # noqa
 from tasks.models import Task, AnswerOption  # noqa
 from repositories.models import Repository  # noqa
 
+load_dotenv()
+
 app = FastAPI(
     title="ITS Backend",
     description="Backend for Intelligent Tutoring System",
     version=AppConfig.API_VERSION,
 )
 
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+origins = os.getenv("CORS_ORIGINS").split(",")
+if not origins:
+    raise ValueError("CORS_ORIGINS is not set")
 
 # Add CORS middleware
 app.add_middleware(
@@ -37,23 +39,12 @@ app.add_middleware(
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()
 
-# create_db_and_tables()
-
 # Include all routers
 app.include_router(router)  # health check and root endpoints
 app.include_router(auth_router)
-# The get current user from request dependency is used to check if the user is authenticated
-app.include_router(
-    repositories_router, dependencies=[Depends(get_current_user_from_request)]
-)
-app.include_router(
-    tasks_router,
-    dependencies=[Depends(get_current_user_from_request)],
-)
-app.include_router(
-    documents_router,
-    dependencies=[Depends(get_current_user_from_request)],
-)
+app.include_router(repositories_router)
+app.include_router(tasks_router)
+app.include_router(documents_router)
 
 
 if __name__ == "__main__":

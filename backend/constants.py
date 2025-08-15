@@ -1,4 +1,8 @@
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
+
 
 # File processing constants
 SUPPORTED_MIME_TYPES = {
@@ -14,7 +18,7 @@ SUPPORTED_MIME_TYPES = {
 }
 
 # Question generation constants
-DEFAULT_NUM_QUESTIONS = 1
+DEFAULT_NUM_QUESTIONS = 3
 REQUIRED_ANSWER_OPTIONS = 4
 MAX_TITLE_LENGTH = 100
 

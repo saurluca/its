@@ -2,9 +2,11 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useSessionStorage } from "@vueuse/core";
 import type { Task, Repository } from "~/types/models";
+import { useNotificationsStore } from "~/stores/notifications";
 
 const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
+const notifications = useNotificationsStore();
 const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
 const repositoryId = ref("");
 const repositoryName = ref("");
@@ -33,11 +35,6 @@ function shuffleArray<T>(items: T[]): T[] {
   }
   return array;
 }
-
-// Task generation state
-const showGenerateTasksModal = ref(false);
-const generatingTasks = ref(false);
-const numTasksToGenerate = ref(5);
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
 
@@ -71,12 +68,22 @@ function handleKeyPress(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  // Check if repositoryId is provided in URL parameters
+  // Check if repositoryId or documentId is provided in URL parameters
   const repoId = route.query.repositoryId as string;
+  const docId = route.query.documentId as string;
+
+  if (!repoId && !docId) {
+    // No repository or document ID provided, redirect to repositories page
+    notifications.warning("No repository or document selected for study. Please select one from the repositories page.");
+    router.push("/repositories");
+    return;
+  }
+
   if (repoId) {
     repositoryId.value = repoId;
     startStudy();
   }
+  // Note: documentId handling would need to be implemented separately if needed
 
   // Add keyboard event listener
   document.addEventListener('keydown', handleKeyPress);
@@ -114,42 +121,6 @@ async function startStudy() {
     error.value = e instanceof Error ? e.message : 'An error occurred';
   } finally {
     loading.value = false;
-  }
-}
-
-function openGenerateTasksModal() {
-  numTasksToGenerate.value = 1;
-  showGenerateTasksModal.value = true;
-}
-
-function closeGenerateTasksModal() {
-  showGenerateTasksModal.value = false;
-}
-
-async function confirmGenerateTasks() {
-  if (!repositoryId.value) return;
-  generatingTasks.value = true;
-  try {
-    // Call the API to generate tasks for repository
-    await $authFetch(
-      `/tasks/generate_for_multiple_documents`,
-      {
-        method: "POST",
-        body: {
-          repository_id: repositoryId.value,
-          document_ids: [], // This would need to be populated with repository documents
-          num_tasks: numTasksToGenerate.value,
-          task_type: "multiple_choice",
-        },
-      },
-    );
-    closeGenerateTasksModal();
-    // Reload the page to start the study session
-    await startStudy();
-  } catch (err: unknown) {
-    error.value = "Failed to generate tasks. Please try again. " + (err instanceof Error ? err.message : 'Unknown error');
-  } finally {
-    generatingTasks.value = false;
   }
 }
 
@@ -317,11 +288,6 @@ function restart() {
                 Generate some tasks to start studying this repository.
               </p>
             </div>
-            <div class="flex justify-center">
-              <DButton @click="openGenerateTasksModal" variant="primary">
-                Generate Tasks
-              </DButton>
-            </div>
           </div>
 
           <!-- Studying State: Displaying Questions -->
@@ -395,16 +361,5 @@ function restart() {
         </div>
       </div>
     </div>
-
-    <!-- Generate Tasks Modal -->
-    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-      :confirm-text="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
-      @confirm="confirmGenerateTasks">
-      <div class="p-4">
-        <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
-        <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
-          class="border rounded px-2 py-1 w-24" />
-      </div>
-    </DModal>
   </div>
 </template>

@@ -23,7 +23,7 @@ app = FastAPI(
     version=AppConfig.API_VERSION,
 )
 
-origins = os.getenv("CORS_ORIGINS").split(",")
+origins = os.getenv("CORS_ORIGINS", "").split(",")
 if not origins:
     raise ValueError("CORS_ORIGINS is not set")
 

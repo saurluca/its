@@ -26,7 +26,6 @@ const notifications = useNotificationsStore();
 
 // For student answers
 const studentAnswers = ref<Record<string, string>>({});
-const showResults = ref(false);
 
 // For filtering tasks
 const selectedRepositoryId = ref<string>("");
@@ -334,45 +333,16 @@ function handleEditTask(task: Task) {
 </script>
 
 <template>
-  <div class="h-full max-w-4xl mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold">Tasks</h1>
+  <div class="h-full max-w-4xl mx-auto mt-8">
+    <DPageHeader title="Tasks">
       <DViewToggle v-model="isTeacherView" />
-    </div>
+    </DPageHeader>
 
     <div v-if="loading" class="py-20 text-center">
       <div class="text-xl">Loading tasks...</div>
     </div>
 
-    <!-- Teacher View -->
-    <div v-else-if="isTeacherView" class="space-y-8">
-      <!-- Task Creation Form -->
-      <DTaskForm :chunks="[]" :initial-task="editingTask
-        ? {
-          type: editingTask.type,
-          question: editingTask.question || '',
-          chunkId: editingTask.chunk_id || '',
-          options: editingTask.answer_options?.map(option => option.answer) || [],
-          correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
-        }
-        : undefined
-        " @save="handleSaveTask" />
-
-      <!-- Existing Tasks -->
-      <div v-if="tasks.length > 0" class="space-y-4">
-        <h2 class="text-xl font-bold">Existing Tasks</h2>
-
-        <DTaskCard v-for="task in tasks" :key="task.id" :task="task" :is-teacher-view="true" @delete="deleteTask"
-          @edit="handleEditTask" />
-      </div>
-
-      <div v-else class="bg-white p-6 rounded-lg shadow text-center">
-        <p class="text-gray-500">No tasks have been created yet.</p>
-      </div>
-    </div>
-
-    <!-- Student View -->
-    <div v-else class="space-y-8">
+    <div class="space-y-8">
       <div>
         <div class="bg-white p-6 rounded-lg shadow mb-6">
           <h2 class="text-xl font-bold mb-4">Filter Tasks</h2>
@@ -419,18 +389,29 @@ function handleEditTask(task: Task) {
           </div>
         </div>
 
-        <h2 class="text-xl font-bold mb-4">Answer Tasks</h2>
+        <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
+          ? {
+            type: editingTask.type,
+            question: editingTask.question || '',
+            chunkId: editingTask.chunk_id || '',
+            options: editingTask.answer_options?.map(option => option.answer) || [],
+            correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
+          }
+          : undefined
+          " @save="handleSaveTask" />
 
-        <div v-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center">
+
+        <div v-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
           <p class="text-gray-500">
             No tasks available for the selected filters.
           </p>
         </div>
 
-        <div v-else class="space-y-6">
+        <div v-else class="space-y-6 my-4">
           <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index"
-            :model-value="studentAnswers[task.id] || ''" :disabled="showResults"
-            @update:model-value="(val) => (studentAnswers[task.id] = val)" />
+            :model-value="studentAnswers[task.id] || ''" :disabled="true" />
+          <!-- <DTaskCard v-for="task in tasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
+            @delete="deleteTask" @edit="handleEditTask" /> -->
         </div>
       </div>
     </div>

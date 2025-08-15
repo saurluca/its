@@ -22,7 +22,7 @@ from sqlmodel import select, Session
 from tasks.service import generate_questions, evaluate_student_answer
 from constants import DEFAULT_NUM_QUESTIONS
 from repositories.models import Repository, RepositoryTaskLink
-from dspy import dspy
+import dspy
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 

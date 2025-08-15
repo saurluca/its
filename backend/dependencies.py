@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from dspy import dspy
+import dspy
 from sqlmodel import Session, create_engine
 from config import DatabaseConfig
 from dotenv import load_dotenv

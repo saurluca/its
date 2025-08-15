@@ -16,7 +16,7 @@ from documents.service import (
     filter_important_chunks,
 )
 from starlette.concurrency import run_in_threadpool
-from dspy import dspy
+import dspy
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])

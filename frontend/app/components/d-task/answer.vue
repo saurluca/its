@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import type { Task } from "~/types/models";
+import { XIcon, CheckIcon } from "lucide-vue-next";
 
 const props = defineProps<{
   task: Task;
@@ -150,7 +151,12 @@ onUnmounted(() => {
       <div v-for="(optionAnswer, index) in shuffledOptions" :key="`shuffled-${index}`"
         class="flex items-center space-x-3" @click="selectOption(optionAnswer)">
         <div :class="getOptionClasses(optionAnswer)">
-          {{ optionAnswer }}
+          <span class="flex-1">{{ optionAnswer }}</span>
+          <!-- Show checkmark for correct answer or X for incorrect selection -->
+          <div v-if="isEvaluated" class="ml-2">
+            <CheckIcon v-if="optionAnswer === correctAnswer" class="w-5 h-5 text-green-600" />
+            <XIcon v-else-if="answer === optionAnswer && !isCorrect" class="w-5 h-5 text-red-600" />
+          </div>
         </div>
       </div>
       <!-- Hotkey hint -->

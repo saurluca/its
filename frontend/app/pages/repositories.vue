@@ -159,6 +159,11 @@ function openUploadModal() {
     showUploadModal.value = true;
 }
 
+function openUploadModalForRepository(repository: Repository) {
+    selectedRepositories.value = [repository.id];
+    showUploadModal.value = true;
+}
+
 function closeUploadModal() {
     showUploadModal.value = false;
     selectedRepositories.value = [];
@@ -460,6 +465,8 @@ async function viewDocument(documentId: string) {
                                     </DButton>
                                     <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
                                         :icon-left="PlusIcon" class="!p-2" />
+                                    <DButton @click="openUploadModalForRepository(repository)" variant="tertiary"
+                                        :icon-left="UploadIcon" class="!p-2" />
                                     <DHamburgerMenu>
                                         <template #default="{ close }">
                                             <button @click="
@@ -541,7 +548,7 @@ async function viewDocument(documentId: string) {
                     </p>
                 </div>
 
-                <div v-else class="text-sm text-gray-500 bg-yellow-50 p-3 rounded border border-yellow-200">
+                <div v-else class="text-sm text-gray-500 bg-yellow-50 p-2 rounded border border-yellow-200">
                     <strong>No repositories available.</strong> Create a repository first before uploading documents.
                 </div>
 

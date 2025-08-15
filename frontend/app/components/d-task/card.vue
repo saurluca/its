@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task } from "~/types/models";
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { TrashIcon, PencilIcon, CheckIcon } from "lucide-vue-next";
+import { TrashIcon, PencilIcon, CheckIcon, PlusIcon } from "lucide-vue-next";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -238,17 +238,14 @@ const freeTextAnswer = computed({
 
 <template>
   <div class="bg-white p-6 rounded-lg shadow w-2xl">
-    <div class="flex justify-between items-start">
-      <div class="flex-1">
-        <h3 class="text-lg font-medium">Task</h3>
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {{
-            task.type === "multiple_choice"
-              ? "Multiple Choice"
-              : "Free Text"
-          }}
-        </span>
-      </div>
+    <div class="flex justify-between items-center">
+      <span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+        {{
+          task.type === "multiple_choice"
+            ? "Multiple Choice"
+            : "Free Text"
+        }}
+      </span>
 
       <!-- Action buttons -->
       <div v-if="isTeacherView" class="flex space-x-2 ml-4">
@@ -276,8 +273,8 @@ const freeTextAnswer = computed({
     </div>
 
     <!-- Question -->
-    <div class="mt-4">
-      <label v-if="isEditing" class="block text-sm font-medium text-gray-700 mb-2">Question:</label>
+    <div class="mt-3">
+      <label v-if="isEditing" class="block text-md font-medium text-gray-700 mb-2">Question:</label>
       <textarea v-if="isEditing" v-model="editableTask.question" rows="3"
         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         placeholder="Enter the question..."></textarea>
@@ -285,14 +282,13 @@ const freeTextAnswer = computed({
     </div>
 
     <!-- Multiple Choice Answer Options -->
-    <div v-if="task.type === 'multiple_choice'" class="mt-4">
+    <div v-if="task.type === 'multiple_choice'" class="mt-1">
       <div v-if="isEditing" class="space-y-3">
         <div class="flex items-center justify-between">
-          <label class="block text-sm font-medium text-gray-700">Answer Options:</label>
-          <button @click="addAnswerOption"
-            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+          <label class="block text-md font-medium text-gray-700">Answer Options</label>
+          <DButton @click="addAnswerOption" variant="tertiary" :icon-left="PlusIcon">
             Add Option
-          </button>
+          </DButton>
         </div>
 
         <div v-for="(option, index) in editableTask.answer_options" :key="option.id"
@@ -302,8 +298,9 @@ const freeTextAnswer = computed({
             placeholder="Enter answer option..." />
           <label class="flex items-center space-x-2">
             <input type="radio" :name="`correct-${task.id}`" :checked="option.is_correct"
-              @change="updateAnswerOption(index, 'is_correct', true)" class="text-blue-600 focus:ring-blue-500" />
-            <span class="text-sm text-gray-700">Correct</span>
+              @change="updateAnswerOption(index, 'is_correct', true)"
+              class="h-4 w-4 text-blue-600 focus:ring-blue-500" />
+            <span class="text-md text-gray-700">Correct</span>
           </label>
           <button @click="removeAnswerOption(index)"
             class="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors" title="Remove option">
@@ -313,7 +310,7 @@ const freeTextAnswer = computed({
 
         <!-- Keyboard hint -->
         <div v-if="isEditing" class="text-xs text-gray-500 mt-2">
-          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
+          Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
             class="px-1 py-0.5 bg-gray-100 rounded text-xs">Escape</kbd> to cancel
         </div>
       </div>
@@ -321,13 +318,13 @@ const freeTextAnswer = computed({
       <!-- Display mode for multiple choice -->
       <div v-else class="space-y-2">
         <div v-for="option in task.answer_options" :key="option.id" class="flex items-center space-x-3">
-          <div class="flex-1 px-3 py-2 border rounded-md" :class="option.is_correct
+          <div class="flex-1 px-3 py-2 border rounded-md flex items-center justify-between" :class="option.is_correct
             ? 'border-green-500 bg-green-50 text-green-800'
             : 'border-gray-300 bg-gray-50 text-gray-700'">
             {{ option.answer }}
-          </div>
-          <div v-if="option.is_correct" class="text-green-600">
-            <CheckIcon class="h-5 w-5" />
+            <div v-if="option.is_correct" class="text-green-600">
+              <CheckIcon class="h-5 w-5" />
+            </div>
           </div>
         </div>
       </div>
@@ -343,7 +340,7 @@ const freeTextAnswer = computed({
 
         <!-- Keyboard hint -->
         <div class="text-xs text-gray-500 mt-2">
-          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
+          Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
             class="px-1 py-0.5 bg-gray-100 rounded text-xs">Escape</kbd> to cancel
         </div>
       </div>

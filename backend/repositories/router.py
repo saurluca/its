@@ -78,7 +78,9 @@ async def get_repository_documents(
     return document_responses
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=Repository)
+@router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=RepositoryResponse
+)
 async def create_repository(
     repository: RepositoryCreate, session: Session = Depends(get_db_session)
 ):
@@ -86,10 +88,14 @@ async def create_repository(
     session.add(db_repository)
     session.commit()
     session.refresh(db_repository)
-    return db_repository
+
+    # Create response object with task count (0 for new repository)
+    repo_response = RepositoryResponse.model_validate(db_repository)
+    repo_response.task_count = 0
+    return repo_response
 
 
-@router.put("/{repository_id}", response_model=Repository)
+@router.put("/{repository_id}", response_model=RepositoryResponse)
 async def update_repository(
     repository_id: UUID,
     repository: RepositoryUpdate,
@@ -105,7 +111,20 @@ async def update_repository(
     session.add(db_repository)
     session.commit()
     session.refresh(db_repository)
-    return db_repository
+
+    # Count tasks linked to this repository
+    task_count = len(
+        session.exec(
+            select(RepositoryTaskLink).where(
+                RepositoryTaskLink.repository_id == repository_id
+            )
+        ).all()
+    )
+
+    # Create response object with task count
+    repo_response = RepositoryResponse.model_validate(db_repository)
+    repo_response.task_count = task_count
+    return repo_response
 
 
 @router.delete("/{repository_id}")

@@ -9,9 +9,12 @@ const { $authFetch } = useAuthenticatedFetch();
 // View state
 const repositories = ref<Repository[]>([]);
 const loading = ref(true);
-const showForm = ref(false);
 const editingRepository = ref<Repository | null>(null);
 const expandedRepositories = ref<Set<string>>(new Set());
+
+// Create repository modal state
+const showCreateRepositoryModal = ref(false);
+const newRepositoryName = ref("");
 
 // Modal state for repository editing
 const showEditTitleModal = ref(false);
@@ -73,39 +76,22 @@ async function fetchRepositories() {
     }
 }
 
-async function createRepository(repositoryData: Partial<Repository>) {
+async function createRepository(repositoryName: string) {
     try {
         const newRepository = await $authFetch("/repositories/", {
             method: "POST",
-            body: repositoryData,
+            body: { name: repositoryName },
         }) as Repository;
 
         repositories.value.push(newRepository);
-        showForm.value = false;
+        closeCreateRepositoryModal();
     } catch (error) {
         console.error("Error creating repository:", error);
         notifications.error("Failed to create repository. Please try again. " + error);
     }
 }
 
-async function updateRepository(repositoryData: Repository) {
-    try {
-        const updatedRepository = await $authFetch(`/repositories/${repositoryData.id}/`, {
-            method: "PUT",
-            body: repositoryData,
-        }) as Repository;
 
-        const index = repositories.value.findIndex((r) => r.id === updatedRepository.id);
-        if (index !== -1) {
-            repositories.value[index] = updatedRepository;
-        }
-
-        editingRepository.value = null;
-    } catch (error) {
-        console.error("Error updating repository:", error);
-        notifications.error("Failed to update repository. Please try again. " + error);
-    }
-}
 
 async function deleteRepository(id: string) {
     try {
@@ -120,21 +106,33 @@ async function deleteRepository(id: string) {
     }
 }
 
-function handleSave(repositoryData: Partial<Repository>) {
-    if (editingRepository.value) {
-        updateRepository({ ...editingRepository.value, ...repositoryData });
-    } else {
-        createRepository(repositoryData);
-    }
-}
+
 
 function cancelEdit() {
     editingRepository.value = null;
-    showForm.value = false;
+}
+
+// Create repository modal functions
+function openCreateRepositoryModal() {
+    showCreateRepositoryModal.value = true;
+    newRepositoryName.value = "";
+}
+
+function closeCreateRepositoryModal() {
+    showCreateRepositoryModal.value = false;
+    newRepositoryName.value = "";
+}
+
+function confirmCreateRepository() {
+    if (!newRepositoryName.value.trim()) {
+        notifications.warning("Please enter a repository name.");
+        return;
+    }
+    createRepository(newRepositoryName.value.trim());
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape" && showForm.value) {
+    if (event.key === "Escape" && editingRepository.value) {
         cancelEdit();
     }
 }
@@ -421,24 +419,13 @@ async function viewDocument(documentId: string) {
                 </div>
 
                 <div v-else class="space-y-6">
-                    <div v-if="!showForm" class="flex gap-3">
+                    <div class="flex gap-3">
                         <DButton @click="openUploadModal" variant="primary" :icon-left="UploadIcon">
                             Document
                         </DButton>
-                        <DButton @click="showForm = true" variant="secondary" :icon-left="PlusIcon">
+                        <DButton @click="openCreateRepositoryModal" variant="secondary" :icon-left="PlusIcon">
                             Repository
                         </DButton>
-                    </div>
-
-                    <div v-if="showForm" class="relative">
-                        <button type="button" aria-label="Close"
-                            class="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            @click="cancelEdit">
-                            ×
-                        </button>
-                        <DItemForm :title="editingRepository ? 'Edit Repository' : 'Create New Repository'"
-                            :item="editingRepository || undefined" :is-edit="!!editingRepository" @save="handleSave"
-                            @cancel="cancelEdit" />
                     </div>
 
                     <div v-if="repositories.length > 0" class="space-y-4">
@@ -520,8 +507,10 @@ async function viewDocument(documentId: string) {
         </div>
 
         <!-- Right side - HTML viewer -->
-        <div v-if="showHtmlViewer" class="w-1/2 ">
+        <div v-if="showHtmlViewer" class="w-1/2 relative">
             <div class="h-full p-4">
+                <DButtonClose @click="showHtmlViewer = false; selectedDocumentId = null; htmlContent = ''"
+                    class="absolute top-2 right-2 z-10" />
                 <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
             </div>
         </div>
@@ -587,6 +576,17 @@ async function viewDocument(documentId: string) {
                     Are you sure you want to delete the repository "{{ deleteRepositoryName }}"?
                 </p>
                 <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+            </div>
+        </DModal>
+
+        <!-- Create Repository Modal -->
+        <DModal v-if="showCreateRepositoryModal" titel="Create New Repository" confirm-text="Create Repository"
+            @close="closeCreateRepositoryModal" @confirm="confirmCreateRepository">
+            <div class="p-4">
+                <label for="repository-name" class="block mb-2 font-medium">Repository Name:</label>
+                <input id="repository-name" type="text" v-model="newRepositoryName"
+                    class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200"
+                    placeholder="Enter repository name" @keyup.enter="confirmCreateRepository" />
             </div>
         </DModal>
 

@@ -235,39 +235,3 @@ async def get_chunk(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
         )
     return db_chunk
-
-
-@router.post("/{document_id}/important_chunks")
-async def filter_important_chunks_endpoint(
-    document_id: UUID,
-    session: Session = Depends(get_db_session),
-    large_lm: dspy.LM = Depends(get_large_llm),
-    small_lm: dspy.LM = Depends(get_small_llm),
-    current_user: UserResponse = Depends(
-        create_document_access_dependency(AccessLevel.WRITE)
-    ),
-):
-    db_document = session.get(Document, document_id)
-    if not db_document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
-
-    # Get document summary first
-    summary = await run_in_threadpool(
-        get_document_summary, db_document.content, large_lm
-    )
-
-    print(summary)
-    print(f"length of document: {len(db_document.content)}")
-    print(f"length of summary: {len(summary.summary)}")
-    print(
-        f"percentage of document covered by summary: {len(db_document.content) / len(summary.summary) * 100}%"
-    )
-
-    # Filter important chunks using the new service function
-    result = await run_in_threadpool(
-        filter_important_chunks, db_document.chunks, summary, small_lm
-    )
-
-    return result

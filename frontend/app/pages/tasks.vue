@@ -189,7 +189,7 @@ watch(selectedRepositoryId, (newValue) => {
 
 async function deleteTask(id: string) {
   try {
-    await $authFetch(`/tasks/${id}/`, {
+    await $authFetch(`/tasks/${id}`, {
       method: "DELETE",
     });
 

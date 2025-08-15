@@ -59,9 +59,6 @@ function closeDeleteModal() {
 
 async function confirmDelete() {
   try {
-    await $authFetch(`/tasks/${props.task.id}/`, {
-      method: "DELETE",
-    });
     emit("delete", props.task.id);
     notifications.success("Task deleted successfully");
   } catch (error) {
@@ -139,7 +136,7 @@ async function saveTask() {
     })) || [];
 
     // Update the task via API
-    const updatedTask = await $authFetch(`/tasks/${editableTask.value.id}/`, {
+    const updatedTask = await $authFetch(`/tasks/${editableTask.value.id}`, {
       method: "PUT",
       body: {
         type: editableTask.value.type,

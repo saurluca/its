@@ -251,7 +251,7 @@ async function showSource() {
 
     // For repository-based study, we'll show the chunk text directly
     // since we don't have a specific document to show
-    htmlContent.value = `<div class="p-4"><h2 class="text-xl font-bold mb-4">Source Text</h2><div class="bg-gray-50 p-4 rounded">${chunkData.chunk_text}</div></div>`;
+    htmlContent.value = `<div class="p-4"><div class="bg-gray-50 p-4 rounded text-lg">${chunkData.chunk_text}</div></div>`;
     highlightedChunkText.value = chunkData.chunk_text;
   } catch (err) {
     console.error("Error fetching chunk content:", err);
@@ -327,6 +327,7 @@ function restart() {
               @evaluate="evaluateAnswer" />
 
             <div v-if="showEvaluation">
+
               <DTaskResult :task="currentTask" :index="currentTaskIndex" :user-answer="currentAnswer"
                 :status="evaluationStatus" :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
@@ -340,9 +341,7 @@ function restart() {
               <div v-if="evaluating" class="mt-4 flex justify-center">
                 <DSpinner />
               </div>
-              <div class="text-xs text-gray-500 text-center mt-2">
-                💡 Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
-              </div>
+
             </div>
             <div v-else class="flex justify-end items-center min-h-10">
               <template v-if="evaluating">

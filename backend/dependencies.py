@@ -33,7 +33,7 @@ def get_small_llm():
     print("getting small llm")
     if azure_api_key and azure_api_base:
         lm = dspy.LM(
-            "azure/gpt-4o-mini",
+            "azure/gpt-4o-nano",
             api_base=azure_api_base,
             api_key=azure_api_key,
             api_version="2024-12-01-preview",
@@ -48,7 +48,7 @@ def get_large_llm():
     """Get a large LLM"""
     if azure_api_key and azure_api_base:
         lm = dspy.LM(
-            "azure/gpt-4o",
+            "azure/gpt-4o-mini",
             api_base=azure_api_base,
             api_key=azure_api_key,
             api_version="2024-12-01-preview",
@@ -64,7 +64,7 @@ def get_large_llm_no_cache():
     print("getting large llm no cache")
     if azure_api_key and azure_api_base:
         lm = dspy.LM(
-            "azure/gpt-4o",
+            "azure/gpt-4o-mini",
             api_base=azure_api_base,
             api_key=azure_api_key,
             api_version="2024-12-01-preview",

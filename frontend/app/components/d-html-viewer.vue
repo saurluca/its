@@ -95,258 +95,258 @@ function normalizeText(text) {
 }
 
 // Function to highlight chunk text in HTML content
-function highlightChunkInHtml(htmlContent, chunkText) {
-  if (!chunkText || !htmlContent) return htmlContent;
+// function highlightChunkInHtml(htmlContent, chunkText) {
+//   if (!chunkText || !htmlContent) return htmlContent;
 
-  console.log("=== HIGHLIGHTING DEBUG START ===");
-  console.log("Original chunk text:", chunkText);
-  console.log("HTML content length:", htmlContent.length);
-  console.log("HTML content preview:", htmlContent.substring(0, 200));
+//   console.log("=== HIGHLIGHTING DEBUG START ===");
+//   console.log("Original chunk text:", chunkText);
+//   console.log("HTML content length:", htmlContent.length);
+//   console.log("HTML content preview:", htmlContent.substring(0, 200));
 
-  // Extract text content for debugging
-  const extractedText = extractTextFromHtml(htmlContent);
-  console.log("Extracted text length:", extractedText.length);
-  console.log(
-    "First 500 chars of extracted text:",
-    extractedText.substring(0, 500),
-  );
+//   // Extract text content for debugging
+//   const extractedText = extractTextFromHtml(htmlContent);
+//   console.log("Extracted text length:", extractedText.length);
+//   console.log(
+//     "First 500 chars of extracted text:",
+//     extractedText.substring(0, 500),
+//   );
 
-  // Clean up and normalize the chunk text
-  const cleanChunkText = normalizeText(chunkText);
-  console.log("Normalized chunk text:", cleanChunkText);
-  console.log("Normalized chunk text length:", cleanChunkText.length);
+//   // Clean up and normalize the chunk text
+//   const cleanChunkText = normalizeText(chunkText);
+//   console.log("Normalized chunk text:", cleanChunkText);
+//   console.log("Normalized chunk text length:", cleanChunkText.length);
 
-  // Escape special regex characters in chunk text
-  const escapedChunkText = cleanChunkText.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  console.log("Escaped chunk text:", escapedChunkText);
+//   // Escape special regex characters in chunk text
+//   const escapedChunkText = cleanChunkText.replace(
+//     /[.*+?^${}()|[\]\\]/g,
+//     "\\$&",
+//   );
+//   console.log("Escaped chunk text:", escapedChunkText);
 
-  // Create a regex that matches the chunk text (case insensitive)
-  const regex = new RegExp(`(${escapedChunkText})`, "gi");
-  console.log("Created regex:", regex);
+//   // Create a regex that matches the chunk text (case insensitive)
+//   const regex = new RegExp(`(${escapedChunkText})`, "gi");
+//   console.log("Created regex:", regex);
 
-  // Check if the text is found
-  const matches = htmlContent.match(regex);
-  console.log("Found matches in HTML:", matches ? matches.length : 0);
-  if (matches) {
-    console.log("First match:", matches[0]);
-  }
+//   // Check if the text is found
+//   const matches = htmlContent.match(regex);
+//   console.log("Found matches in HTML:", matches ? matches.length : 0);
+//   if (matches) {
+//     console.log("First match:", matches[0]);
+//   }
 
-  if (!matches || matches.length === 0) {
-    console.log(
-      "No exact matches found, trying to find containing paragraph...",
-    );
+//   if (!matches || matches.length === 0) {
+//     console.log(
+//       "No exact matches found, trying to find containing paragraph...",
+//     );
 
-    // Also try to match with the normalized HTML content
-    const normalizedHtmlText = normalizeText(extractedText);
-    console.log("Normalized HTML text length:", normalizedHtmlText.length);
-    console.log(
-      "Normalized HTML text preview:",
-      normalizedHtmlText.substring(0, 500),
-    );
+//     // Also try to match with the normalized HTML content
+//     const normalizedHtmlText = normalizeText(extractedText);
+//     console.log("Normalized HTML text length:", normalizedHtmlText.length);
+//     console.log(
+//       "Normalized HTML text preview:",
+//       normalizedHtmlText.substring(0, 500),
+//     );
 
-    const normalizedChunkRegex = new RegExp(
-      `(${normalizeText(cleanChunkText).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      "gi",
-    );
-    console.log("Normalized chunk regex:", normalizedChunkRegex);
+//     const normalizedChunkRegex = new RegExp(
+//       `(${normalizeText(cleanChunkText).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+//       "gi",
+//     );
+//     console.log("Normalized chunk regex:", normalizedChunkRegex);
 
-    const normalizedMatches = normalizedHtmlText.match(normalizedChunkRegex);
-    console.log(
-      "Found matches in normalized text:",
-      normalizedMatches ? normalizedMatches.length : 0,
-    );
+//     const normalizedMatches = normalizedHtmlText.match(normalizedChunkRegex);
+//     console.log(
+//       "Found matches in normalized text:",
+//       normalizedMatches ? normalizedMatches.length : 0,
+//     );
 
-    if (normalizedMatches && normalizedMatches.length > 0) {
-      console.log(
-        "Found matches in normalized text:",
-        normalizedMatches.length,
-      );
-      console.log("First normalized match:", normalizedMatches[0]);
-      // Try to find and highlight the section in the original HTML
-      return htmlContent.replace(
-        new RegExp(
-          `(${cleanChunkText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-          "gi",
-        ),
-        '<mark style="background-color: #fef3c7; padding: 2px 4px; border-radius: 3px;">$1</mark>',
-      );
-    }
+//     if (normalizedMatches && normalizedMatches.length > 0) {
+//       console.log(
+//         "Found matches in normalized text:",
+//         normalizedMatches.length,
+//       );
+//       console.log("First normalized match:", normalizedMatches[0]);
+//       // Try to find and highlight the section in the original HTML
+//       return htmlContent.replace(
+//         new RegExp(
+//           `(${cleanChunkText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+//           "gi",
+//         ),
+//         '<mark style="background-color: #fef3c7; padding: 2px 4px; border-radius: 3px;">$1</mark>',
+//       );
+//     }
 
-    // Try to find the paragraph that contains the chunk text
-    // Use a simpler regex that better captures paragraph content
-    const paragraphRegex = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
-    console.log("Looking for paragraphs with regex:", paragraphRegex);
+//     // Try to find the paragraph that contains the chunk text
+//     // Use a simpler regex that better captures paragraph content
+//     const paragraphRegex = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
+//     console.log("Looking for paragraphs with regex:", paragraphRegex);
 
-    // First, let's count how many paragraphs we actually have
-    const allParagraphs = htmlContent.match(paragraphRegex);
-    console.log(
-      "All paragraphs found:",
-      allParagraphs ? allParagraphs.length : 0,
-    );
+//     // First, let's count how many paragraphs we actually have
+//     const allParagraphs = htmlContent.match(paragraphRegex);
+//     console.log(
+//       "All paragraphs found:",
+//       allParagraphs ? allParagraphs.length : 0,
+//     );
 
-    let highlightedContent = htmlContent;
-    let foundParagraph = false;
-    let bestMatch = { score: 0, content: null };
-    let paragraphCount = 0;
+//     let highlightedContent = htmlContent;
+//     let foundParagraph = false;
+//     let bestMatch = { score: 0, content: null };
+//     let paragraphCount = 0;
 
-    // If we found paragraphs, process them
-    if (allParagraphs && allParagraphs.length > 1) {
-      highlightedContent = highlightedContent.replace(
-        paragraphRegex,
-        (match, paragraphContent) => {
-          paragraphCount++;
-          console.log(`\n--- Checking paragraph ${paragraphCount} ---`);
+//     // If we found paragraphs, process them
+//     if (allParagraphs && allParagraphs.length > 1) {
+//       highlightedContent = highlightedContent.replace(
+//         paragraphRegex,
+//         (match, paragraphContent) => {
+//           paragraphCount++;
+//           console.log(`\n--- Checking paragraph ${paragraphCount} ---`);
 
-          // Check if this paragraph contains any significant part of the chunk text
-          const chunkWords = cleanChunkText
-            .split(/\s+/)
-            .filter((word) => word.length > 3);
-          const paragraphText = normalizeText(
-            extractTextFromHtml(paragraphContent),
-          );
+//           // Check if this paragraph contains any significant part of the chunk text
+//           const chunkWords = cleanChunkText
+//             .split(/\s+/)
+//             .filter((word) => word.length > 3);
+//           const paragraphText = normalizeText(
+//             extractTextFromHtml(paragraphContent),
+//           );
 
-          console.log(
-            "Paragraph text preview:",
-            paragraphText.substring(0, 200) + "...",
-          );
-          console.log("Paragraph text length:", paragraphText.length);
-          console.log("Chunk words to find:", chunkWords);
+//           console.log(
+//             "Paragraph text preview:",
+//             paragraphText.substring(0, 200) + "...",
+//           );
+//           console.log("Paragraph text length:", paragraphText.length);
+//           console.log("Chunk words to find:", chunkWords);
 
-          // Count how many chunk words are in this paragraph
-          const matchingWords = chunkWords.filter((word) =>
-            paragraphText.toLowerCase().includes(word.toLowerCase()),
-          );
+//           // Count how many chunk words are in this paragraph
+//           const matchingWords = chunkWords.filter((word) =>
+//             paragraphText.toLowerCase().includes(word.toLowerCase()),
+//           );
 
-          console.log("Matching words found:", matchingWords);
+//           console.log("Matching words found:", matchingWords);
 
-          const score = matchingWords.length / chunkWords.length;
-          console.log(
-            `Paragraph ${paragraphCount} score: ${matchingWords.length}/${chunkWords.length} = ${score}`,
-          );
+//           const score = matchingWords.length / chunkWords.length;
+//           console.log(
+//             `Paragraph ${paragraphCount} score: ${matchingWords.length}/${chunkWords.length} = ${score}`,
+//           );
 
-          // Track the best matching paragraph
-          if (score > bestMatch.score) {
-            bestMatch = { score, content: match, paragraphContent };
-            console.log(
-              `New best match: paragraph ${paragraphCount} with score ${score}`,
-            );
-          }
+//           // Track the best matching paragraph
+//           if (score > bestMatch.score) {
+//             bestMatch = { score, content: match, paragraphContent };
+//             console.log(
+//               `New best match: paragraph ${paragraphCount} with score ${score}`,
+//             );
+//           }
 
-          // If more than 30% of chunk words are in this paragraph, it could be a match
-          if (score > 0.3) {
-            console.log("Found potential matching paragraph with score", score);
-            foundParagraph = true;
-            return `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${paragraphContent}</p>`;
-          }
+//           // If more than 30% of chunk words are in this paragraph, it could be a match
+//           if (score > 0.3) {
+//             console.log("Found potential matching paragraph with score", score);
+//             foundParagraph = true;
+//             return `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${paragraphContent}</p>`;
+//           }
 
-          return match;
-        },
-      );
-    } else {
-      console.log(
-        "No proper paragraphs found, trying to find the specific section...",
-      );
+//           return match;
+//         },
+//       );
+//     } else {
+//       console.log(
+//         "No proper paragraphs found, trying to find the specific section...",
+//       );
 
-      // Try to find the specific section that contains the chunk text
-      const sectionRegex = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
-      let match;
-      let bestSection = null;
-      let bestScore = 0;
+//       // Try to find the specific section that contains the chunk text
+//       const sectionRegex = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
+//       let match;
+//       let bestSection = null;
+//       let bestScore = 0;
 
-      while ((match = sectionRegex.exec(htmlContent)) !== null) {
-        const sectionText = normalizeText(extractTextFromHtml(match[1]));
-        const chunkWords = cleanChunkText
-          .split(/\s+/)
-          .filter((word) => word.length > 3);
+//       while ((match = sectionRegex.exec(htmlContent)) !== null) {
+//         const sectionText = normalizeText(extractTextFromHtml(match[1]));
+//         const chunkWords = cleanChunkText
+//           .split(/\s+/)
+//           .filter((word) => word.length > 3);
 
-        const matchingWords = chunkWords.filter((word) =>
-          sectionText.toLowerCase().includes(word.toLowerCase()),
-        );
+//         const matchingWords = chunkWords.filter((word) =>
+//           sectionText.toLowerCase().includes(word.toLowerCase()),
+//         );
 
-        const score = matchingWords.length / chunkWords.length;
-        console.log(
-          `Section score: ${matchingWords.length}/${chunkWords.length} = ${score}`,
-        );
+//         const score = matchingWords.length / chunkWords.length;
+//         console.log(
+//           `Section score: ${matchingWords.length}/${chunkWords.length} = ${score}`,
+//         );
 
-        if (score > bestScore) {
-          bestScore = score;
-          bestSection = match;
-        }
-      }
+//         if (score > bestScore) {
+//           bestScore = score;
+//           bestSection = match;
+//         }
+//       }
 
-      if (bestSection && bestScore > 0.5) {
-        console.log("Found best section with score", bestScore);
-        foundParagraph = true;
-        highlightedContent = htmlContent.replace(
-          bestSection[0],
-          `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${bestSection[1]}</p>`,
-        );
-      }
-    }
+//       if (bestSection && bestScore > 0.5) {
+//         console.log("Found best section with score", bestScore);
+//         foundParagraph = true;
+//         highlightedContent = htmlContent.replace(
+//           bestSection[0],
+//           `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${bestSection[1]}</p>`,
+//         );
+//       }
+//     }
 
-    console.log(`Total paragraphs found: ${paragraphCount}`);
-    console.log(`Best match score: ${bestMatch.score}`);
+//     console.log(`Total paragraphs found: ${paragraphCount}`);
+//     console.log(`Best match score: ${bestMatch.score}`);
 
-    // If no paragraph was found but we have a best match, highlight it anyway
-    if (!foundParagraph && bestMatch.score > 0.1) {
-      console.log("Using best match with score", bestMatch.score);
-      highlightedContent = htmlContent.replace(
-        bestMatch.content,
-        `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${bestMatch.paragraphContent}</p>`,
-      );
-      foundParagraph = true;
-    }
+//     // If no paragraph was found but we have a best match, highlight it anyway
+//     if (!foundParagraph && bestMatch.score > 0.1) {
+//       console.log("Using best match with score", bestMatch.score);
+//       highlightedContent = htmlContent.replace(
+//         bestMatch.content,
+//         `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${bestMatch.paragraphContent}</p>`,
+//       );
+//       foundParagraph = true;
+//     }
 
-    // If still no paragraph found, try to find the specific section containing "Fig. 3"
-    if (!foundParagraph) {
-      console.log("Trying to find section containing 'Fig. 3'...");
+//     // If still no paragraph found, try to find the specific section containing "Fig. 3"
+//     if (!foundParagraph) {
+//       console.log("Trying to find section containing 'Fig. 3'...");
 
-      // Look for the specific paragraph that contains "Fig. 3"
-      const fig3Regex =
-        /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?Fig\. 3[^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
-      const fig3Match = htmlContent.match(fig3Regex);
+//       // Look for the specific paragraph that contains "Fig. 3"
+//       const fig3Regex =
+//         /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*?Fig\. 3[^<]*(?:<[^>]*>[^<]*)*?)<\/p>/gi;
+//       const fig3Match = htmlContent.match(fig3Regex);
 
-      if (fig3Match && fig3Match.length > 0) {
-        console.log("Found paragraph containing 'Fig. 3'");
-        foundParagraph = true;
-        highlightedContent = htmlContent.replace(
-          fig3Match[0],
-          `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${fig3Match[0].replace(/<p[^>]*>/, "").replace(/<\/p>/, "")}</p>`,
-        );
-      }
-    }
+//       if (fig3Match && fig3Match.length > 0) {
+//         console.log("Found paragraph containing 'Fig. 3'");
+//         foundParagraph = true;
+//         highlightedContent = htmlContent.replace(
+//           fig3Match[0],
+//           `<p style="background-color: #fef3c7; padding: 10px; margin: 5px; border-radius: 5px; border-left: 4px solid #f59e0b;">${fig3Match[0].replace(/<p[^>]*>/, "").replace(/<\/p>/, "")}</p>`,
+//         );
+//       }
+//     }
 
-    // If no paragraph was found, add a visible indicator at the top of the document
-    if (!foundParagraph) {
-      console.log("No matching paragraph found, adding chunk text indicator");
-      const indicator = `
-                <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 10px; margin: 10px; border-radius: 5px;">
-                    <strong>Chunk Content:</strong><br>
-                    ${cleanChunkText}
-                </div>
-            `;
-      // Insert the indicator after the opening body tag
-      highlightedContent = htmlContent.replace(
-        /<body[^>]*>/i,
-        `$&${indicator}`,
-      );
-    }
+//     // If no paragraph was found, add a visible indicator at the top of the document
+//     if (!foundParagraph) {
+//       console.log("No matching paragraph found, adding chunk text indicator");
+//       const indicator = `
+//                 <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 10px; margin: 10px; border-radius: 5px;">
+//                     <strong>Chunk Content:</strong><br>
+//                     ${cleanChunkText}
+//                 </div>
+//             `;
+//       // Insert the indicator after the opening body tag
+//       highlightedContent = htmlContent.replace(
+//         /<body[^>]*>/i,
+//         `$&${indicator}`,
+//       );
+//     }
 
-    console.log("=== HIGHLIGHTING DEBUG END ===");
-    return highlightedContent;
-  }
+//     console.log("=== HIGHLIGHTING DEBUG END ===");
+//     return highlightedContent;
+//   }
 
-  // If exact match found, highlight just that specific text
-  console.log("Exact match found, highlighting specific text");
-  console.log("=== HIGHLIGHTING DEBUG END ===");
-  return htmlContent.replace(
-    regex,
-    '<mark style="background-color: #fef3c7; padding: 2px 4px; border-radius: 3px;">$1</mark>',
-  );
-}
+//   // If exact match found, highlight just that specific text
+//   console.log("Exact match found, highlighting specific text");
+//   console.log("=== HIGHLIGHTING DEBUG END ===");
+//   return htmlContent.replace(
+//     regex,
+//     '<mark style="background-color: #fef3c7; padding: 2px 4px; border-radius: 3px;">$1</mark>',
+//   );
+// }
 
 // Watch for changes in htmlContent and highlightedChunkText and update iframe
 watch(
@@ -363,7 +363,7 @@ watch(
 
       // If we have chunk text to highlight, process the content
       if (newChunkText) {
-        processedContent = highlightChunkInHtml(newContent, newChunkText);
+        // processedContent = highlightChunkInHtml(newContent, newChunkText);
       }
 
       const blob = new Blob([processedContent], { type: "text/html" });
@@ -392,9 +392,7 @@ onMounted(() => {
   <div class="h-full w-full border border-gray-200 rounded-lg overflow-hidden">
     <div v-if="loading" class="flex items-center justify-center h-full">
       <div class="text-center">
-        <div
-          class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"
-        ></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
         <p class="text-gray-600">Loading document content...</p>
       </div>
     </div>
@@ -406,13 +404,8 @@ onMounted(() => {
     </div>
 
     <div v-else-if="iframeSrc" class="h-full w-full">
-      <iframe
-        :src="iframeSrc"
-        class="w-full h-full border-0"
-        frameborder="0"
-        allowfullscreen
-        @load="onIframeLoad"
-      ></iframe>
+      <iframe :src="iframeSrc" class="w-full h-full border-0" frameborder="0" allowfullscreen
+        @load="onIframeLoad"></iframe>
     </div>
 
     <div v-else class="flex items-center justify-center h-full">

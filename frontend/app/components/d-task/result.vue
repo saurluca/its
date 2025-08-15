@@ -41,6 +41,9 @@ defineProps<{
         <span class="font-semibold">Explanation: </span>
         <span class="">{{ feedback }}</span>
       </p>
+      <div class="text-xs text-gray-400 text-center mt-2">
+        Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
+      </div>
     </div>
   </div>
 </template>

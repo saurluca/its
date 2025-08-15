@@ -327,9 +327,9 @@ function restart() {
               @evaluate="evaluateAnswer" />
 
             <div v-if="showEvaluation">
-
-              <DTaskResult :task="currentTask" :index="currentTaskIndex" :user-answer="currentAnswer"
-                :status="evaluationStatus" :feedback="feedback ?? ''" class="mt-4" />
+              <DTaskResult v-if="!isCorrect || currentTask.type === 'free_text'" :task="currentTask"
+                :index="currentTaskIndex" :user-answer="currentAnswer" :status="evaluationStatus"
+                :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
                 <DButton @click="showSource" variant="secondary" class="mt-4">
                   Show Source

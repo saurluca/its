@@ -23,10 +23,6 @@ defineProps<{
     </div>
 
     <div class="mt-4">
-      <!-- <p v-if="status !== 'correct' && task.type === 'multiple_choice'" class="text-gray-700 mt-1">
-        <span class="font-semibold">Correct answer: </span>
-        <span class="">{{task.answer_options.find(option => option.is_correct)?.answer || 'Not available'}}</span>
-      </p> -->
       <p v-if="status !== 'correct'" class="text-gray-700 mt-4">
         <span class="font-semibold">Explanation: </span>
         <span class="">{{ feedback }}</span>

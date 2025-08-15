@@ -140,6 +140,14 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 function navigateToStudy(repositoryId: string) {
+    const repository = repositories.value.find(r => r.id === repositoryId);
+    if (repository && (repository.task_count === undefined || repository.task_count === 0)) {
+        notifications.warning(
+            `No tasks available for "${repository.name}". Please generate tasks first by clicking the + button.`,
+            3000
+        );
+        return;
+    }
     navigateTo(`/study?repositoryId=${repositoryId}`);
 }
 

@@ -147,10 +147,10 @@ onUnmounted(() => {
 
     <!-- Multiple Choice Answer -->
     <div v-if="task.type === 'multiple_choice'" class="space-y-2 mt-4">
-      <div v-for="option in task.answer_options" :key="option.id" class="flex items-center space-x-3"
-        @click="selectOption(option.answer)">
-        <div :class="getOptionClasses(option.answer)">
-          {{ option.answer }}
+      <div v-for="(optionAnswer, index) in shuffledOptions" :key="`shuffled-${index}`"
+        class="flex items-center space-x-3" @click="selectOption(optionAnswer)">
+        <div :class="getOptionClasses(optionAnswer)">
+          {{ optionAnswer }}
         </div>
       </div>
       <!-- Hotkey hint -->

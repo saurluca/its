@@ -34,25 +34,14 @@ function toggleView() {
 
 <template>
   <div class="flex items-center space-x-4">
-    <span
-      :class="{ 'font-bold': isTeacherView, 'text-gray-500': !isTeacherView }"
-      >Teacher</span
-    >
-    <button
-      @click="toggleView"
-      class="relative h-6 w-12 rounded-full bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-      :class="{ 'bg-gray-900': isTeacherView, 'bg-gray-200': !isTeacherView }"
-      type="button"
-      aria-pressed="false"
-    >
+    <span :class="{ 'font-bold': !isTeacherView, 'text-gray-500': isTeacherView }">Student</span>
+    <button @click="toggleView"
+      class="relative h-6 w-12 rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+      :class="isTeacherView ? 'bg-gray-900' : 'bg-gray-200'" type="button" :aria-pressed="isTeacherView">
       <span
-        class="absolute inset-y-0.5 left-0.5 flex h-5 w-5 transform items-center justify-center rounded-full bg-white transition-transform duration-200 ease-in-out"
-        :class="isTeacherView ? 'translate-x-6' : 'translate-x-0'"
-      ></span>
+        class="absolute inset-y-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white transition-transform duration-200 ease-in-out"
+        :class="isTeacherView ? 'translate-x-6' : 'translate-x-0'"></span>
     </button>
-    <span
-      :class="{ 'font-bold': !isTeacherView, 'text-gray-500': isTeacherView }"
-      >Student</span
-    >
+    <span :class="{ 'font-bold': isTeacherView, 'text-gray-500': !isTeacherView }">Teacher</span>
   </div>
 </template>

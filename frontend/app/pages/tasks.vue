@@ -6,14 +6,7 @@ import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
-// Define the form interface for creating/editing tasks
-interface TaskFormData {
-  type: "multiple_choice" | "free_text";
-  question: string;
-  chunkId: string;
-  options: string[];
-  correctAnswer: string;
-}
+
 
 // Define view state
 const isTeacherView = ref(true);
@@ -21,11 +14,7 @@ const tasks = ref<Task[]>([]);
 const loading = ref(true);
 const repositoriesList = ref<Repository[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
-const editingTask = ref<Task | null>(null);
 const notifications = useNotificationsStore();
-
-// For student answers
-const studentAnswers = ref<Record<string, string>>({});
 
 // For filtering tasks
 const selectedRepositoryId = ref<string>("");
@@ -198,74 +187,6 @@ watch(selectedRepositoryId, (newValue) => {
   }
 });
 
-async function createTask(taskData: TaskFormData) {
-  try {
-    // Create answer options from the form data
-    const answer_options = taskData.options?.map((option, index) => ({
-      id: `temp-${index}`,
-      answer: option,
-      is_correct: option === taskData.correctAnswer,
-      task_id: ""
-    })) || [];
-
-    // Create the basic task
-    const createdTask = await $authFetch("/tasks/", {
-      method: "POST",
-      body: {
-        type: taskData.type,
-        question: taskData.question,
-        answer_options: answer_options,
-        chunk_id: taskData.chunkId,
-      },
-    }) as Task;
-
-    // Add task details - in a real app, you would have a separate API for this
-    // For now, we'll just add it to our local array
-    tasks.value.push({
-      ...createdTask,
-      question: taskData.question,
-      answer_options: answer_options,
-    });
-  } catch (error) {
-    console.error("Error creating task:", error);
-    notifications.error("Failed to create task. Please try again.");
-  }
-}
-
-async function updateTask(taskData: Task) {
-  try {
-    // Create answer options from the form data
-    const answer_options = taskData.answer_options?.map((option) => ({
-      answer: option.answer,
-      is_correct: option.is_correct
-    })) || [];
-
-    // Update the basic task
-    await $authFetch(`/tasks/${taskData.id}/`, {
-      method: "PUT",
-      body: {
-        type: taskData.type,
-        question: taskData.question,
-        answer_options: answer_options,
-        repository_id: taskData.repository_id,
-      },
-    });
-
-    const index = tasks.value.findIndex((t) => t.id === taskData.id);
-    if (index !== -1) {
-      tasks.value[index] = {
-        ...taskData,
-        updated_at: new Date(),
-      };
-    }
-
-    editingTask.value = null;
-  } catch (error) {
-    console.error("Error updating task:", error);
-    notifications.error("Failed to update task. Please try again.");
-  }
-}
-
 async function deleteTask(id: string) {
   try {
     await $authFetch(`/tasks/${id}/`, {
@@ -279,56 +200,15 @@ async function deleteTask(id: string) {
   }
 }
 
-function handleSaveTask(taskData: TaskFormData) {
-  if (editingTask.value) {
-    const updatedTask = {
-      ...editingTask.value,
-      type: taskData.type,
-      question: taskData.question,
-      answer_options: taskData.options.map((option, index) => ({
-        id: `temp-${index}`,
-        answer: option,
-        is_correct: option === taskData.correctAnswer,
-        task_id: editingTask.value!.id,
-      })),
-      chunk_id: taskData.chunkId,
+
+function handleUpdateTask(updatedTask: Task) {
+  const index = tasks.value.findIndex((t) => t.id === updatedTask.id);
+  if (index !== -1) {
+    tasks.value[index] = {
+      ...updatedTask,
+      updated_at: new Date(),
     };
-    updateTask(updatedTask);
-  } else {
-    // Create the task
-    createTask(taskData);
-
-    // After successful creation, create a new task form with preserved chunk
-    // We do this by temporarily setting editingTask to a new object with preserved values
-    // then immediately setting it back to null to trigger a form reset
-    const preservedChunkId = taskData.chunkId;
-    const preservedType = taskData.type;
-
-    // Use setTimeout to ensure this happens after the current execution context
-    setTimeout(() => {
-      // First set a temporary task with preserved values
-      editingTask.value = {
-        id: "",
-        type: preservedType,
-        question: "",
-        answer_options: [],
-        repository_id: "",
-        document_id: "",
-        chunk_id: preservedChunkId,
-        created_at: new Date(),
-        updated_at: new Date(),
-      } as Task;
-
-      // Then immediately set it back to null to trigger the form reset
-      setTimeout(() => {
-        editingTask.value = null;
-      }, 10);
-    }, 0);
   }
-}
-
-function handleEditTask(task: Task) {
-  editingTask.value = { ...task };
 }
 </script>
 
@@ -338,81 +218,81 @@ function handleEditTask(task: Task) {
       <DViewToggle v-model="isTeacherView" />
     </DPageHeader>
 
-    <div v-if="loading" class="py-20 text-center">
-      <div class="text-xl">Loading tasks...</div>
-    </div>
 
     <div class="space-y-8">
-      <div>
-        <div class="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 class="text-xl font-bold mb-4">Filter Tasks</h2>
+      <div class="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 class="text-xl font-bold mb-4">Filter Tasks</h2>
 
-          <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center space-x-2">
-              <span class="text-gray-700">Filter by:</span>
-              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'repository'
-                ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-                : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-                ">
-                Repository
-              </DButton>
-              <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'document'
-                ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-                : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-                ">
-                Document
-              </DButton>
-            </div>
-            <DButton @click="resetFilters" variant="secondary"
-              class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
-              Reset
+        <div class="flex justify-between items-center mb-4">
+          <div class="flex items-center space-x-2">
+            <span class="text-gray-700">Filter by:</span>
+            <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'repository'
+              ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
+              : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+              ">
+              Repository
+            </DButton>
+            <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'document'
+              ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
+              : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
+              ">
+              Document
             </DButton>
           </div>
-
-          <div v-if="filterType === 'repository'">
-            <DLabel>Select Repository</DLabel>
-            <DSearchableDropdown v-model="selectedRepositoryId" :options="[
-              { value: '', label: 'All Repositories' },
-              ...repositoriesList.map((repo) => ({
-                value: repo.id,
-                label: repo.name,
-              })),
-            ]" placeholder="All Repositories" search-placeholder="Search repositories..." class="mt-1 w-full" />
-          </div>
-
-          <div v-else-if="filterType === 'document'">
-            <DLabel>Select Document</DLabel>
-            <DSearchableDropdown v-model="selectedDocumentId" :options="[
-              { value: '', label: 'All Documents' },
-              ...documentsList,
-            ]" placeholder="All Documents" search-placeholder="Search documents..." class="mt-1 w-full" />
-          </div>
+          <DButton @click="resetFilters" variant="secondary"
+            class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
+            Reset
+          </DButton>
         </div>
 
-        <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
-          ? {
-            type: editingTask.type,
-            question: editingTask.question || '',
-            chunkId: editingTask.chunk_id || '',
-            options: editingTask.answer_options?.map(option => option.answer) || [],
-            correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
-          }
-          : undefined
-          " @save="handleSaveTask" />
-
-
-        <div v-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
-          <p class="text-gray-500">
-            No tasks available for the selected filters.
-          </p>
+        <div v-if="filterType === 'repository'">
+          <DLabel>Select Repository</DLabel>
+          <DSearchableDropdown v-model="selectedRepositoryId" :options="[
+            { value: '', label: 'All Repositories' },
+            ...repositoriesList.map((repo) => ({
+              value: repo.id,
+              label: repo.name,
+            })),
+          ]" placeholder="All Repositories" search-placeholder="Search repositories..." class="mt-1 w-full" />
         </div>
 
-        <div v-else class="space-y-6 my-4">
-          <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index"
-            :model-value="studentAnswers[task.id] || ''" :disabled="true" />
-          <!-- <DTaskCard v-for="task in tasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
-            @delete="deleteTask" @edit="handleEditTask" /> -->
+        <div v-else>
+          <DLabel>Select Document</DLabel>
+          <DSearchableDropdown v-model="selectedDocumentId" :options="[
+            { value: '', label: 'All Documents' },
+            ...documentsList,
+          ]" placeholder="All Documents" search-placeholder="Search documents..." class="mt-1 w-full" />
         </div>
+      </div>
+
+      <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
+        ? {
+          type: editingTask.type,
+          question: editingTask.question || '',
+          chunkId: editingTask.chunk_id || '',
+          options: editingTask.answer_options?.map(option => option.answer) || [],
+          correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
+        }
+        : undefined
+        " @save="handleSaveTask" /> -->
+
+      <div v-if="loading" class="py-20 text-center">
+        <div class="text-xl">Loading tasks...</div>
+      </div>
+
+      <div v-else-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
+        <p class="text-gray-500">
+          No tasks available for the selected filters.
+        </p>
+      </div>
+
+      <div v-else-if="!isTeacherView" class="space-y-6 my-4">
+        <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index" :model-value="''"
+          :disabled="true" />
+      </div>
+      <div v-else class="space-y-6 my-4">
+        <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
+          @delete="deleteTask" @update="handleUpdateTask" />
       </div>
     </div>
   </div>

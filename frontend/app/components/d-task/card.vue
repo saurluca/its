@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { Task } from "~/types/models";
-import { ref } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { TrashIcon, PencilIcon, CheckIcon } from "lucide-vue-next";
+import { useNotificationsStore } from "~/stores/notifications";
+
+const { $authFetch } = useAuthenticatedFetch();
+const notifications = useNotificationsStore();
 
 const props = defineProps<{
   task: Task;
@@ -9,11 +14,40 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "delete", id: string): void;
-  (e: "edit", task: Task): void;
+  (e: "edit" | "update", task: Task): void;
 }>();
 
 // Modal state
 const showDeleteModal = ref(false);
+const isEditing = ref(false);
+const isSaving = ref(false);
+
+// Editable task data
+const editableTask = ref<Task>({ ...props.task });
+
+// Keyboard event handler
+function handleKeyDown(event: KeyboardEvent) {
+  if (!isEditing.value || isSaving.value) return;
+
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    saveTask();
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelEdit();
+  }
+}
+
+// Set up and clean up event listeners
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown);
+});
 
 function openDeleteModal() {
   showDeleteModal.value = true;
@@ -23,30 +57,190 @@ function closeDeleteModal() {
   showDeleteModal.value = false;
 }
 
-function confirmDelete() {
-  emit("delete", props.task.id);
+async function confirmDelete() {
+  try {
+    await $authFetch(`/tasks/${props.task.id}/`, {
+      method: "DELETE",
+    });
+    emit("delete", props.task.id);
+    notifications.success("Task deleted successfully");
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    notifications.error("Failed to delete task. Please try again.");
+  }
   closeDeleteModal();
 }
 
 function editTask() {
-  emit("edit", props.task);
+  isEditing.value = true;
+  editableTask.value = { ...props.task };
+
+  // Ensure answer_options exists for free text questions
+  if (editableTask.value.type === 'free_text' && (!editableTask.value.answer_options || editableTask.value.answer_options.length === 0)) {
+    editableTask.value.answer_options = [{
+      id: `temp-${Date.now()}`,
+      answer: '',
+      is_correct: true,
+      task_id: editableTask.value.id
+    }];
+  }
+}
+
+function validateTask(): boolean {
+  // Check if question is not empty
+  if (!editableTask.value.question.trim()) {
+    notifications.error("Question cannot be empty");
+    return false;
+  }
+
+  // For multiple choice, ensure at least one option is correct
+  if (editableTask.value.type === 'multiple_choice') {
+    if (!editableTask.value.answer_options || editableTask.value.answer_options.length === 0) {
+      notifications.error("At least one answer option is required");
+      return false;
+    }
+
+    const hasCorrectAnswer = editableTask.value.answer_options.some(option => option.is_correct);
+    if (!hasCorrectAnswer) {
+      notifications.error("At least one answer option must be marked as correct");
+      return false;
+    }
+
+    // Check if all options have content
+    const hasEmptyOptions = editableTask.value.answer_options.some(option => !option.answer.trim());
+    if (hasEmptyOptions) {
+      notifications.error("All answer options must have content");
+      return false;
+    }
+  }
+
+  // For free text, ensure correct answer is provided
+  if (editableTask.value.type === 'free_text') {
+    if (!editableTask.value.answer_options || editableTask.value.answer_options.length === 0 || !editableTask.value.answer_options[0]?.answer.trim()) {
+      notifications.error("Correct answer is required for free text questions");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function saveTask() {
+  if (!validateTask()) {
+    return;
+  }
+
+  isSaving.value = true;
+  try {
+    // Prepare answer options for backend
+    const answer_options = editableTask.value.answer_options?.map((option) => ({
+      answer: option.answer,
+      is_correct: option.is_correct
+    })) || [];
+
+    // Update the task via API
+    const updatedTask = await $authFetch(`/tasks/${editableTask.value.id}/`, {
+      method: "PUT",
+      body: {
+        type: editableTask.value.type,
+        question: editableTask.value.question,
+        answer_options: answer_options,
+        repository_id: editableTask.value.repository_id,
+      },
+    });
+
+    // Update the local task data
+    const updatedTaskWithOptions = {
+      ...updatedTask,
+      answer_options: editableTask.value.answer_options
+    };
+
+    emit("update", updatedTaskWithOptions);
+    isEditing.value = false;
+    notifications.success("Task updated successfully");
+  } catch (error) {
+    console.error("Error updating task:", error);
+    notifications.error("Failed to update task. Please try again.");
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function cancelEdit() {
+  isEditing.value = false;
+  editableTask.value = { ...props.task };
+}
+
+function updateAnswerOption(index: number, field: 'answer' | 'is_correct', value: string | boolean) {
+  if (editableTask.value.answer_options && editableTask.value.answer_options[index]) {
+    // If setting is_correct to true, first set all others to false
+    if (field === 'is_correct' && value === true) {
+      editableTask.value.answer_options.forEach((option, i) => {
+        if (i !== index) {
+          option.is_correct = false;
+        }
+      });
+    }
+
+    editableTask.value.answer_options[index] = {
+      ...editableTask.value.answer_options[index]!,
+      [field]: value
+    };
+  }
+}
+
+function addAnswerOption() {
+  if (!editableTask.value.answer_options) {
+    editableTask.value.answer_options = [];
+  }
+  editableTask.value.answer_options.push({
+    id: `temp-${Date.now()}`,
+    answer: '',
+    is_correct: false,
+    task_id: editableTask.value.id
+  });
+}
+
+function removeAnswerOption(index: number) {
+  if (editableTask.value.answer_options) {
+    // Don't allow removing if it's the only option or if it's the correct one and there are other options
+    const isCorrect = editableTask.value.answer_options[index]?.is_correct;
+    const hasOtherCorrectOptions = editableTask.value.answer_options.some((option, i) => i !== index && option.is_correct);
+
+    if (editableTask.value.answer_options.length === 1) {
+      notifications.error("Cannot remove the last answer option");
+      return;
+    }
+
+    if (isCorrect && !hasOtherCorrectOptions) {
+      notifications.error("Cannot remove the only correct answer. Please mark another option as correct first.");
+      return;
+    }
+
+    editableTask.value.answer_options.splice(index, 1);
+  }
 }
 
 // Computed properties for displaying task information
 const correctAnswer = computed(() => {
-  return props.task.answer_options?.find(option => option.is_correct)?.answer || 'Not available';
+  return props.task.answer_options?.find(option => option.is_correct)?.answer || '';
 });
 
-const options = computed(() => {
-  return props.task.answer_options?.map(option => option.answer) || [];
+const freeTextAnswer = computed({
+  get: () => editableTask.value.answer_options?.[0]?.answer || '',
+  set: (value: string) => {
+    if (editableTask.value.answer_options && editableTask.value.answer_options[0]) {
+      editableTask.value.answer_options[0].answer = value;
+    }
+  }
 });
 </script>
 
 <template>
-  <div class="bg-white p-4 rounded-lg shadow">
-    <div class="flex justify-between">
-      <h3 class="text-lg font-medium">{{ task.question }}</h3>
-      <div class="flex space-x-3 items-center">
+  <div class="bg-white p-6 rounded-lg shadow w-2xl">
+    <div class="flex justify-between items-start">
+      <div class="flex-1">
+        <h3 class="text-lg font-medium">Task</h3>
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           {{
             task.type === "multiple_choice"
@@ -54,41 +248,119 @@ const options = computed(() => {
               : "Free Text"
           }}
         </span>
+      </div>
 
-        <div v-if="isTeacherView" class="flex space-x-2">
-          <DButton @click="editTask" title="Edit">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-          </DButton>
-          <DButton @click="openDeleteModal" variant="danger" title="Delete">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd"
-                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clip-rule="evenodd" />
-            </svg>
-          </DButton>
+      <!-- Action buttons -->
+      <div v-if="isTeacherView" class="flex space-x-2 ml-4">
+        <button v-if="!isEditing" @click="editTask"
+          class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Task">
+          <PencilIcon class="h-5 w-5" />
+        </button>
+        <button v-if="!isEditing" @click="openDeleteModal"
+          class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Task">
+          <TrashIcon class="h-5 w-5" />
+        </button>
+
+        <!-- Save/Cancel buttons when editing -->
+        <button v-if="isEditing" @click="saveTask" :disabled="isSaving"
+          class="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Save Changes (Enter)">
+          <CheckIcon class="h-5 w-5" />
+        </button>
+        <button v-if="isEditing" @click="cancelEdit" :disabled="isSaving"
+          class="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Cancel Edit (Escape)">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- Question -->
+    <div class="mt-4">
+      <label v-if="isEditing" class="block text-sm font-medium text-gray-700 mb-2">Question:</label>
+      <textarea v-if="isEditing" v-model="editableTask.question" rows="3"
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        placeholder="Enter the question..."></textarea>
+      <p v-else class="mt-2">{{ task.question }}</p>
+    </div>
+
+    <!-- Multiple Choice Answer Options -->
+    <div v-if="task.type === 'multiple_choice'" class="mt-4">
+      <div v-if="isEditing" class="space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="block text-sm font-medium text-gray-700">Answer Options:</label>
+          <button @click="addAnswerOption"
+            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            Add Option
+          </button>
+        </div>
+
+        <div v-for="(option, index) in editableTask.answer_options" :key="option.id"
+          class="flex items-center space-x-3">
+          <input v-model="option.answer" type="text"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter answer option..." />
+          <label class="flex items-center space-x-2">
+            <input type="radio" :name="`correct-${task.id}`" :checked="option.is_correct"
+              @change="updateAnswerOption(index, 'is_correct', true)" class="text-blue-600 focus:ring-blue-500" />
+            <span class="text-sm text-gray-700">Correct</span>
+          </label>
+          <button @click="removeAnswerOption(index)"
+            class="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors" title="Remove option">
+            <TrashIcon class="h-4 w-4" />
+          </button>
+        </div>
+
+        <!-- Keyboard hint -->
+        <div v-if="isEditing" class="text-xs text-gray-500 mt-2">
+          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
+            class="px-1 py-0.5 bg-gray-100 rounded text-xs">Escape</kbd> to cancel
+        </div>
+      </div>
+
+      <!-- Display mode for multiple choice -->
+      <div v-else class="space-y-2">
+        <div v-for="option in task.answer_options" :key="option.id" class="flex items-center space-x-3">
+          <div class="flex-1 px-3 py-2 border rounded-md" :class="option.is_correct
+            ? 'border-green-500 bg-green-50 text-green-800'
+            : 'border-gray-300 bg-gray-50 text-gray-700'">
+            {{ option.answer }}
+          </div>
+          <div v-if="option.is_correct" class="text-green-600">
+            <CheckIcon class="h-5 w-5" />
+          </div>
         </div>
       </div>
     </div>
-    <div class="mt-4 text-sm text-gray-500">
-      <p v-if="task.type === 'multiple_choice'">
-        Options: {{ options.join(", ") }}<br />
-        Correct answer: {{ correctAnswer }}
-      </p>
-      <p v-else>Sample answer: {{ correctAnswer }}</p>
-    </div>
 
-    <slot></slot>
+    <!-- Free Text Answer -->
+    <div v-else class="mt-4">
+      <div v-if="isEditing">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Correct Answer:</label>
+        <textarea v-model="freeTextAnswer" rows="4"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Enter the correct answer..."></textarea>
 
-    <!-- Delete Confirmation Modal -->
-    <DModal v-if="showDeleteModal" titel="Confirm Task Deletion" confirm-text="Delete" @close="closeDeleteModal"
-      @confirm="confirmDelete">
-      <div class="p-4">
-        <p>Are you sure you want to delete the task "{{ task.question }}"?</p>
-        <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+        <!-- Keyboard hint -->
+        <div class="text-xs text-gray-500 mt-2">
+          💡 Tip: Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to save changes or <kbd
+            class="px-1 py-0.5 bg-gray-100 rounded text-xs">Escape</kbd> to cancel
+        </div>
       </div>
-    </DModal>
+      <div v-else>
+        <div class="px-3 py-2 border border-green-500 bg-green-50 text-green-800 rounded-md">
+          <strong>Correct Answer:</strong> {{ correctAnswer }}
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Delete Confirmation Modal -->
+  <DModal v-if="showDeleteModal" titel="Confirm Task Deletion" confirm-text="Delete" @close="closeDeleteModal"
+    @confirm="confirmDelete">
+    <div class="p-4">
+      <p>Are you sure you want to delete the task "{{ task.question }}"?</p>
+      <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+    </div>
+  </DModal>
 </template>

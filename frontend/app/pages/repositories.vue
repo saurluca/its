@@ -293,7 +293,7 @@ async function confirmDelete() {
 async function openGenerateTasksModal(repository: Repository) {
     selectedRepositoryForTasks.value = repository;
     selectedDocuments.value.clear();
-    numTasksToGenerate.value = 5;
+    numTasksToGenerate.value = 3;
     taskType.value = "multiple_choice";
 
     // Fetch documents for this repository

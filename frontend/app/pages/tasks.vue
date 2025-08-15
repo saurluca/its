@@ -288,7 +288,7 @@ function handleUpdateTask(updatedTask: Task) {
 
       <div v-else-if="!isTeacherView" class="space-y-6 my-4">
         <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index" :model-value="''"
-          :disabled="true" />
+          :disabled="true" :is-evaluated="false" :is-correct="false" />
       </div>
       <div v-else class="space-y-6 my-4">
         <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"

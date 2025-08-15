@@ -323,7 +323,8 @@ function restart() {
             pageState === 'studying' && tasks.length > 0 && currentTask
           " class="space-y-2">
             <DTaskAnswer :task="currentTask" :index="currentTaskIndex" v-model="currentAnswer"
-              :disabled="showEvaluation || evaluating" @evaluate="evaluateAnswer" />
+              :disabled="showEvaluation || evaluating" :is-evaluated="showEvaluation" :is-correct="isCorrect ?? false"
+              @evaluate="evaluateAnswer" />
 
             <div v-if="showEvaluation">
               <DTaskResult :task="currentTask" :index="currentTaskIndex" :user-answer="currentAnswer"
@@ -367,7 +368,7 @@ function restart() {
               <DButton @click="restart">Study Another Document</DButton>
             </div>
             <div class="text-xs text-gray-500 text-center mt-2">
-              💡 Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
+              Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
             </div>
           </div>
         </div>

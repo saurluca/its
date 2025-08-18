@@ -14,27 +14,27 @@ services:
       - POSTGRES_DB=${DB_NAME}
     restart: always
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/app:/usr/src/app
-    depends_on:
-      - db
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./backend/app:/usr/src/app
+  #   depends_on:
+  #     - db
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
-        - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+  #       - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
+  #   ports:
+  #     - "3000:80"
+  #   depends_on:
+  #     - backend

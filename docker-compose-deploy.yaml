@@ -43,8 +43,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-frontend:${GITHUB_REF_NAME:-main}
     container_name: frontend
     environment:
-      - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
-      - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
+      - NUXT_PUBLIC_API_BASE=https://api.dodoit.net
     ports:
       - "3000:80"
     depends_on:

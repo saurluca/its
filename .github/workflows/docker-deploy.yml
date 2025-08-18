@@ -22,15 +22,12 @@ jobs:
         run: |
           docker build ./frontend --file ./frontend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
-            --build-arg NUXT_SESSION_PASSWORD=${{ secrets.NUXT_SESSION_PASSWORD }} \
-            --build-arg NUXT_PUBLIC_API_BASE=${{ secrets.NUXT_PUBLIC_API_BASE }} \
-            --no-cache
+            --build-arg NUXT_PUBLIC_API_BASE=https://api.dodoit.net \
 
       - name: Build backend Image
         run: |
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
-            --no-cache
 
       - name: Push frontend Image
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}

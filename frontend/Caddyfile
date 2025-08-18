@@ -8,10 +8,4 @@
         path /_nuxt/*
     }
     header @static Cache-Control "public, max-age=31536000, immutable"
-    
-    # Handle API requests (if any) - uncomment and modify as needed
-    # @api {
-    #     path /api/*
-    # }
-    # reverse_proxy @api http://backend:8000
 } 

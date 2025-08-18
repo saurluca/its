@@ -21,7 +21,7 @@ export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
-  // Ensure the base URL uses HTTPS
+  // Ensure the base URL uses HTTPS, test
   const baseURL = config.public.apiBase.startsWith("http://")
     ? config.public.apiBase.replace("http://", "https://")
     : config.public.apiBase;

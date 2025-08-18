@@ -107,7 +107,7 @@ async function uploadDocumentFromInput(event: Event) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const data = await fetchJson<{ id: string }>("/documents/upload/", {
+    const data = await fetchJson<{ id: string }>("/documents/upload", {
       method: "POST",
       body: formData,
     });

@@ -214,7 +214,7 @@ async function handleUpload() {
         formData.append("file", file);
 
         // Upload the document
-        const uploadResponse = await $authFetch("/documents/upload/", {
+        const uploadResponse = await $authFetch("/documents/upload", {
             method: "POST",
             body: formData,
         }) as { id: string };
@@ -224,7 +224,7 @@ async function handleUpload() {
             const documentId = uploadResponse.id;
 
             for (const repositoryId of selectedRepos) {
-                await $authFetch("/repositories/links/", {
+                await $authFetch("/repositories/links", {
                     method: "POST",
                     body: {
                         repository_id: repositoryId,
@@ -263,7 +263,7 @@ async function confirmEditTitle() {
     if (!editingRepositoryId.value || !editingTitle.value.trim()) return;
 
     try {
-        await $authFetch(`/repositories/${editingRepositoryId.value}/`, {
+        await $authFetch(`/repositories/${editingRepositoryId.value}`, {
             method: "PUT",
             body: { name: editingTitle.value.trim() },
         });
@@ -304,7 +304,7 @@ async function openGenerateTasksModal(repository: Repository) {
 
     // Fetch documents for this repository
     try {
-        const data = await $authFetch(`/repositories/${repository.id}/documents/`) as Document[];
+        const data = await $authFetch(`/repositories/${repository.id}/documents`) as Document[];
         repositoryDocuments.value = data.map((doc: Document) => ({
             id: doc.id,
             title: doc.title,
@@ -352,7 +352,7 @@ async function confirmGenerateTasks() {
     const processingId = notifications.loading(`Generating ${taskCount} ${taskTypeText} tasks for "${repositoryName}" from ${documentCount} document${documentCount === 1 ? '' : 's'}. This may take a while.`);
 
     try {
-        await $authFetch("/tasks/generate_for_multiple_documents/", {
+        await $authFetch("/tasks/generate_for_multiple_documents", {
             method: "POST",
             body: {
                 repository_id: repositoryId,
@@ -391,7 +391,7 @@ async function viewDocument(documentId: string) {
     showHtmlViewer.value = true;
 
     try {
-        const data = await $authFetch(`/documents/${documentId}/`) as Document;
+        const data = await $authFetch(`/documents/${documentId}`) as Document;
 
         if (data.content) {
             htmlContent.value = data.content;

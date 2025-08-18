@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from database import create_db_and_tables
 from router import router
 from tasks.router import router as tasks_router
 from documents.router import router as documents_router
@@ -35,6 +36,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+create_db_and_tables()
 
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()

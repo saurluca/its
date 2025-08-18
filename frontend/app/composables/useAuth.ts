@@ -21,8 +21,13 @@ export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
+  // Ensure the base URL uses HTTPS
+  const baseURL = config.public.apiBase.startsWith("http://")
+    ? config.public.apiBase.replace("http://", "https://")
+    : config.public.apiBase;
+
   const $authFetch = $fetch.create({
-    baseURL: config.public.apiBase,
+    baseURL: baseURL,
     onRequest({ options }) {
       // Include credentials (cookies) in all requests
       options.credentials = "include";

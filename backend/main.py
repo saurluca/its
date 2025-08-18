@@ -9,6 +9,7 @@ from auth.router import router as auth_router
 from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
 import os
+from typing import List
 
 # Import all models to register them with SQLModel.metadata
 from auth.models import User  # noqa
@@ -24,9 +25,14 @@ app = FastAPI(
     version=AppConfig.API_VERSION,
 )
 
-origins = os.getenv("CORS_ORIGINS", "").split(",")
-if not origins:
+# Robust CORS origins parsing
+origins_env = os.getenv("CORS_ORIGINS", "").strip()
+if not origins_env:
     raise ValueError("CORS_ORIGINS is not set")
+
+origins: List[str] = [o.strip() for o in origins_env.split(",") if o.strip()]
+if not origins:
+    raise ValueError("CORS_ORIGINS contains no valid origins")
 
 # Add CORS middleware
 app.add_middleware(

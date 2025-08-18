@@ -26,6 +26,7 @@ const {
   type = "button",
   loading = false,
   disabled = false,
+  textCenter = false,
 } = defineProps<Props>();
 </script>
 
@@ -45,14 +46,14 @@ const {
       'bg-blue-100 text-blue-700 hover:bg-blue-200':
         variant === 'tertiary' && !disabled && !loading,
       'bg-gray-300 text-gray-500 cursor-not-allowed': disabled || loading,
+      'justify-center': textCenter,
     }">
 
-    <div v-if="loading" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
-      <LoaderCircleIcon class="size-5 animate-spin" />
-    </div>
-
-    <span v-else class="flex items-center gap-2">
-      <component v-if="iconLeft" :is="iconLeft" class="size-4" />
+    <span class="flex items-center gap-2" :class="{
+      'justify-center': textCenter,
+    }">
+      <LoaderCircleIcon v-if="loading" class="size-4 animate-spin" />
+      <component v-else-if="iconLeft" :is="iconLeft" class="size-4" />
       <slot />
     </span>
   </component>

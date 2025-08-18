@@ -14,23 +14,40 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
 
       - name: Log in to GHCR
+        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Frontend Image
+        if: steps.changes.outputs.frontend == 'true'
         run: |
           docker build ./frontend --file ./frontend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
             --build-arg NUXT_PUBLIC_API_BASE=https://api.dodoit.net \
 
       - name: Build backend Image
+        if: steps.changes.outputs.backend == 'true'
         run: |
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
 
       - name: Push frontend Image
+        if: steps.changes.outputs.frontend == 'true'
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
 
       - name: Push backend Image
+        if: steps.changes.outputs.backend == 'true'
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}

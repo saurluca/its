@@ -1,7 +1,7 @@
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.chunking import HybridChunker
-from io import BufferedReader
+from io import BytesIO
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import InvalidFileFormatError
 from .models import Document, Chunk
@@ -157,16 +157,17 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
         else:
             raise InvalidFileFormatError("No mime type provided")
 
-    # Ensure stream is at start and use underlying file-like object directly to avoid large memory copies
+    # Ensure stream is at start and convert to BytesIO for DocumentStream compatibility
     try:
         file_obj.seek(0)
-    except Exception:
-        pass
+        # Read the file content and create a BytesIO object
+        file_content = file_obj.read()
+        stream_like = BytesIO(file_content)
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        raise InvalidFileFormatError("Could not read file content")
 
-    # Wrap in a buffered reader if not already, to provide a consistent interface
-    stream_like = file_obj if hasattr(file_obj, "read") else BufferedReader(file_obj)
-
-    # Create DocumentStream with original stream to minimize memory usage
+    # Create DocumentStream with BytesIO stream
     stream = DocumentStream(name=str(name), stream=stream_like)
 
     print("Converting using Docling")

@@ -21,10 +21,8 @@ export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
-  // Ensure the base URL uses HTTPS, test
-  const baseURL = config.public.apiBase.startsWith("http://")
-    ? config.public.apiBase.replace("http://", "https://")
-    : config.public.apiBase;
+  // Use the API base URL as configured (don't force HTTPS for localhost)
+  const baseURL = config.public.apiBase;
 
   const $authFetch = $fetch.create({
     baseURL: baseURL,

@@ -19,64 +19,51 @@ from tasks.models import (
 
 
 class QuestionMultipleChoice(dspy.Signature):
-    """Generate a single multiple choice question, answer options, and correct answer indices from a text chunk."""
+    """Generate a single multiple choice question, with 4 answer options, and exactly one correct answer which is in the first position.
+    Generate the question based on the provided text.
+    The question should be short and concise.
+    The question should be relevant to the text and require understanding of the material.
+    Do not enumerate the answer options, no numbering or alphabet.
+    The student does not see the text chunk.
+    There should be exactly one correct answer.
+    The text is an excerpt from a lecture.
+    """
 
     text: str = dspy.InputField(description="The text to generate a question from.")
 
     question: str = dspy.OutputField(
         description="A single multiple choice question generated from the key points. It should foster a deep understanding of the material. The question should be short and concise."
     )
+
     answer: list[str] = dspy.OutputField(
         description="A list of 4 answer options for each question. Exactly one answer option is correct. The correct answer should always be in the first position. Do not enumerate the answer options, no numbering or alphabet."
     )
 
 
 class QuestionFreeText(dspy.Signature):
-    """Generate a single free text question from a text chunk and an ideal answer."""
+    """Generate a single free text question from a text chunk and an ideal answer.
+    The question should be short and concise.
+    The question should be answerable in 1 to 3 sentences.
+    The question should be relevant to the text and require understanding of the material.
+    Keep close to the text, do not make up information.
+    The student does not see the text chunk.
+    The text is an excerpt from a lecture.
+    Also provide a correct answer to the question.
+    Keep this answer short and concise, containing the key points relevant to answer the question.
+    The user's answer will be compared to this answer.
+    """
 
     text: str = dspy.InputField(description="The text to generate a question from.")
 
     question: str = dspy.OutputField(
-        description="""
-        A single question generated from the text, that is answerable in 1 to 3 sentences, based on the provided text.
-        The question should be relevant to the text and require a deep understanding of the material to answer.
-        The question should be short and concise.
-        """
+        description="A single question generated from the text"
     )
     answer: str = dspy.OutputField(
-        description="The ideal, correct answer to the question. The user's answer will be compared to this answer."
+        description="The ideal, correct answer to the question. Concise and contains the key points relevant to answer the question."
     )
 
 
-class QuestionFreeTextBinary(dspy.Signature):
-    """You are grading 20 year old students' responses to short answer-questions about the {text} below.
-
-    Students have been asked this question:  {question}
-
-    A correct answer to this question is: {correct_answer}
-
-    Your task is to decide if the student’s answer is correct or wrong.
-
-    A student answer is wrong if it misses a key part of the correct answer.
-
-    If the student response is correct, you will respond OUTPUT = 1.
-    If the student response is wrong, you will respond OUTPUT = 0.."""
-
-    text: str = dspy.InputField(description="The text to generate a question from.")
-
-    question: str = dspy.OutputField(
-        description="""
-        A single question generated from the text, that is answerable in 1 to 3 sentences, based on the provided text.
-        The question should be relevant to the text and require a deep understanding of the material to answer.
-        The question should be short and concise.
-        """
-    )
-    answer: str = dspy.OutputField(
-        description="The ideal, correct answer to the question. The user's answer will be compared to this answer."
-    )
-
-
-class TeacherFreeText(dspy.Signature):
+class TeacherFreeText10Score(dspy.Signature):
     """Evaluate the student's answer and provide feedback that is tightly aligned with the assigned score.
 
     Use ONLY the provided chunk and ideal answer as the source of truth. Do not use outside knowledge.
@@ -134,8 +121,8 @@ class TeacherFreeText(dspy.Signature):
     )
 
 
-class TeacherFreeTextBinary(dspy.Signature):
-    """You are grading a student's response to a short answer-question  about the {chunk} below.
+class TeacherFreeText2Way(dspy.Signature):
+    """You are grading a student's response to a short answer-question about the text {chunk} below.
 
     Students have been asked this question:  {question}
 
@@ -146,14 +133,16 @@ class TeacherFreeTextBinary(dspy.Signature):
     A student answer is wrong if it misses a key part of the correct answer.
     Ignore Grammar and Spelling mistakes, only evaluate the content.
 
-    If the student response is correct, you will respond with output = 1.
-    If the student response is wrong, you will respond with output = 0.
+    If the student response is correct, you will respond with score = 0.
+    If the student response is wrong, you will respond with score = 1.
     """
 
     chunk: str = dspy.InputField(
         description="The chunk of text related to the question."
     )
+
     question: str = dspy.InputField(description="The question asked to the student.")
+
     correct_answer: str = dspy.InputField(
         description="The correct answer to the question."
     )
@@ -162,8 +151,59 @@ class TeacherFreeTextBinary(dspy.Signature):
         description="The student's answer to the question."
     )
 
-    output: int = dspy.OutputField(
-        description="1 if the content of the student's answer is correct, 0 if it is wrong."
+    score: int = dspy.OutputField(
+        description="0 if the content of the student's answer is correct, 1 if it is wrong."
+    )
+
+
+class TeacherFreeText4Way(dspy.Signature):
+    """You are a teacher for undergraduate students.
+    Your job is to evaluate the student's answers to a short answer-question about the text {chunk} below and provide short and concise feedback.
+
+    Students have been asked this question:  {question}
+
+    A correct answer to this question is: {correct_answer}
+
+    Your task is to decide if the student’s answer is correct, partially correct but incomplete, irrelevant or contradictory.
+    Answer based on the chunk and the provided correct answer only.
+
+    Correct: The student's answer is correct and fully addresses the question.
+    If the student response is correct, you will respond with score = 0
+
+    Partially correct but incomplete: The student's answer correct, but does not fully address the question.
+    If the student response is partially correct but incomplete, you will respond with score = 1
+
+    Contradictory: The student's answer contradicts the chunk and the correct answer.
+    If the student response is contradictory, you will respond with score = 2
+
+    Irrelevant: The student's answer is irrelevant to the question.
+    If the student response is irrelevant, you will respond with score = 3
+
+    The feedback should be short and concise, 1 to 2 sentences.
+    The feedback should explain the reasoning behind the score, e.g. what is missing, what is wrong, what is right in the student's answer.
+    The feedback should be based on the student's answer and the chunk.
+    """
+
+    chunk: str = dspy.InputField(
+        description="The chunk of text related to the question."
+    )
+
+    question: str = dspy.InputField(description="The question asked to the student.")
+
+    correct_answer: str = dspy.InputField(
+        description="The correct answer to the question."
+    )
+
+    student_answer: str = dspy.InputField(
+        description="The student's answer to the question."
+    )
+
+    score: int = dspy.OutputField(
+        description="0 if the content of the student's answer is correct, 1 if it is partially correct but incomplete, 2 if it is contradictory, 3 if it is irrelevant."
+    )
+
+    feedback: str = dspy.OutputField(
+        description="Short and concise feedback for the student based on their answer."
     )
 
 
@@ -321,8 +361,8 @@ def evaluate_student_answer(
         teacher = dspy.ChainOfThought(TeacherMultipleChoice)
     elif task_type == TaskType.FREE_TEXT:
         print("Evaluating free text question")
-        teacher = dspy.ChainOfThought(TeacherFreeText)
-        # teacher = dspy.ChainOfThought(TeacherFreeTextBinary)
+        # teacher = dspy.ChainOfThought(TeacherFreeText10Score)
+        teacher = dspy.ChainOfThought(TeacherFreeText4Way)
 
     try:
         # print("task_teacher", task_teacher)

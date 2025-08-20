@@ -104,8 +104,8 @@ class TeacherResponseMultipleChoice(SQLModel):
 
 
 class TeacherResponseFreeText(SQLModel):
-    feedback: str
     score: int
+    feedback: str
 
 
 class EvaluateAnswerRequest(SQLModel):

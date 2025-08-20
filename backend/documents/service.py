@@ -3,9 +3,9 @@ from docling.datamodel.base_models import DocumentStream
 from docling.datamodel.document import DoclingDocument as DLDocument
 from docling.chunking import HybridChunker
 from io import BytesIO
-from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
+from constants import MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import InvalidFileFormatError
-from .models import Document as DBDocument, Chunk
+from .models import Document as Chunk
 import time
 import dspy
 import fitz
@@ -206,8 +206,7 @@ def extract_docling_doc(file_obj, flatten_pdf: bool = False) -> tuple[str, DLDoc
         file_obj.seek(0)
         file_content = file_obj.read()
         stream_like = BytesIO(file_content)
-        if flatten_pdf:
-            stream_like = flatten_pdf_in_memory(stream_like)
+        stream_like = flatten_pdf_in_memory(stream_like)
     except Exception as e:
         print(f"Error reading file: {e}")
         raise InvalidFileFormatError("Could not read file content")

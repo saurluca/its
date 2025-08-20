@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import DViewToggle from "~/components/d-view-toggle.vue";
 import type { Task, Repository, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
-
-
 
 // Define view state
 const isTeacherView = ref(true);
@@ -20,6 +18,15 @@ const notifications = useNotificationsStore();
 const selectedRepositoryId = ref<string>("");
 const selectedDocumentId = ref<string>("");
 const filterType = ref<"repository" | "document">("repository");
+
+// Try task state
+const previewingTask = ref<Task | null>(null);
+const currentAnswer = ref("");
+const showEvaluation = ref(false);
+const evaluationStatus = ref<"correct" | "partial" | "incorrect" | "contradictory" | "irrelevant">("incorrect");
+const isCorrect = ref<boolean | null>(null);
+const evaluating = ref<boolean>(false);
+const feedback = ref<string | null>(null);
 
 // Get document ID or repository ID from route query if present
 const route = useRoute();
@@ -126,6 +133,16 @@ onMounted(async () => {
   }
 });
 
+// Add keyboard event listener when component is mounted
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+// Remove keyboard event listener when component is unmounted
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
+
 // Function to fetch tasks by document
 async function fetchTasksByDocument(documentId: string) {
   try {
@@ -210,6 +227,101 @@ function handleUpdateTask(updatedTask: Task) {
     };
   }
 }
+
+// Preview task functions
+function startPreviewingTask(task: Task) {
+  previewingTask.value = task;
+  currentAnswer.value = "";
+  showEvaluation.value = false;
+  isCorrect.value = null;
+  evaluationStatus.value = "incorrect";
+  feedback.value = null;
+}
+
+// Handle keyboard events for modal
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && previewingTask.value) {
+    closeTryTask();
+  }
+}
+
+async function evaluateAnswer() {
+  if (!previewingTask.value || currentAnswer.value === null || currentAnswer.value === "") {
+    notifications.error("Please enter an answer.");
+    return;
+  }
+
+  feedback.value = "Evaluating...";
+  evaluating.value = true;
+
+  if (previewingTask.value.type === 'multiple_choice') {
+    const correct = currentAnswer.value === previewingTask.value.answer_options.find(option => option.is_correct)?.answer;
+    isCorrect.value = correct;
+    evaluationStatus.value = correct ? 'correct' : 'incorrect';
+    showEvaluation.value = true;
+    if (correct) {
+      evaluating.value = false;
+      return;
+    }
+    // Incorrect multiple choice: request backend feedback
+    try {
+      const responseData = await $authFetch(`/tasks/evaluate_answer/${previewingTask.value.id}`, {
+        method: "POST",
+        body: { student_answer: currentAnswer.value },
+      }) as { feedback: string; };
+      feedback.value = responseData.feedback || null;
+    } catch (e: unknown) {
+      notifications.error(e instanceof Error ? e.message : "Failed to evaluate answer.");
+      return;
+    } finally {
+      evaluating.value = false;
+    }
+  } else {
+    // Free text: wait for backend response, use new 4-way scoring system
+    try {
+      const responseData = await $authFetch(`/tasks/evaluate_answer/${previewingTask.value.id}`, {
+        method: "POST",
+        body: { student_answer: currentAnswer.value },
+      }) as { feedback: string; score: number; };
+      feedback.value = responseData.feedback || null;
+      const scoreNum = responseData.score;
+
+      // Handle new 4-way scoring system (0-3)
+      if (scoreNum === 0) {
+        // Correct: 1 point
+        evaluationStatus.value = 'correct';
+        isCorrect.value = true;
+      } else if (scoreNum === 1) {
+        // Partially correct but incomplete: 0.5 points
+        evaluationStatus.value = 'partial';
+        isCorrect.value = false;
+      } else if (scoreNum === 2) {
+        // Contradictory: 0 points
+        evaluationStatus.value = 'contradictory';
+        isCorrect.value = false;
+      } else if (scoreNum === 3) {
+        // Irrelevant: 0 points
+        evaluationStatus.value = 'irrelevant';
+        isCorrect.value = false;
+      }
+      showEvaluation.value = true;
+    } catch (e: unknown) {
+      notifications.error(e instanceof Error ? e.message : "Failed to evaluate answer.");
+      return;
+    } finally {
+      evaluating.value = false;
+    }
+  }
+}
+
+function closeTryTask() {
+  previewingTask.value = null;
+  currentAnswer.value = "";
+  showEvaluation.value = false;
+  isCorrect.value = null;
+  evaluationStatus.value = "incorrect";
+  feedback.value = null;
+}
 </script>
 
 <template>
@@ -292,7 +404,52 @@ function handleUpdateTask(updatedTask: Task) {
       </div>
       <div v-else class="space-y-6 my-4">
         <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
-          @delete="deleteTask" @update="handleUpdateTask" />
+          @delete="deleteTask" @update="handleUpdateTask" @preview-task="startPreviewingTask" />
+      </div>
+    </div>
+
+    <!-- Try Task Modal/Overlay -->
+    <div v-if="previewingTask" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="rounded-lg bg-white max-w-[720px] w-full max-h-[90vh]  p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Task Preview</h2>
+          <button @click="closeTryTask" class="text-gray-500 hover:text-gray-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Task Display -->
+        <div class="space-y-4">
+          <DTaskAnswer :task="previewingTask" :index="0" v-model="currentAnswer"
+            :disabled="showEvaluation || evaluating" :is-evaluated="showEvaluation" :is-correct="isCorrect ?? false"
+            @evaluate="evaluateAnswer" />
+
+          <!-- Evaluation Results -->
+          <div v-if="showEvaluation">
+            <DTaskResult v-if="!isCorrect || previewingTask.type === 'free_text'" :task="previewingTask" :index="0"
+              :user-answer="currentAnswer" :status="evaluationStatus" :feedback="feedback ?? ''" class="mt-2" />
+            <div class="flex justify-end gap-2 mt-2">
+              <DButton @click="closeTryTask" variant="secondary">
+                Close
+              </DButton>
+            </div>
+          </div>
+
+          <!-- Evaluate Button -->
+          <div v-else class="flex justify-end items-center min-h-10">
+            <template v-if="evaluating">
+              <div class="flex items-center gap-2 text-gray-600">
+                <DSpinner size="sm" />
+                <span>Evaluating…</span>
+              </div>
+            </template>
+            <template v-else>
+              <DButton @click="evaluateAnswer">Evaluate</DButton>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>

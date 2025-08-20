@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task } from "~/types/models";
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { TrashIcon, PencilIcon, CheckIcon, PlusIcon } from "lucide-vue-next";
+import { TrashIcon, PencilIcon, CheckIcon, PlusIcon, FlaskConical } from "lucide-vue-next";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "delete", id: string): void;
   (e: "edit" | "update", task: Task): void;
+  (e: "preview-task", task: Task): void;
 }>();
 
 // Modal state
@@ -246,6 +247,11 @@ const freeTextAnswer = computed({
 
       <!-- Action buttons -->
       <div v-if="isTeacherView" class="flex space-x-2 ml-4">
+        <button v-if="!isEditing" @click="() => emit('preview-task', task)"
+          class="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+          title="Preview Task">
+          <FlaskConical class="h-5 w-5" />
+        </button>
         <button v-if="!isEditing" @click="editTask"
           class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Task">
           <PencilIcon class="h-5 w-5" />

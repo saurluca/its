@@ -29,6 +29,8 @@ dependencies = [
     "uvicorn>=0.35.0",
     "scikit-learn>=1.7.1",
     "pymupdf>=1.26.3",
+    "matplotlib>=3.10.5",
+    "seaborn>=0.13.2",
 ]
 fastapi = "^0.110.0"
 uvicorn = {extras = ["standard"], version = "^0.29.0"}

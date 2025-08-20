@@ -45,6 +45,7 @@ const selectedRepositories = ref<string[]>([]);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
 const showUploadModal = ref(false);
+const flattenPdf = ref(false);
 
 // Computed property to check if upload is allowed
 const canUpload = computed(() => {
@@ -174,6 +175,7 @@ function closeUploadModal() {
     showUploadModal.value = false;
     selectedRepositories.value = [];
     selectedFile.value = null;
+    flattenPdf.value = false;
 }
 
 function triggerFilePicker() {
@@ -202,6 +204,7 @@ async function handleUpload() {
     const file = selectedFile.value;
     const fileName = file.name;
     const selectedRepos = [...selectedRepositories.value];
+    const shouldFlatten = flattenPdf.value;
 
     // Close modal immediately and show processing notification
     closeUploadModal();
@@ -214,7 +217,8 @@ async function handleUpload() {
         formData.append("file", file);
 
         // Upload the document
-        const uploadResponse = await $authFetch("/documents/upload", {
+        const uploadUrl = `/documents/upload${shouldFlatten ? "?flatten_pdf=true" : ""}`;
+        const uploadResponse = await $authFetch(uploadUrl, {
             method: "POST",
             body: formData,
         }) as { id: string };
@@ -533,13 +537,8 @@ async function viewDocument(documentId: string) {
                             <span>{{ repository.name }}</span>
                         </label>
                     </div>
-                    <p class="text-sm text-gray-500 mt-2">
+                    <p v-if="selectedRepositories.length === 0" class="text-sm text-gray-500 mt-2">
                         You must select at least one repository to upload a document
-                    </p>
-                    <p v-if="selectedRepositories.length > 0" class="text-sm text-green-600 mt-1">
-                        ✓ {{ selectedRepositories.length }} repository{{ selectedRepositories.length === 1 ? '' : 'ies'
-                        }}
-                        selected
                     </p>
                 </div>
 
@@ -547,8 +546,17 @@ async function viewDocument(documentId: string) {
                     <strong>No repositories available.</strong> Create a repository first before uploading documents.
                 </div>
 
-                <!-- File Selection -->
-                <div v-if="canUpload">
+                <!-- PDF Flattening Option and File Selection -->
+                <div v-if="canUpload" class="text-sm">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" v-model="flattenPdf" class="w-3 h-3 accent-black"
+                            style="accent-color: black;" />
+                        <span>Flatten PDF before text extraction</span>
+                    </label>
+                    <p class="text-xs text-gray-500">
+                        Hint: Enable this if there are problems extracting text from a PDF. It may take longer to
+                        process.
+                    </p>
                     <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
                     <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
                         Selected: {{ selectedFile.name }}

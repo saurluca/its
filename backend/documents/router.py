@@ -91,7 +91,7 @@ async def upload_and_chunk_document(
         # mime_type=file.content_type,
         extract_docling_doc,
         file.file,
-        flatten_pdf=False,
+        flatten_pdf=flatten_pdf,
     )
 
     document = Document(

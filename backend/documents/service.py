@@ -1,12 +1,16 @@
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
+from docling.datamodel.document import DoclingDocument as DLDocument
 from docling.chunking import HybridChunker
 from io import BytesIO
 from constants import SUPPORTED_MIME_TYPES, MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import InvalidFileFormatError
-from .models import Document, Chunk
+from .models import Document as DBDocument, Chunk
 import time
 import dspy
+import fitz
+import io
+from PIL import Image
 
 
 # summarises a document
@@ -55,6 +59,16 @@ class DocumentTitle(dspy.Signature):
     document_title: str = dspy.OutputField(
         description=f"A short title for the document based on the summary. The document is part of a lecture course. Max title length: {MAX_TITLE_LENGTH} characters."
     )
+
+
+def generate_document_title(summary: str, lm: dspy.LM) -> str:
+    try:
+        model = dspy.ChainOfThought(DocumentTitle)
+        result = model(summary=summary, lm=lm)
+        return result.document_title
+    except Exception as e:
+        print(f"Error generating document title: {e}")
+        return "Untitled Document"
 
 
 def get_document_summary(document_content: str, lm: dspy.LM):
@@ -127,51 +141,77 @@ def filter_important_chunks(
     }
 
 
-def extract_text_from_file_and_chunk(file_obj, mime_type=None):
-    """
-    Extract text from file and chunk it
+# def flatten_pdf_stream(input_stream: BytesIO) -> BytesIO:
+#     """Flattens a PDF from an input stream and returns an output stream."""
+#     print("Flattening PDF")
+#     start_time = time.time()
+#     doc = fitz.open(stream=input_stream.read(), filetype="pdf")
+#     output_stream = io.BytesIO()
+#     doc.save(output_stream, garbage=4, deflate=True)
+#     doc.close()
+#     output_stream.seek(0)
+#     print(f"Time taken to flatten: {(time.time() - start_time):.2f} seconds")
+#     return output_stream
 
-    Args:
-        file_obj: File-like object
-        mime_type: MIME type of the file
 
-    Returns:
-        Tuple of (Document, list[Chunk]) with the document and its chunks
+# TODO: this fixes the issues with some pdfs, but significantly increases the compute time, because docling needs to do full OCR on the images
+def flatten_pdf_in_memory(pdf_bytes):
     """
+    Rasters a PDF from a byte stream and returns a new flattened PDF as a byte stream.
+    """
+    print("Flattening PDF")
+    start_time = time.time()
+    input_pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
+    output_pdf = fitz.open()
+
+    for page_num in range(len(input_pdf)):
+        page = input_pdf.load_page(page_num)
+        pixmap = page.get_pixmap(dpi=300)  # Higher DPI for better quality
+
+        # Convert the pixmap to a Pillow Image
+        img = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+
+        # Save the image as a new PDF page
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="PDF", resolution=300)
+        img_bytes.seek(0)
+
+        output_pdf.insert_pdf(fitz.open(stream=img_bytes.read(), filetype="pdf"))
+
+    # Save the final flattened PDF to a byte stream
+    flattened_pdf_bytes = io.BytesIO(output_pdf.tobytes())
+    input_pdf.close()
+    output_pdf.close()
+
+    print(f"Time taken to flatten: {(time.time() - start_time):.2f} seconds")
+    return flattened_pdf_bytes
+
+
+def extract_docling_doc(file_obj) -> tuple[str, DLDocument]:
     assert file_obj and hasattr(file_obj, "read"), (
         "Input must be a file-like object with .read()"
     )
 
-    # Get the name for DocumentStream
-    name = getattr(file_obj, "name", None)
+    print("Converting doc using Docling")
+    start_time = time.time()
 
-    # For FastAPI UploadFile, use .filename if available
+    # Build a DocumentStream as per Docling usage
+    name = getattr(file_obj, "name", None)
     if hasattr(file_obj, "filename") and file_obj.filename:
         name = file_obj.filename
-
-    # If still no name, create a default based on mime_type
     if not name:
-        if mime_type:
-            extension = SUPPORTED_MIME_TYPES.get(mime_type, ".pdf")
-            name = f"uploaded_file{extension}"
-        else:
-            raise InvalidFileFormatError("No mime type provided")
+        name = "uploaded_file.pdf"
 
-    # Ensure stream is at start and convert to BytesIO for DocumentStream compatibility
     try:
         file_obj.seek(0)
-        # Read the file content and create a BytesIO object
         file_content = file_obj.read()
         stream_like = BytesIO(file_content)
+        stream_like = flatten_pdf_in_memory(stream_like)
     except Exception as e:
         print(f"Error reading file: {e}")
         raise InvalidFileFormatError("Could not read file content")
 
-    # Create DocumentStream with BytesIO stream
     stream = DocumentStream(name=str(name), stream=stream_like)
-
-    print("Converting using Docling")
-    start_time = time.time()
 
     converter = DocumentConverter()
     result = converter.convert(stream)
@@ -187,13 +227,19 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
         print("Document has 0 images.")
 
     # Get full text for document saving to db
-    full_text = docling_doc.export_to_html()
+    html_text = docling_doc.export_to_html()
     # remove newlines
-    full_text = full_text.replace("\n", "")
+    html_text = html_text.replace("\n", "")
 
-    print(f"Time taken to convert: {time.time() - start_time} seconds")
+    print(f"Time taken to convert: {(time.time() - start_time):.2f} seconds")
 
+    return html_text, docling_doc
+
+
+def chunk_document(docling_doc: DLDocument):
     print("Chunking")
+    start_time = time.time()
+
     # Use HybridChunker to split document into chunks
     chunker = HybridChunker(
         merge_peers=True,
@@ -211,10 +257,6 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
         if not chunk_text or not chunk_text.strip():
             continue
 
-        # Skip chunks that are too short (likely non-text content)
-        if len(chunk_text.strip()) < 10:  # Minimum text length
-            continue
-
         # Create Chunk object
         chunk_obj = Chunk(
             chunk_index=chunk_index,
@@ -224,16 +266,10 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
         chunk_objects.append(chunk_obj)
         chunk_index += 1
 
-    print(f"Time taken to chunk: {time.time() - start_time} seconds")
-
     if len(chunk_objects) <= 1:
-        # Create Document object
-        document = Document(
-            title=name,
-            content=full_text,
-            source_file=name,
-        )
-        return document, chunk_objects
+        print(f"Time taken to chunk: {(time.time() - start_time):.2f} seconds")
+        print("Only 1 chunk")
+        return chunk_objects
 
     og_num_chunks = len(chunk_objects)
 
@@ -298,25 +334,11 @@ def extract_text_from_file_and_chunk(file_obj, mime_type=None):
         chunk.chunk_length = len(chunk.chunk_text)
         chunk.chunk_index = i
 
-    assert all(len(chunk.chunk_text) >= MIN_CHUNK_LENGTH for chunk in chunk_objects), (
-        "Not all chunks are long enough after merging"
-    )
+    if len(chunk_objects) > 1:
+        assert all(
+            len(chunk.chunk_text) >= MIN_CHUNK_LENGTH for chunk in chunk_objects
+        ), "Not all chunks are long enough after merging"
 
-    # Create Document object
-    document = Document(
-        title=name,
-        content=full_text,
-        source_file=name,
-    )
+    print(f"Time taken to chunk: {(time.time() - start_time):.2f} seconds")
 
-    return document, chunk_objects
-
-
-def generate_document_title(summary: str, lm: dspy.LM) -> str:
-    try:
-        model = dspy.ChainOfThought(DocumentTitle)
-        result = model(summary=summary, lm=lm)
-        return result.document_title
-    except Exception as e:
-        print(f"Error generating document title: {e}")
-        return "Untitled Document"
+    return chunk_objects

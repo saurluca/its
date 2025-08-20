@@ -17,10 +17,12 @@ from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import (
-    extract_text_from_file_and_chunk,
+    # extract_text_from_file_and_chunk,
     generate_document_title,
     get_document_summary,
     filter_important_chunks,
+    extract_docling_doc,
+    chunk_document,
 )
 from starlette.concurrency import run_in_threadpool
 import dspy
@@ -82,19 +84,26 @@ async def upload_and_chunk_document(
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     # extract text from file and chunk
-    document, chunks = await run_in_threadpool(
-        extract_text_from_file_and_chunk,
+    html_text, docling_doc = await run_in_threadpool(
+        # extract_text_from_file_and_chunk,
+        # file.file,
+        # mime_type=file.content_type,
+        extract_docling_doc,
         file.file,
-        mime_type=file.content_type,
     )
 
-    # set source file
-    document.source_file = file.filename
+    document = Document(
+        title=file.filename,
+        content=html_text,
+        source_file=file.filename,
+    )
 
     # commit to generate id, then used by chunks
     session.add(document)
     session.commit()
     session.refresh(document)
+
+    chunks = await run_in_threadpool(chunk_document, docling_doc)
 
     # Add chunks with document_id reference
     for chunk in chunks:
@@ -105,10 +114,7 @@ async def upload_and_chunk_document(
     session.refresh(document)
 
     print("Summarising document...")
-    # Get document summary
-    summary_result = await run_in_threadpool(
-        get_document_summary, document.content, large_lm
-    )
+    summary_result = await run_in_threadpool(get_document_summary, html_text, large_lm)
     document.summary = summary_result.summary
 
     print("Generating title...")
@@ -121,7 +127,7 @@ async def upload_and_chunk_document(
     print("Filtering important chunks...")
     # Filter important chunks using the new service function
     result = await run_in_threadpool(
-        filter_important_chunks, document.chunks, summary_result, small_lm
+        filter_important_chunks, chunks, summary_result, small_lm
     )
 
     # mark chunks as important or unimportant

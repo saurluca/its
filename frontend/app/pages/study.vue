@@ -14,9 +14,9 @@ const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
 const showEvaluation = ref(false);
-const evaluationStatus = ref<"correct" | "partial" | "incorrect">("incorrect");
+const evaluationStatus = ref<"correct" | "partial" | "incorrect" | "contradictory" | "irrelevant">("incorrect");
 const isCorrect = ref<boolean | null>(null);
-const score = ref(0);
+const score = ref<number>(0);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const feedback = ref<string | null>(null);
@@ -156,7 +156,7 @@ async function evaluateAnswer() {
       evaluating.value = false;
     }
   } else {
-    // Free text: wait for backend response, use score thresholds
+    // Free text: wait for backend response, use new 4-way scoring system
     try {
       const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
         method: "POST",
@@ -164,15 +164,25 @@ async function evaluateAnswer() {
       }) as { feedback: string; score: number; };
       feedback.value = responseData.feedback || null;
       const scoreNum = responseData.score;
-      if (scoreNum > 7) {
+
+      // Handle new 4-way scoring system (0-3)
+      if (scoreNum === 0) {
+        // Correct: 1 point
         evaluationStatus.value = 'correct';
         isCorrect.value = true;
-        score.value++;
-      } else if (scoreNum < 4) {
-        evaluationStatus.value = 'incorrect';
-        isCorrect.value = false;
-      } else {
+        score.value += 1;
+      } else if (scoreNum === 1) {
+        // Partially correct but incomplete: 0.5 points
         evaluationStatus.value = 'partial';
+        isCorrect.value = false;
+        score.value += 0.5;
+      } else if (scoreNum === 2) {
+        // Contradictory: 0 points
+        evaluationStatus.value = 'contradictory';
+        isCorrect.value = false;
+      } else if (scoreNum === 3) {
+        // Irrelevant: 0 points
+        evaluationStatus.value = 'irrelevant';
         isCorrect.value = false;
       }
       showEvaluation.value = true;
@@ -327,7 +337,7 @@ function restart() {
           <div v-else-if="pageState === 'finished'" class="text-center space-y-4">
             <h2 class="text-2xl font-bold">Study Session Complete!</h2>
             <p class="text-lg">
-              You scored <span class="font-bold">{{ score }}</span> out of
+              You scored <span class="font-bold">{{ score.toFixed(1) }}</span> out of
               <span class="font-bold">{{ tasks.length }}</span>.
             </p>
             <div class="flex justify-center">

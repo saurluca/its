@@ -167,13 +167,13 @@ class TeacherFreeText4Way(dspy.Signature):
     Your task is to decide if the student’s answer is correct, partially correct but incomplete, irrelevant or contradictory.
     Answer based on the chunk and the provided correct answer only.
 
-    Correct: The student's answer is correct and fully addresses the question.
+    Correct: The student's answer is correct and includes the key points from the correct answer.
     If the student response is correct, you will respond with score = 0
 
-    Partially correct but incomplete: The student's answer correct, but does not fully address the question.
+    Partially correct but incomplete: The student's answer correct, but does not include the key points from the correct answer.
     If the student response is partially correct but incomplete, you will respond with score = 1
 
-    Contradictory: The student's answer contradicts the chunk and the correct answer.
+    Contradictory: The student's answer contradicts the chunk and the correct answer. It is not related to the question.
     If the student response is contradictory, you will respond with score = 2
 
     Irrelevant: The student's answer is irrelevant to the question.
@@ -377,7 +377,6 @@ def evaluate_student_answer(
 
         # inspect history and print the last 3 messages
         # print(teacher.history[-1:])
-        # response.feedback = "This is a test feedback"
 
         print("response", response)
 

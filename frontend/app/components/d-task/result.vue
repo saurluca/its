@@ -5,7 +5,7 @@ defineProps<{
   task: Task;
   index: number;
   userAnswer: string;
-  status: "correct" | "partial" | "incorrect";
+  status: "correct" | "partial" | "incorrect" | "contradictory" | "irrelevant";
   feedback: string;
 }>();
 </script>
@@ -16,9 +16,17 @@ defineProps<{
       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium" :class="{
         'bg-green-100 text-green-800': status === 'correct',
         'bg-yellow-100 text-yellow-800': status === 'partial',
-        'bg-red-100 text-red-800': status === 'incorrect',
+        'bg-orange-100 text-orange-800': status === 'contradictory',
+        'bg-red-100 text-red-800': status === 'irrelevant',
+        'bg-gray-100 text-gray-800': status === 'incorrect',
       }">
-        {{ status === 'correct' ? 'Correct' : (status === 'partial' ? 'Partially correct' : 'Incorrect') }}
+        {{
+          status === 'correct' ? 'Correct' :
+            status === 'partial' ? 'Partially correct' :
+              status === 'contradictory' ? 'Contradictory' :
+                status === 'irrelevant' ? 'Irrelevant' :
+                  'Incorrect'
+        }}
       </span>
     </div>
 

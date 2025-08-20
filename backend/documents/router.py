@@ -78,6 +78,7 @@ async def get_document(
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
     file: UploadFile = File(...),
+    flatten_pdf: bool = Query(default=False, description="Whether to flatten the PDF"),
     session: Session = Depends(get_db_session),
     large_lm: dspy.LM = Depends(get_large_llm),
     small_lm: dspy.LM = Depends(get_small_llm),

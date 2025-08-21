@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { PlusIcon } from "lucide-vue-next";
 import DViewToggle from "~/components/d-view-toggle.vue";
 import type { Task, Repository, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -366,14 +367,9 @@ function closeTryTask() {
   <div class="h-full max-w-4xl mx-auto mt-8">
     <DPageHeader title="Tasks">
       <div class="flex items-center gap-2">
-        <DButton variant="secondary" @click="openGenerateTasksModalFromTasks">
-          Generate Tasks
-        </DButton>
         <DViewToggle v-model="isTeacherView" />
       </div>
     </DPageHeader>
-
-
     <div class="space-y-8">
       <div class="bg-white p-6 rounded-lg shadow mb-6">
         <h2 class="text-xl font-bold mb-4">Select Repository</h2>
@@ -416,6 +412,12 @@ function closeTryTask() {
         </div> -->
       </div>
 
+      <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
+        <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">
+          Generate Tasks
+        </DButton>
+      </div>
+
       <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
         ? {
           type: editingTask.type,
@@ -427,14 +429,21 @@ function closeTryTask() {
         : undefined
         " @save="handleSaveTask" /> -->
 
+
       <div v-if="loading" class="py-20 text-center">
         <div class="text-xl">Loading tasks...</div>
       </div>
 
       <div v-else-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
         <p class="text-gray-500">
-          No tasks available for the selected filters.
+          No tasks available for the selected repository.
+
         </p>
+        <div class="flex justify-center mt-2">
+          <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">
+            Generate Tasks
+          </DButton>
+        </div>
       </div>
 
       <div v-else-if="!isTeacherView" class="space-y-6 my-4">

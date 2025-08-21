@@ -144,9 +144,9 @@ async function confirmGenerateTasks() {
             <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
                 <p>
                     Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
-                    'freetext' }} tasks from {{ selectedDocuments.size }} selected document {{ selectedDocuments.size
+                        'freetext' }} tasks from {{ selectedDocuments.size }} selected document {{ selectedDocuments.size
                         === 1 ?
-                    '' : 's' }}.
+                        '' : 's' }}
                 </p>
                 <p>Tasks will be linked to the repository "{{ props.repository?.name }}".</p>
             </div>

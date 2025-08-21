@@ -31,7 +31,7 @@ class TestBasicSetup:
 
     def test_mock_llm_service_fixture(self, mock_llm_service):
         """Test that the mock LLM service fixture works"""
-        assert "generate_questions" in mock_llm_service
+        assert "generate_tasks" in mock_llm_service
         assert "evaluate_student_answer" in mock_llm_service
         assert "generate_document_title" in mock_llm_service
 

@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from documents.models import Chunk
 from repositories.models import Repository, RepositoryTaskLink
-from constants import DEFAULT_NUM_QUESTIONS
+from constants import DEFAULT_NUM_TASKS
 
 
 class TaskType(str, Enum):
@@ -115,7 +115,7 @@ class EvaluateAnswerRequest(SQLModel):
 class GenerateTasksForMultipleDocumentsRequest(SQLModel):
     repository_id: UUID
     document_ids: list[UUID]
-    num_tasks: int = DEFAULT_NUM_QUESTIONS
+    num_tasks: int = DEFAULT_NUM_TASKS
     task_type: str = "multiple_choice"
 
 

@@ -34,8 +34,8 @@ from auth.models import UserResponse
 from uuid import UUID
 from typing import Any, cast
 from sqlmodel import select, Session
-from tasks.service import generate_questions, evaluate_student_answer
-from constants import DEFAULT_NUM_QUESTIONS
+from tasks.service import generate_tasks, evaluate_student_answer
+from constants import DEFAULT_NUM_TASKS
 import dspy
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -398,7 +398,7 @@ async def delete_answer_option(
 async def generate_tasks_from_document(
     doc_id: UUID,
     repository_id: UUID | None = None,
-    num_tasks: int = DEFAULT_NUM_QUESTIONS,
+    num_tasks: int = DEFAULT_NUM_TASKS,
     task_type: str = "multiple_choice",
     session: Session = Depends(get_db_session),
     lm: dspy.LM = Depends(get_large_llm_no_cache),
@@ -420,7 +420,7 @@ async def generate_tasks_from_document(
             status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
         )
 
-    tasks = generate_questions(doc_id, chunks, lm, num_tasks, task_type)
+    tasks = generate_tasks(doc_id, chunks, lm, num_tasks, task_type)
 
     # Save tasks and their answer options to database
     for task in tasks:
@@ -473,7 +473,7 @@ async def generate_tasks_for_multiple_documents(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
             )
-        tasks = generate_questions(
+        tasks = generate_tasks(
             document_id, chunks, lm, request.num_tasks, request.task_type
         )
 

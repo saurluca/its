@@ -44,7 +44,7 @@ class TestTasksLLM:
         db_session.add(chunk2)
         db_session.commit()
 
-        # Mock the generate_questions function to return test tasks
+        # Mock the generate_tasks function to return test tasks
         mock_tasks = [
             Task(
                 id=uuid.uuid4(),
@@ -59,7 +59,7 @@ class TestTasksLLM:
                 chunk_id=chunk2.id,
             ),
         ]
-        mock_llm_service["generate_questions"].return_value = mock_tasks
+        mock_llm_service["generate_tasks"].return_value = mock_tasks
 
         response = client.post(f"/tasks/generate/{document.id}?num_tasks=2")
         assert response.status_code == status.HTTP_200_OK
@@ -69,7 +69,7 @@ class TestTasksLLM:
         assert data[1]["question"] == "What is the main topic of the second chunk?"
 
         # Verify the mock was called correctly
-        mock_llm_service["generate_questions"].assert_called_once()
+        mock_llm_service["generate_tasks"].assert_called_once()
 
     @pytest.mark.llm
     def test_generate_tasks_from_document_no_chunks(self, client, db_session):
@@ -123,7 +123,7 @@ class TestTasksLLM:
         db_session.add(chunk)
         db_session.commit()
 
-        # Mock the generate_questions function
+        # Mock the generate_tasks function
         mock_tasks = [
             Task(
                 id=uuid.uuid4(),
@@ -133,7 +133,7 @@ class TestTasksLLM:
             )
             for i in range(5)
         ]
-        mock_llm_service["generate_questions"].return_value = mock_tasks
+        mock_llm_service["generate_tasks"].return_value = mock_tasks
 
         response = client.post(f"/tasks/generate/{document.id}?num_tasks=5")
         assert response.status_code == status.HTTP_200_OK
@@ -141,7 +141,7 @@ class TestTasksLLM:
         assert len(data) == 5
 
         # Verify the mock was called with correct parameters
-        mock_llm_service["generate_questions"].assert_called_once()
+        mock_llm_service["generate_tasks"].assert_called_once()
 
     @pytest.mark.llm
     @pytest.mark.slow

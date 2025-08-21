@@ -115,7 +115,7 @@ The tests use extensive mocking to:
 
 ### Key Mocked Services
 
-- `tasks.service.generate_questions` - Task generation from documents
+- `tasks.service.generate_tasks` - Task generation from documents
 - `tasks.service.evaluate_student_answer` - Answer evaluation
 - `documents.service.generate_document_title` - Document title generation
 - `auth.service.*` - Authentication and user management services
@@ -197,10 +197,10 @@ def test_new_endpoint_success(self, client, db_session):
     """Test successful operation of new endpoint"""
     # Setup
     test_data = create_test_data(db_session)
-    
+
     # Action
     response = client.post("/new-endpoint/", json=test_data)
-    
+
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
@@ -211,7 +211,7 @@ def test_new_endpoint_error(self, client):
     """Test error handling of new endpoint"""
     # Action
     response = client.post("/new-endpoint/", json={})
-    
+
     # Assert
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 ```

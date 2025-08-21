@@ -141,11 +141,11 @@ def temp_file():
 def mock_llm_service():
     """Mock LLM service for testing"""
     with (
-        patch("tasks.router.generate_questions") as mock_generate,
+        patch("tasks.router.generate_tasks") as mock_generate,
         patch("tasks.router.evaluate_student_answer") as mock_evaluate,
         patch("documents.router.generate_document_title") as mock_title,
     ):
-        # Mock generate_questions - return empty list by default
+        # Mock generate_tasks - return empty list by default
         mock_generate.return_value = []
 
         # Mock evaluate_student_answer
@@ -155,7 +155,7 @@ def mock_llm_service():
         mock_title.return_value = "Test Document Title"
 
         yield {
-            "generate_questions": mock_generate,
+            "generate_tasks": mock_generate,
             "evaluate_student_answer": mock_evaluate,
             "generate_document_title": mock_title,
         }

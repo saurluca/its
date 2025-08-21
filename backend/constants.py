@@ -17,8 +17,8 @@ SUPPORTED_MIME_TYPES = {
     "image/tiff": ".tiff",
 }
 
-# Question generation constants
-DEFAULT_NUM_QUESTIONS = 3
+# Task generation constants
+DEFAULT_NUM_TASKS = 3
 REQUIRED_ANSWER_OPTIONS = 4
 MAX_TITLE_LENGTH = 100
 

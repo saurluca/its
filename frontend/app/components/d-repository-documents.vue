@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { TrashIcon, PencilIcon, EyeIcon } from "lucide-vue-next";
-import type { Document } from "~/types/models";
+import { TrashIcon, PencilIcon, PlusIcon } from "lucide-vue-next";
+import type { Document, Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -31,10 +31,19 @@ const showEditTitleModal = ref(false);
 const editingDocumentId = ref<string | null>(null);
 const editingTitle = ref("");
 
+// Link/unlink state
+const showAddToRepoModal = ref(false);
+const linkDocumentId = ref<string | null>(null);
+const linkDocumentTitle = ref<string | null>(null);
+const allRepositories = ref<Repository[]>([]);
+const availableTargetRepositories = ref<Repository[]>([]);
+const selectedTargetRepositoryId = ref<string | null>(null);
+
 const notifications = useNotificationsStore();
 
 onMounted(async () => {
     await fetchDocuments();
+    await fetchAllRepositories();
 });
 
 async function fetchDocuments() {
@@ -57,6 +66,16 @@ async function fetchDocuments() {
     }
 }
 
+async function fetchAllRepositories() {
+    try {
+        const response = await fetchJson<Repository[]>(`/repositories/`);
+        allRepositories.value = response;
+    } catch (error) {
+        console.error("Error fetching repositories:", error);
+        notifications.error("Failed to load repositories. Please try again. " + error);
+    }
+}
+
 async function deleteDocument(documentId: string) {
     try {
         await $authFetch(`/documents/${documentId}/`, {
@@ -68,10 +87,6 @@ async function deleteDocument(documentId: string) {
         console.error("Error deleting document:", error);
         notifications.error("Failed to delete document. Please try again. " + error);
     }
-}
-
-function navigateToTasks(documentId: string) {
-    navigateTo(`/tasks?documentId=${documentId}`);
 }
 
 function openDeleteModal(documentId: string, documentTitle: string) {
@@ -126,6 +141,68 @@ async function confirmDelete() {
 function viewDocument(documentId: string) {
     emit("view-document", documentId);
 }
+
+async function openAddToRepoModal(documentId: string, documentTitle: string, repositoryIds: string[]) {
+    linkDocumentId.value = documentId;
+    linkDocumentTitle.value = documentTitle;
+    // Refresh repositories to include newly created ones
+    try {
+        await fetchAllRepositories();
+    } catch (error) {
+        // Proceed with whatever is already loaded
+    }
+    // Filter out current repository and repositories the document is already in
+    availableTargetRepositories.value = allRepositories.value.filter(
+        (repo) => repo.id !== props.repositoryId && !repositoryIds.includes(repo.id)
+    );
+    const firstRepo = availableTargetRepositories.value[0];
+    selectedTargetRepositoryId.value = firstRepo ? firstRepo.id : null;
+    showAddToRepoModal.value = true;
+}
+
+function closeAddToRepoModal() {
+    showAddToRepoModal.value = false;
+    linkDocumentId.value = null;
+    linkDocumentTitle.value = null;
+    availableTargetRepositories.value = [];
+    selectedTargetRepositoryId.value = null;
+}
+
+async function confirmAddToRepo() {
+    if (!linkDocumentId.value || !selectedTargetRepositoryId.value) {
+        notifications.warning("Please select a repository.");
+        return;
+    }
+    try {
+        await $authFetch(`/repositories/links`, {
+            method: "POST",
+            body: {
+                repository_id: selectedTargetRepositoryId.value,
+                document_id: linkDocumentId.value,
+            },
+        });
+        notifications.success("Document added to repository successfully.");
+        closeAddToRepoModal();
+        // No need to refresh current list; linking elsewhere doesn't affect it.
+    } catch (error) {
+        console.error("Error linking document to repository:", error);
+        notifications.error("Failed to add document to repository. Please try again. " + error);
+    }
+}
+
+async function removeFromThisRepository(documentId: string) {
+    try {
+        await $authFetch(`/repositories/links/${props.repositoryId}/${documentId}`, {
+            method: "DELETE",
+        });
+        notifications.success("Removed document from this repository.");
+        await fetchDocuments();
+        emit("refresh-repositories");
+    } catch (error) {
+        console.error("Error unlinking document from repository:", error);
+        notifications.error("Failed to remove document from repository. Please try again. " + error);
+    }
+}
 </script>
 
 <template>
@@ -164,6 +241,22 @@ function viewDocument(documentId: string) {
                                     <PencilIcon class="h-4 w-4" />
                                     Edit Title
                                 </button>
+                                <button @click="
+                                    openAddToRepoModal(document.id, document.title, document.repository_ids || []);
+                                close();
+                                "
+                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <PlusIcon class="h-4 w-4" />
+                                    Add to other repository
+                                </button>
+                                <button @click="
+                                    removeFromThisRepository(document.id);
+                                close();
+                                "
+                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <TrashIcon class="h-4 w-4" />
+                                    Remove from repository
+                                </button>
                                 <div class="border-t border-gray-200 my-1"></div>
                                 <button @click="
                                     openDeleteModal(document.id, document.title);
@@ -199,6 +292,24 @@ function viewDocument(documentId: string) {
             <label for="edit-title" class="block mb-2 font-medium">Document Title:</label>
             <input id="edit-title" type="text" v-model="editingTitle" class="w-full border rounded px-3 py-2 text-sm"
                 placeholder="Enter new title" @keyup.enter="confirmEditTitle" />
+        </div>
+    </DModal>
+
+    <!-- Add to Repository Modal -->
+    <DModal v-if="showAddToRepoModal" titel="Add to different repository" confirm-text="Add"
+        @close="closeAddToRepoModal" @confirm="confirmAddToRepo">
+        <div class="p-4 space-y-3">
+            <p class="text-sm">Select a repository to add "{{ linkDocumentTitle }}" to:</p>
+            <div v-if="availableTargetRepositories.length > 0">
+                <select v-model="selectedTargetRepositoryId" class="w-full border rounded px-3 py-2 text-sm">
+                    <option v-for="repo in availableTargetRepositories" :key="repo.id" :value="repo.id">
+                        {{ repo.name }}
+                    </option>
+                </select>
+            </div>
+            <div v-else class="text-sm text-gray-500">
+                No other repositories available.
+            </div>
         </div>
     </DModal>
 </template>

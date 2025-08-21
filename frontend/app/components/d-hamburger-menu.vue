@@ -81,7 +81,7 @@ const sizeClasses = {
 
     <!-- Popup Menu -->
     <div v-if="isOpen" ref="menuRef" :class="[
-      'absolute z-50 mt-2 min-w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5',
+      'absolute z-50 mt-2 min-w-54 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5',
       positionClasses[position],
     ]" role="menu" aria-orientation="vertical" aria-labelledby="menu-button">
       <div class="py-1" role="none">

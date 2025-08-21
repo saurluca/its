@@ -80,7 +80,16 @@ async function createRepository(repositoryName: string) {
             body: { name: repositoryName },
         }) as Repository;
 
-        repositories.value.push(newRepository);
+        // Insert the new repository in alphabetical order by name
+        const compareByName = (a: Repository, b: Repository) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+
+        const insertIndex = repositories.value.findIndex((r) => compareByName(newRepository, r) < 0);
+        if (insertIndex === -1) {
+            repositories.value.push(newRepository);
+        } else {
+            repositories.value.splice(insertIndex, 0, newRepository);
+        }
         closeCreateRepositoryModal();
     } catch (error) {
         console.error("Error creating repository:", error);

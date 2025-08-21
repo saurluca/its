@@ -30,8 +30,7 @@ async def get_repositories(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    """Get all repositories the current user has access to."""
-    # Get all repositories the user has access to via RepositoryAccess or ownership
+    """Get all repositories the current user has access to, sorted alphabetically by name."""
     from repositories.models import RepositoryAccess
 
     accessible_repos = session.exec(
@@ -43,6 +42,11 @@ async def get_repositories(
         )
         .distinct()
     ).all()
+
+    # Sort repositories alphabetically by name (case-insensitive)
+    accessible_repos = sorted(
+        accessible_repos, key=lambda repo: repo.name.lower() if repo.name else ""
+    )
 
     # Create response objects with task counts
     repositories_with_task_counts = []

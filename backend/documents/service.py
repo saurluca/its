@@ -206,7 +206,8 @@ def extract_docling_doc(file_obj, flatten_pdf: bool = False) -> tuple[str, DLDoc
         file_obj.seek(0)
         file_content = file_obj.read()
         stream_like = BytesIO(file_content)
-        stream_like = flatten_pdf_in_memory(stream_like)
+        if flatten_pdf:
+            stream_like = flatten_pdf_in_memory(stream_like)
     except Exception as e:
         print(f"Error reading file: {e}")
         raise InvalidFileFormatError("Could not read file content")

@@ -149,7 +149,8 @@ async function openAddToRepoModal(documentId: string, documentTitle: string, rep
     try {
         await fetchAllRepositories();
     } catch (error) {
-        // Proceed with whatever is already loaded
+        console.error("Error fetching repositories:", error);
+        notifications.error("Failed to load repositories. Please try again. " + error);
     }
     // Filter out current repository and repositories the document is already in
     availableTargetRepositories.value = allRepositories.value.filter(

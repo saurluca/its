@@ -27,10 +27,6 @@ const deleteRepositoryName = ref<string | null>(null);
 // Generate tasks modal state
 const showGenerateTasksModal = ref(false);
 const selectedRepositoryForTasks = ref<Repository | null>(null);
-const repositoryDocuments = ref<Document[]>([]);
-const selectedDocuments = ref<Set<string>>(new Set());
-const numTasksToGenerate = ref(5);
-const taskType = ref<"multiple_choice" | "free_text">("multiple_choice");
 
 // HTML viewer state
 const showHtmlViewer = ref(false);
@@ -300,84 +296,20 @@ async function confirmDelete() {
 }
 
 // Generate tasks functions
-async function openGenerateTasksModal(repository: Repository) {
+function openGenerateTasksModal(repository: Repository) {
     selectedRepositoryForTasks.value = repository;
-    selectedDocuments.value.clear();
-    numTasksToGenerate.value = 3;
-    taskType.value = "multiple_choice";
-
-    // Fetch documents for this repository
-    try {
-        const data = await $authFetch(`/repositories/${repository.id}/documents`) as Document[];
-        repositoryDocuments.value = data.map((doc: Document) => ({
-            id: doc.id,
-            title: doc.title,
-            content: doc.content,
-            created_at: new Date(doc.created_at),
-            deleted_at: doc.deleted_at ? new Date(doc.deleted_at) : null,
-            repository_ids: doc.repository_ids || [],
-            source_file: doc.source_file,
-        }));
-    } catch (error) {
-        console.error("Error fetching repository documents:", error);
-        notifications.error("Failed to load repository documents. Please try again.");
-        return;
-    }
-
     showGenerateTasksModal.value = true;
 }
 
 function closeGenerateTasksModal() {
     showGenerateTasksModal.value = false;
     selectedRepositoryForTasks.value = null;
-    repositoryDocuments.value = [];
-    selectedDocuments.value.clear();
 }
 
 
-async function confirmGenerateTasks() {
-    if (!selectedRepositoryForTasks.value || selectedDocuments.value.size === 0) {
-        notifications.warning("Please select at least one document to generate tasks from.");
-        return;
-    }
-
-    // Capture all data before closing modal
-    const repository = selectedRepositoryForTasks.value;
-    const repositoryName = repository.name;
-    const repositoryId = repository.id;
-    const documentIds = Array.from(selectedDocuments.value);
-    const documentCount = documentIds.length;
-    const taskCount = numTasksToGenerate.value;
-    const taskTypeText = taskType.value === 'multiple_choice' ? 'multiple choice' : 'free text';
-
+async function onGenerateTasksSuccess() {
     closeGenerateTasksModal();
-
-    // Show processing notification
-    const processingId = notifications.loading(`Generating ${taskCount} ${taskTypeText} tasks for "${repositoryName}" from ${documentCount} document${documentCount === 1 ? '' : 's'}. This may take a while.`);
-
-    try {
-        await $authFetch("/tasks/generate_for_multiple_documents", {
-            method: "POST",
-            body: {
-                repository_id: repositoryId,
-                document_ids: documentIds,
-                num_tasks: numTasksToGenerate.value,
-                task_type: taskType.value,
-            },
-        });
-
-        // Refresh repositories to show updated task counts
-        await fetchRepositories();
-
-        // Remove processing notification and show success
-        notifications.remove(processingId);
-        notifications.success(`Successfully generated ${taskCount} ${taskTypeText} tasks for "${repositoryName}"!`);
-    } catch (error) {
-        console.error("Error generating tasks:", error);
-        // Remove processing notification and show error
-        notifications.remove(processingId);
-        notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
-    }
+    await fetchRepositories();
 }
 
 async function viewDocument(documentId: string) {
@@ -598,51 +530,8 @@ async function viewDocument(documentId: string) {
             </div>
         </DModal>
 
-        <!-- Generate Tasks Modal -->
-        <DModal v-if="showGenerateTasksModal" titel="Generate Tasks" confirm-text="Generate Tasks" :wide="true"
-            @close="closeGenerateTasksModal" @confirm="confirmGenerateTasks">
-            <div class="p-4 space-y-4">
-                <!-- Task Generation Settings -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
-                        <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
-                            class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200" />
-                    </div>
-                    <div>
-                        <label for="task-type" class="block mb-2 font-medium">Task type:</label>
-                        <select id="task-type" v-model="taskType"
-                            class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200">
-                            <option value="multiple_choice">Multiple Choice</option>
-                            <option value="free_text">Free Text</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Document Selection -->
-                <div>
-                    <label class="block mb-2 font-medium">Select documents to generate tasks from:</label>
-                    <div class="space-y-2 max-h-60 overflow-y-auto border rounded-lg border-gray-200 p-2">
-                        <div v-if="repositoryDocuments.length === 0" class="text-center text-gray-500 py-4">
-                            No documents found in this repository.
-                        </div>
-                        <label v-for="document in repositoryDocuments" :key="document.id"
-                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded-lg text-black">
-                            <input type="checkbox" :value="document.id" v-model="selectedDocuments"
-                                class="w-5 h-5 accent-black" style="accent-color: black;" />
-                            <span>{{ document.title }}</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Summary -->
-                <div v-if="selectedDocuments.size > 0" class="text-sm text-gray-600">
-                    <p>Will generate {{ numTasksToGenerate }} {{ taskType === 'multiple_choice' ? 'multiple choice' :
-                        'free text' }} tasks from {{ selectedDocuments.size }} selected document
-                        {{ selectedDocuments.size === 1 ? '' : 's' }}.</p>
-                    <p>Tasks will be linked to the repository "{{ selectedRepositoryForTasks?.name }}".</p>
-                </div>
-            </div>
-        </DModal>
+        <!-- Generate Tasks Modal (DRY reusable component) -->
+        <DGenerateTasksModal v-if="showGenerateTasksModal" :repository="selectedRepositoryForTasks"
+            @close="closeGenerateTasksModal" @success="onGenerateTasksSuccess" />
     </div>
 </template>

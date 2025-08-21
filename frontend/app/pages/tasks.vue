@@ -30,6 +30,7 @@ const feedback = ref<string | null>(null);
 
 // Get document ID or repository ID from route query if present
 const route = useRoute();
+const router = useRouter();
 const documentIdFromRoute = route.query.documentId as string;
 const repositoryIdFromRoute = route.query.repositoryId as string;
 
@@ -130,6 +131,7 @@ onMounted(async () => {
       const firstRepoId = repositoriesList.value[0]?.id;
       if (firstRepoId) {
         selectedRepositoryId.value = firstRepoId;
+        await router.replace({ query: { ...route.query, repositoryId: firstRepoId } });
         await fetchTasksByRepository(firstRepoId);
       }
     }
@@ -202,14 +204,16 @@ watch(selectedDocumentId, (newValue) => {
   }
 });
 
-watch(selectedRepositoryId, (newValue) => {
+watch(selectedRepositoryId, async (newValue) => {
   if (filterType.value !== "repository") return;
   if (newValue) {
+    await router.replace({ query: { ...route.query, repositoryId: newValue } });
     fetchTasksByRepository(newValue);
   } else {
     const fallback = repositoriesList.value[0]?.id;
     if (fallback) {
       selectedRepositoryId.value = fallback;
+      await router.replace({ query: { ...route.query, repositoryId: fallback } });
     }
   }
 });
@@ -369,13 +373,9 @@ function closeTryTask() {
 
         <div v-if="filterType === 'repository'">
           <!-- <DLabel>Select Repository</DLabel> -->
-          <DSearchableDropdown v-model="selectedRepositoryId" :options="[
-            { value: '', label: 'All Repositories' },
-            ...repositoriesList.map((repo) => ({
-              value: repo.id,
-              label: repo.name,
-            })),
-          ]" placeholder="All Repositories" search-placeholder="Search repositories..." class="mt-1 w-full" />
+          <DSearchableDropdown v-model="selectedRepositoryId"
+            :options="repositoriesList.map((repo) => ({ value: repo.id, label: repo.name }))"
+            placeholder="Select a repository" search-placeholder="Search repositories..." class="mt-1 w-full" />
         </div>
 
         <!-- <div v-else>

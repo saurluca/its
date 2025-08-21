@@ -75,7 +75,7 @@ async function confirmGenerateTasks() {
     );
 
     try {
-        await $authFetch("/tasks/generate_for_multiple_documents", {
+        await $authFetch("/tasks/generate_for_documents", {
             method: "POST",
             body: {
                 repository_id: props.repository.id,

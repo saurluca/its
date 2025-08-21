@@ -240,6 +240,7 @@ def generate_tasks(
     lm: dspy.LM,
     num_tasks: int = 3,
     task_type: str = "multiple_choice",
+    forbidden_questions: set[str] | None = None,
 ) -> List[Task]:
     """
     Generate tasks from document chunks
@@ -259,28 +260,50 @@ def generate_tasks(
         f"Generating {num_tasks} tasks for document {document_id} with {len(chunks)} chunks"
     )
 
-    tasks = []
+    tasks: List[Task] = []
     start_time = time.time()
-    # Select up to len(chunks) chunks without replacement, then the rest with replacement
-    if num_tasks <= len(chunks):
-        selected_chunks = random.sample(chunks, num_tasks)
-    else:
-        # First, all chunks without replacement
-        selected_chunks = list(chunks)
-        # Then, the remaining with replacement
-        selected_chunks += [
-            random.choice(chunks) for _ in range(num_tasks - len(chunks))
-        ]
 
-    for chunk in tqdm(selected_chunks):
-        qg_response = _generate_single_task(chunk, task_generator, task_type, lm)
+    # Track questions to avoid duplicates against provided forbidden set and within this batch
+    seen_questions: set[str] = (
+        set(forbidden_questions) if forbidden_questions else set()
+    )
 
-        if qg_response is not None:
+    max_attempts = 5
+    attempts = 0
+    while len(tasks) < num_tasks and attempts < max_attempts:
+        remaining = num_tasks - len(tasks)
+
+        # Select up to len(chunks) chunks without replacement, then the rest with replacement
+        if remaining <= len(chunks):
+            selected_chunks = random.sample(chunks, remaining)
+        else:
+            selected_chunks = list(chunks)
+            selected_chunks += [
+                random.choice(chunks) for _ in range(remaining - len(chunks))
+            ]
+
+        for chunk in tqdm(selected_chunks):
+            if len(tasks) >= num_tasks:
+                break
+
+            qg_response = _generate_single_task(chunk, task_generator, task_type, lm)
+
+            if qg_response is None:
+                continue
+
+            question_text = qg_response.question
+            if question_text in seen_questions:
+                # Duplicate question, skip
+                continue
+
             task = _create_task_from_response(qg_response, task_type, chunk.id)
             tasks.append(task)
+            seen_questions.add(question_text)
+
+        attempts += 1
 
     end_time = time.time()
-    print(f"Generated {len(tasks)} tasks in {end_time - start_time} seconds")
+    print(f"Generated {len(tasks)} unique tasks in {end_time - start_time} seconds")
 
     if not tasks:
         raise Exception("No tasks could be generated from the provided chunks")

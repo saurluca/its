@@ -5,7 +5,7 @@ from docling.chunking import HybridChunker
 from io import BytesIO
 from constants import MAX_TITLE_LENGTH, MIN_CHUNK_LENGTH
 from exceptions import InvalidFileFormatError
-from .models import Document as Chunk
+from .models import Chunk
 import time
 import dspy
 import fitz

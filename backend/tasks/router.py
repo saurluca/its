@@ -14,7 +14,7 @@ from tasks.models import (
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
     TeacherResponseFreeText,
-    GenerateTasksForMultipleDocumentsRequest,
+    GenerateTasksForDocumentsRequest,
 )
 from repositories.access_control import (
     create_task_access_dependency,
@@ -35,8 +35,8 @@ from uuid import UUID
 from typing import Any, cast
 from sqlmodel import select, Session
 from tasks.service import generate_tasks, evaluate_student_answer
-from constants import DEFAULT_NUM_TASKS
 import dspy
+from repositories.access_control import get_repository_access
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -168,15 +168,15 @@ async def create_task(
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """Create a task if user has write access to repositories containing the chunk's document."""
+
+    # TODO rewrite function to fit current use case in frontend, espacially access control
+
     # Verify chunk exists
     db_chunk = session.get(Chunk, task.chunk_id)
     if not db_chunk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
         )
-
-    # Check if user has write access to any repository containing this chunk's document
-    from repositories.access_control import get_repository_access
 
     repository_links = session.exec(
         select(RepositoryDocumentLink).where(
@@ -394,54 +394,9 @@ async def delete_answer_option(
     return {"ok": True}
 
 
-@router.post("/generate/{doc_id}", response_model=list[TaskRead])
-async def generate_tasks_from_document(
-    doc_id: UUID,
-    repository_id: UUID | None = None,
-    num_tasks: int = DEFAULT_NUM_TASKS,
-    task_type: str = "multiple_choice",
-    session: Session = Depends(get_db_session),
-    lm: dspy.LM = Depends(get_large_llm_no_cache),
-    current_user: UserResponse = Depends(
-        create_document_access_dependency(AccessLevel.WRITE, "doc_id")
-    ),
-):
-    """
-    Generates a specified number of questions for a given document ID.
-    Uses the document's chunks to create questions and answer options.
-    Optionally links the generated tasks to a repository.
-    Returns the generated questions and answer options.
-    Useful for on-demand question generation for existing documents.
-    """
-    # TODO retrieve chunks from document model instead of search all chunks
-    chunks = session.exec(select(Chunk).where(Chunk.document_id == doc_id)).all()
-    if not chunks:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
-        )
-
-    tasks = generate_tasks(doc_id, chunks, lm, num_tasks, task_type)
-
-    # Save tasks and their answer options to database
-    for task in tasks:
-        session.add(task)
-        session.flush()  # Flush to get the task ID
-
-        # Create repository-task link if repository_id is provided
-        if repository_id:
-            repository_task_link = RepositoryTaskLink(
-                repository_id=repository_id, task_id=task.id
-            )
-            session.add(repository_task_link)
-
-    session.commit()
-
-    return tasks
-
-
-@router.post("/generate_for_multiple_documents", response_model=list[TaskRead])
-async def generate_tasks_for_multiple_documents(
-    request: GenerateTasksForMultipleDocumentsRequest,
+@router.post("/generate_for_documents", response_model=list[TaskRead])
+async def generate_tasks_for_documents(
+    request: GenerateTasksForDocumentsRequest,
     session: Session = Depends(get_db_session),
     lm: dspy.LM = Depends(get_large_llm_no_cache),
     current_user: UserResponse = Depends(get_current_user_from_request),
@@ -451,44 +406,56 @@ async def generate_tasks_for_multiple_documents(
     Requires write access to the repository.
     """
     # Check repository access
-    from repositories.access_control import get_repository_access
-
     await get_repository_access(
         request.repository_id, AccessLevel.WRITE, session, current_user
     )
 
-    db_repository = session.get(Repository, request.repository_id)
-    if not db_repository:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
-        )
+    # Only select questions from tasks already linked to this repository as forbidden
+    existing_question_rows = session.exec(
+        select(Task.question)
+        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
+        .where(RepositoryTaskLink.repository_id == request.repository_id)
+    ).all()
+    forbidden_questions: set[str] = (
+        set(existing_question_rows) if existing_question_rows else set()
+    )
 
-    all_generated_tasks = []
+    all_generated_tasks: list[Task] = []
+    chunks: list[Chunk] = []
 
     for document_id in request.document_ids:
-        chunks = session.exec(
+        chunks_for_doc = session.exec(
             select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
         ).all()
-        if not chunks:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
-            )
-        tasks = generate_tasks(
-            document_id, chunks, lm, request.num_tasks, request.task_type
+        chunks.extend(chunks_for_doc)
+
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
         )
 
-        # Save tasks and create repository-task links
-        for task in tasks:
-            session.add(task)
-            session.flush()  # Flush to get the task ID
+    # Initial generation avoiding currently forbidden questions
+    tasks = generate_tasks(
+        document_id,
+        chunks,
+        lm,
+        request.num_tasks,
+        request.task_type,
+        forbidden_questions=forbidden_questions,
+    )
 
-            # Create repository-task link
-            repository_task_link = RepositoryTaskLink(
-                repository_id=request.repository_id, task_id=task.id
-            )
-            session.add(repository_task_link)
+    # Save tasks and create repository-task links
+    for task in tasks:
+        session.add(task)
+        session.flush()  # Flush to get the task ID
 
-        all_generated_tasks.extend(tasks)
+        # Create repository-task link
+        repository_task_link = RepositoryTaskLink(
+            repository_id=request.repository_id, task_id=task.id
+        )
+        session.add(repository_task_link)
+
+    all_generated_tasks.extend(tasks)
 
     session.commit()
     return all_generated_tasks

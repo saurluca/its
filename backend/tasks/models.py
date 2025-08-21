@@ -112,7 +112,7 @@ class EvaluateAnswerRequest(SQLModel):
     student_answer: str
 
 
-class GenerateTasksForMultipleDocumentsRequest(SQLModel):
+class GenerateTasksForDocumentsRequest(SQLModel):
     repository_id: UUID
     document_ids: list[UUID]
     num_tasks: int = DEFAULT_NUM_TASKS

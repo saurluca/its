@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task } from "~/types/models";
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { TrashIcon, PencilIcon, CheckIcon, PlusIcon, FlaskConical } from "lucide-vue-next";
+import { TrashIcon, PencilIcon, CheckIcon, PlusIcon, FlaskConical, XIcon } from "lucide-vue-next";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -270,7 +270,7 @@ const freeTextAnswer = computed({
         <button v-if="isEditing" @click="cancelEdit" :disabled="isSaving"
           class="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           title="Cancel Edit (Escape)">
-          Cancel
+          <XIcon class="h-5 w-5" />
         </button>
       </div>
     </div>

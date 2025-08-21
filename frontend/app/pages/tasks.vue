@@ -45,24 +45,24 @@ if (documentIdFromRoute) {
 // tasks are already filtered by the backend
 const filteredTasks = computed(() => tasks.value);
 
-// Toggle filter type
-function toggleFilterType() {
-  if (filterType.value === "repository") {
-    filterType.value = "document";
-    selectedRepositoryId.value = "";
-  } else {
-    filterType.value = "repository";
-    selectedDocumentId.value = "";
-  }
-}
+// // Toggle filter type
+// function toggleFilterType() {
+//   if (filterType.value === "repository") {
+//     filterType.value = "document";
+//     selectedRepositoryId.value = "";
+//   } else {
+//     filterType.value = "repository";
+//     selectedDocumentId.value = "";
+//   }
+// }
 
-// Reset filters
-function resetFilters() {
-  selectedRepositoryId.value = "";
-  selectedDocumentId.value = "";
-  // Reload all tasks
-  fetchAllTasks();
-}
+// // Reset filters
+// function resetFilters() {
+//   selectedRepositoryId.value = "";
+//   selectedDocumentId.value = "";
+//   // Reload all tasks
+//   fetchAllTasks();
+// }
 
 // Function to fetch all tasks
 async function fetchAllTasks() {
@@ -125,6 +125,13 @@ onMounted(async () => {
       await fetchTasksByDocument(documentIdFromRoute);
     } else if (repositoryIdFromRoute) {
       await fetchTasksByRepository(repositoryIdFromRoute);
+    } else {
+      // Default to first repository if none selected
+      const firstRepoId = repositoriesList.value[0]?.id;
+      if (firstRepoId) {
+        selectedRepositoryId.value = firstRepoId;
+        await fetchTasksByRepository(firstRepoId);
+      }
     }
   } catch (error) {
     console.error("Error fetching data:", error);
@@ -200,7 +207,10 @@ watch(selectedRepositoryId, (newValue) => {
   if (newValue) {
     fetchTasksByRepository(newValue);
   } else {
-    fetchAllTasks();
+    const fallback = repositoriesList.value[0]?.id;
+    if (fallback) {
+      selectedRepositoryId.value = fallback;
+    }
   }
 });
 
@@ -333,9 +343,9 @@ function closeTryTask() {
 
     <div class="space-y-8">
       <div class="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 class="text-xl font-bold mb-4">Filter Tasks</h2>
+        <h2 class="text-xl font-bold mb-4">Select Repository</h2>
 
-        <div class="flex justify-between items-center mb-4">
+        <!-- <div class="flex justify-between items-center mb-4">
           <div class="flex items-center space-x-2">
             <span class="text-gray-700">Filter by:</span>
             <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'repository'
@@ -355,10 +365,10 @@ function closeTryTask() {
             class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
             Reset
           </DButton>
-        </div>
+        </div> -->
 
         <div v-if="filterType === 'repository'">
-          <DLabel>Select Repository</DLabel>
+          <!-- <DLabel>Select Repository</DLabel> -->
           <DSearchableDropdown v-model="selectedRepositoryId" :options="[
             { value: '', label: 'All Repositories' },
             ...repositoriesList.map((repo) => ({
@@ -368,13 +378,13 @@ function closeTryTask() {
           ]" placeholder="All Repositories" search-placeholder="Search repositories..." class="mt-1 w-full" />
         </div>
 
-        <div v-else>
+        <!-- <div v-else>
           <DLabel>Select Document</DLabel>
           <DSearchableDropdown v-model="selectedDocumentId" :options="[
             { value: '', label: 'All Documents' },
             ...documentsList,
           ]" placeholder="All Documents" search-placeholder="Search documents..." class="mt-1 w-full" />
-        </div>
+        </div> -->
       </div>
 
       <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask

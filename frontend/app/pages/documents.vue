@@ -6,7 +6,6 @@ import {
   UploadIcon,
   EyeIcon,
   BookOpenIcon,
-  PlusIcon,
   FileTextIcon,
   FolderIcon,
 } from "lucide-vue-next";
@@ -25,12 +24,8 @@ const loadingRepositories = ref(true);
 
 const uploadedDocumentId = ref<string | null>(null);
 const deletingDocument = ref(false);
-const generatingTasks = ref(false);
-const showGenerateTasksModal = ref(false);
 const showDeleteModal = ref(false);
 const showRepositoryModal = ref(false);
-const generateTasksDocumentId = ref<string | null>(null);
-const numTasksToGenerate = ref(1);
 const deleteDocumentId = ref<string | null>(null);
 const deleteDocumentTitle = ref<string | null>(null);
 const showEditTitleModal = ref(false);
@@ -149,16 +144,6 @@ async function deleteDocument(documentId: string) {
   }
 }
 
-function openGenerateTasksModal(documentId: string) {
-  generateTasksDocumentId.value = documentId;
-  numTasksToGenerate.value = 1;
-  showGenerateTasksModal.value = true;
-}
-
-function closeGenerateTasksModal() {
-  showGenerateTasksModal.value = false;
-  generateTasksDocumentId.value = null;
-}
 
 function navigateToTasks(documentId: string) {
   navigateTo(`/tasks?documentId=${documentId}`);
@@ -190,26 +175,6 @@ function closeRepositoryModal() {
   selectedDocumentId.value = null;
   selectedRepositoryId.value = "";
   selectedRepositoryName.value = "";
-}
-
-async function confirmGenerateTasks() {
-  if (!generateTasksDocumentId.value) return;
-  generatingTasks.value = true;
-  try {
-    // Call the API to generate tasks
-    await fetchJson(
-      `/tasks/generate/${generateTasksDocumentId.value}/?num_tasks=${numTasksToGenerate.value}`,
-      {
-        method: "POST",
-      },
-    );
-    closeGenerateTasksModal();
-    // Optionally refresh documents or show a success message
-  } catch (error) {
-    notifications.error("Failed to generate tasks. Please try again. " + error);
-  } finally {
-    generatingTasks.value = false;
-  }
 }
 
 async function confirmDelete() {
@@ -337,8 +302,6 @@ async function viewDocument(documentId: string) {
                   <DButton @click="navigateToStudy(document.id)" variant="primary" :icon-left="BookOpenIcon">
                     Study
                   </DButton>
-                  <DButton @click="openGenerateTasksModal(document.id)" :disabled="generatingTasks"
-                    :loading="generatingTasks" variant="tertiary" :icon-left="PlusIcon" class="!p-2" />
 
                   <DHamburgerMenu>
                     <template #default="{ close }">
@@ -394,15 +357,6 @@ async function viewDocument(documentId: string) {
       </div>
     </div>
 
-    <DModal v-if="showGenerateTasksModal" titel="Generate Tasks"
-      :confirm-text="generatingTasks ? 'Generating...' : 'Generate'" @close="closeGenerateTasksModal"
-      @confirm="confirmGenerateTasks">
-      <div class="p-4">
-        <label for="num-tasks" class="block mb-2 font-medium">Number of tasks to generate:</label>
-        <input id="num-tasks" type="number" min="1" v-model.number="numTasksToGenerate"
-          class="border rounded px-2 py-1 w-24" />
-      </div>
-    </DModal>
 
     <DModal v-if="showDeleteModal" titel="Delete Document" :confirm-text="deletingDocument ? 'Deleting...' : 'Delete'"
       @close="closeDeleteModal" @confirm="confirmDelete">

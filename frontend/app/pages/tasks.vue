@@ -14,6 +14,30 @@ const repositoriesList = ref<Repository[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
 const notifications = useNotificationsStore();
 
+// Generate tasks modal state (reusable)
+const showGenerateTasksModal = ref(false);
+const selectedRepositoryForTasks = computed<Repository | null>(() => {
+  return repositoriesList.value.find(r => r.id === selectedRepositoryId.value) || null;
+});
+function openGenerateTasksModalFromTasks() {
+  if (!selectedRepositoryForTasks.value) {
+    notifications.warning("Please select a repository first.");
+    return;
+  }
+  showGenerateTasksModal.value = true;
+}
+function closeGenerateTasksModalFromTasks() {
+  showGenerateTasksModal.value = false;
+}
+async function onGenerateTasksSuccessFromTasks() {
+  showGenerateTasksModal.value = false;
+  if (selectedRepositoryId.value) {
+    await fetchTasksByRepository(selectedRepositoryId.value);
+  } else {
+    await fetchAllTasks();
+  }
+}
+
 // For filtering tasks
 const selectedRepositoryId = ref<string>("");
 const selectedDocumentId = ref<string>("");
@@ -341,7 +365,12 @@ function closeTryTask() {
 <template>
   <div class="h-full max-w-4xl mx-auto mt-8">
     <DPageHeader title="Tasks">
-      <DViewToggle v-model="isTeacherView" />
+      <div class="flex items-center gap-2">
+        <DButton variant="secondary" @click="openGenerateTasksModalFromTasks">
+          Generate Tasks
+        </DButton>
+        <DViewToggle v-model="isTeacherView" />
+      </div>
     </DPageHeader>
 
 
@@ -462,5 +491,8 @@ function closeTryTask() {
         </div>
       </div>
     </div>
+    <!-- Generate Tasks Modal (DRY reusable component) -->
+    <DGenerateTasksModal v-if="showGenerateTasksModal" :repository="selectedRepositoryForTasks"
+      @close="closeGenerateTasksModalFromTasks" @success="onGenerateTasksSuccessFromTasks" />
   </div>
 </template>

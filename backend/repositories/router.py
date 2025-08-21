@@ -100,7 +100,10 @@ async def get_repository_documents(
             status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
         )
 
-    documents = db_repository.documents
+    # Sort documents alphabetically by title
+    documents = sorted(
+        db_repository.documents, key=lambda doc: doc.title.lower() if doc.title else ""
+    )
     document_responses = []
     for doc in documents:
         doc_response = DocumentResponse.model_validate(doc)

@@ -268,7 +268,7 @@ def generate_tasks(
         set(forbidden_questions) if forbidden_questions else set()
     )
 
-    max_attempts = 5
+    max_attempts = 4
     attempts = 0
     while len(tasks) < num_tasks and attempts < max_attempts:
         remaining = num_tasks - len(tasks)

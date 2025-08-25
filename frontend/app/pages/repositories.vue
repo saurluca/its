@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, ClipboardList } from "lucide-vue-next";
+import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, ClipboardList, UserPlusIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -394,6 +394,13 @@ async function viewDocument(documentId: string) {
                                         :icon-left="UploadIcon" class="!p-2" />
                                     <DHamburgerMenu v-if="hasWriteAccess(repository)">
                                         <template #default="{ close }">
+                                            <button @click="
+                                                void (0);
+                                            "
+                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <UserPlusIcon class="h-4 w-4" />
+                                                Invite User
+                                            </button>
                                             <button @click="
                                                 openEditTitleModal(repository.id, repository.name);
                                             close();

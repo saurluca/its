@@ -348,11 +348,11 @@ async function viewDocument(documentId: string) {
                 <div v-else class="space-y-6">
                     <div class="flex flex-col gap-3">
                         <DButtonLabelled title="Repository" :icon="PlusIcon" @click="openCreateRepositoryModal">
-                            Create a new repository, to organize your documents and tasks in. It's similar to a folder.
+                            Create new repository to organize documents and tasks; similar to a folder.
                         </DButtonLabelled>
                         <div class="border-t border-gray-200"></div>
                         <DButtonLabelled title="Document" :icon="UploadIcon" @click="openUploadModal">
-                            Upload a document to a repository. Its content will be extracted and can be used for
+                            Upload document to repository. Contents will be extracted and can be used for
                             task generation.
                         </DButtonLabelled>
                     </div>

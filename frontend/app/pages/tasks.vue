@@ -15,6 +15,17 @@ const repositoriesList = ref<Repository[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
 const notifications = useNotificationsStore();
 
+type AccessLevel = 'read' | 'write' | 'owner';
+
+function hasWriteAccess(repo: Repository & { access_level?: AccessLevel }) {
+  const level = repo.access_level as AccessLevel | undefined;
+  return level === 'write' || level === 'owner';
+}
+
+const writableRepositories = computed<Repository[]>(() =>
+  (repositoriesList.value || []).filter((r) => hasWriteAccess(r as Repository & { access_level?: AccessLevel }))
+);
+
 // Generate tasks modal state (reusable)
 const showGenerateTasksModal = ref(false);
 const selectedRepositoryForTasks = computed<Repository | null>(() => {
@@ -152,8 +163,8 @@ onMounted(async () => {
     } else if (repositoryIdFromRoute) {
       await fetchTasksByRepository(repositoryIdFromRoute);
     } else {
-      // Default to first repository if none selected
-      const firstRepoId = repositoriesList.value[0]?.id;
+      // Default to first writable repository if none selected
+      const firstRepoId = writableRepositories.value[0]?.id;
       if (firstRepoId) {
         selectedRepositoryId.value = firstRepoId;
         await router.replace({ query: { ...route.query, repositoryId: firstRepoId } });
@@ -235,7 +246,7 @@ watch(selectedRepositoryId, async (newValue) => {
     await router.replace({ query: { ...route.query, repositoryId: newValue } });
     fetchTasksByRepository(newValue);
   } else {
-    const fallback = repositoriesList.value[0]?.id;
+    const fallback = writableRepositories.value[0]?.id;
     if (fallback) {
       selectedRepositoryId.value = fallback;
       await router.replace({ query: { ...route.query, repositoryId: fallback } });
@@ -375,7 +386,7 @@ function closeTryTask() {
 
       <div v-if="filterType === 'repository'">
         <DSearchableDropdown v-model="selectedRepositoryId"
-          :options="repositoriesList.map((repo) => ({ value: repo.id, label: repo.name }))"
+          :options="writableRepositories.map((repo) => ({ value: repo.id, label: repo.name }))"
           placeholder="Select a repository" search-placeholder="Search repositories..." class="mt-1 w-full" />
       </div>
     </div>

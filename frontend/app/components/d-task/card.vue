@@ -235,7 +235,7 @@ const freeTextAnswer = computed({
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-lg shadow w-2xl">
+  <div class="bg-white p-6 rounded-lg shadow max-w-4xl">
     <div class="flex justify-between items-center">
       <span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
         {{

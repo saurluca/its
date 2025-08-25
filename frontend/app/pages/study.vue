@@ -276,7 +276,7 @@ function restart() {
     <div :class="showTextViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
       <div class="max-w-4xl mx-auto">
         <DPageHeader :title="repositoryName ? `Studying: ${repositoryName}` : 'Repository Study Mode'" class="mt-4" />
-        <div class="mx-auto max-w-2xl">
+        <div class="mx-auto max-w-4xl">
           <!-- Loading State -->
           <div v-if="loading" class="text-center space-y-4">
             <div class="text-xl">Loading tasks...</div>

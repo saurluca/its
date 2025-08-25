@@ -133,7 +133,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-lg shadow w-2xl">
+  <div class="bg-white p-6 rounded-lg shadow max-w-4xl">
     <div class="flex justify-between">
       <h3 class="text-lg font-medium">Task {{ index + 1 }}</h3>
       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

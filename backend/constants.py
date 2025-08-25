@@ -40,3 +40,6 @@ if len(SECRET_KEY) < 32:
     raise ValueError("SECRET_KEY must be at least 32 characters long")
 if not ALGORITHM:
     raise ValueError("ALGORITHM environment variable is required")
+
+# Docling
+DOCLING_MODEL_PATH = os.getenv("DOCLING_MODEL_PATH", "")

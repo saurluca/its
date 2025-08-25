@@ -12,7 +12,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div class="flex flex-row gap-3 items-center">
+    <div class="flex flex-row justify-between items-center w-full">
         <DButton @click="emit('click')" variant="primary" :icon-left="icon ?? undefined">
             {{ title }}
         </DButton>

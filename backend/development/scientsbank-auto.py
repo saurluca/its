@@ -127,13 +127,18 @@ class TeacherFreeText2Way(dspy.Signature):
 # %%
 
 teacher = dspy.Predict(TeacherFreeText2Way)
+
 # Select a small subset (300) from train for optimization and evaluation
-subset = dataset["train"].select(range(300))
+subset = dataset["train"].select(range(1000))
 
 # Split into train/val/test: 60% / 20% / 20%
 train_size = int(0.6 * len(subset))
 val_size = int(0.2 * len(subset))
 test_size = len(subset) - train_size - val_size
+
+print(f"Number of train examples: {train_size}")
+print(f"Number of val examples: {val_size}")
+print(f"Number of test examples: {test_size}")
 
 train_split = subset.select(range(0, train_size))
 val_split = subset.select(range(train_size, train_size + val_size))
@@ -178,25 +183,47 @@ program = JudgeProgram()
 baseline_evaluator = dspy.Evaluate(
     devset=test_examples, metric=metric, display_progress=True, display_table=False
 )
+# %%
 
 baseline_score = baseline_evaluator(program)
-print(f"Baseline accuracy (test): {baseline_score:.4f}")
+print(f"Baseline accuracy (test): {baseline_score.score}")
+
+# %%
 
 # Optimize with MIPROv2
-optimizer = MIPROv2(
+# optimizer_m = MIPROv2(
+#     metric=metric,
+#     auto="medium",
+#     num_threads=12,
+# )
+
+# optimized_program = optimizer_m.compile(
+#     student=program,
+#     trainset=train_examples,
+#     valset=val_examples,
+#     max_bootstrapped_demos=4,
+#     max_labeled_demos=6,  # number of examples in prompt
+# )
+
+optimizer_b = dspy.BootstrapFewShot(
     metric=metric,
-    auto="light",
-    num_candidates=10,
-    num_trials=30,
-    minibatch=True,
-    minibatch_size=25,
-    verbose=True,
+    max_bootstrapped_demos=4,
+    max_labeled_demos=2,
 )
 
-optimized_program = optimizer.compile(
-    student=program, trainset=train_examples, valset=val_examples
+
+optimized_program = optimizer_b.compile(
+    student=program,
+    trainset=train_examples,
 )
 
 # Evaluate optimized program on the same held-out test set
 optimized_score = baseline_evaluator(optimized_program)
-print(f"Optimized accuracy (test): {optimized_score:.4f}")
+print(f"Optimized accuracy (test): {optimized_score.score}")
+
+# %%
+
+optimized_score = baseline_evaluator(optimized_program)
+
+# %%
+optimized_program.save("optimised_program.json")

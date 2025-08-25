@@ -101,6 +101,7 @@ class RepositoryResponse(RepositoryBase):
     created_at: datetime
     deleted_at: datetime | None = None
     task_count: int = 0
+    access_level: AccessLevel = AccessLevel.READ
 
 
 class RepositoryResponseDetail(RepositoryBase):

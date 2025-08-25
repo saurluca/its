@@ -5,7 +5,7 @@ import {
   PanelLeftClose,
   PanelRightClose,
   BookOpenIcon,
-  ClipboardCheck,
+  ClipboardList,
 } from "lucide-vue-next";
 import { useSessionStorage } from "@vueuse/core";
 
@@ -25,7 +25,7 @@ const links = [
   {
     name: "Tasks",
     to: "/tasks",
-    icon: ClipboardCheck,
+    icon: ClipboardList,
   },
   {
     name: "Documents",

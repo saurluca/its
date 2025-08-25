@@ -48,7 +48,7 @@ async def get_repositories(
         accessible_repos, key=lambda repo: repo.name.lower() if repo.name else ""
     )
 
-    # Create response objects with task counts
+    # Create response objects with task counts and access level
     repositories_with_task_counts = []
     for repo in accessible_repos:
         # Count tasks linked to this repository
@@ -60,9 +60,24 @@ async def get_repositories(
             ).all()
         )
 
-        # Create response object with task count
+        # Determine access level for the current user
+        if repo.owner_id == current_user.id:
+            access_level = AccessLevel.OWNER
+        else:
+            access_record = session.exec(
+                select(RepositoryAccess).where(
+                    (RepositoryAccess.repository_id == repo.id)
+                    & (RepositoryAccess.user_id == current_user.id)
+                )
+            ).first()
+            access_level = (
+                access_record.access_level if access_record else AccessLevel.READ
+            )
+
+        # Create response object with task count and access level
         repo_response = RepositoryResponse.model_validate(repo)
         repo_response.task_count = task_count
+        repo_response.access_level = access_level
         repositories_with_task_counts.append(repo_response)
 
     return repositories_with_task_counts
@@ -135,6 +150,7 @@ async def create_repository(
     # Create response object with task count (0 for new repository)
     repo_response = RepositoryResponse.model_validate(db_repository)
     repo_response.task_count = 0
+    repo_response.access_level = AccessLevel.OWNER
     return repo_response
 
 
@@ -171,6 +187,11 @@ async def update_repository(
     # Create response object with task count
     repo_response = RepositoryResponse.model_validate(db_repository)
     repo_response.task_count = task_count
+    repo_response.access_level = (
+        AccessLevel.OWNER
+        if db_repository.owner_id == current_user.id
+        else AccessLevel.WRITE
+    )
     return repo_response
 
 

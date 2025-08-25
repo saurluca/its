@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, EyeIcon } from "lucide-vue-next";
+import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, ClipboardList } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -24,10 +24,6 @@ const showDeleteModal = ref(false);
 const deleteRepositoryId = ref<string | null>(null);
 const deleteRepositoryName = ref<string | null>(null);
 
-// Generate tasks modal state
-const showGenerateTasksModal = ref(false);
-const selectedRepositoryForTasks = ref<Repository | null>(null);
-
 // HTML viewer state
 const showHtmlViewer = ref(false);
 const htmlContent = ref("");
@@ -49,6 +45,13 @@ const canUpload = computed(() => {
 });
 
 const notifications = useNotificationsStore();
+
+type AccessLevel = "read" | "write" | "owner";
+
+function hasWriteAccess(repository: Repository & { access_level?: AccessLevel }) {
+    const level = repository.access_level;
+    return level === "write" || level === "owner";
+}
 
 // Load repositories on component mount
 onMounted(async () => {
@@ -97,8 +100,6 @@ async function createRepository(repositoryName: string) {
     }
 }
 
-
-
 async function deleteRepository(id: string) {
     try {
         await $authFetch(`/repositories/${id}/`, {
@@ -111,8 +112,6 @@ async function deleteRepository(id: string) {
         notifications.error("Failed to delete repository. Please try again. " + error);
     }
 }
-
-
 
 function cancelEdit() {
     editingRepository.value = null;
@@ -147,7 +146,7 @@ function navigateToStudy(repositoryId: string) {
     const repository = repositories.value.find(r => r.id === repositoryId);
     if (repository && (repository.task_count === undefined || repository.task_count === 0)) {
         notifications.warning(
-            `No tasks available for "${repository.name}". Please generate tasks first by clicking the + button.`,
+            `No tasks available for "${repository.name}". Please generate tasks first by clicking the Tasks button.`,
             3000
         );
         return;
@@ -304,23 +303,6 @@ async function confirmDelete() {
     closeDeleteModal();
 }
 
-// Generate tasks functions
-function openGenerateTasksModal(repository: Repository) {
-    selectedRepositoryForTasks.value = repository;
-    showGenerateTasksModal.value = true;
-}
-
-function closeGenerateTasksModal() {
-    showGenerateTasksModal.value = false;
-    selectedRepositoryForTasks.value = null;
-}
-
-
-async function onGenerateTasksSuccess() {
-    closeGenerateTasksModal();
-    await fetchRepositories();
-}
-
 async function viewDocument(documentId: string) {
     if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
         // If clicking the same document, toggle the viewer off
@@ -397,24 +379,20 @@ async function viewDocument(documentId: string) {
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-                                    <DButton @click="navigateToStudy(repository.id)" variant="primary"
+                                    <DButton v-if="hasWriteAccess(repository)" @click="navigateToTasks(repository.id)"
+                                        variant="primary" :icon-left="ClipboardList">
+                                        Tasks
+                                    </DButton>
+                                    <DButton @click="navigateToStudy(repository.id)"
+                                        :variant="hasWriteAccess(repository) ? 'tertiary' : 'primary'"
                                         :icon-left="BookOpenIcon">
                                         Study
                                     </DButton>
-                                    <DButton @click="openGenerateTasksModal(repository)" variant="tertiary"
-                                        :icon-left="PlusIcon" class="!p-2" />
-                                    <DButton @click="openUploadModalForRepository(repository)" variant="tertiary"
+                                    <DButton v-if="hasWriteAccess(repository)"
+                                        @click="openUploadModalForRepository(repository)" variant="tertiary"
                                         :icon-left="UploadIcon" class="!p-2" />
-                                    <DHamburgerMenu>
+                                    <DHamburgerMenu v-if="hasWriteAccess(repository)">
                                         <template #default="{ close }">
-                                            <button @click="
-                                                navigateToTasks(repository.id);
-                                            close();
-                                            "
-                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                <EyeIcon class="h-4 w-4" />
-                                                View Tasks
-                                            </button>
                                             <button @click="
                                                 openEditTitleModal(repository.id, repository.name);
                                             close();
@@ -538,9 +516,5 @@ async function viewDocument(documentId: string) {
                     placeholder="Enter repository name" @keyup.enter="confirmCreateRepository" />
             </div>
         </DModal>
-
-        <!-- Generate Tasks Modal (DRY reusable component) -->
-        <DGenerateTasksModal v-if="showGenerateTasksModal" :repository="selectedRepositoryForTasks"
-            @close="closeGenerateTasksModal" @success="onGenerateTasksSuccess" />
     </div>
 </template>

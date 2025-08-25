@@ -11,6 +11,8 @@ from repositories.models import (
     RepositoryResponseDetail,
     RepositoryTaskLink,
     AccessLevel,
+    RepositoryAccess,
+    RepositoryAccessGrantByEmail,
 )
 from repositories.access_control import (
     create_repository_access_dependency,
@@ -21,6 +23,7 @@ from auth.models import UserResponse
 from documents.models import Document, DocumentResponse
 from uuid import UUID
 from sqlmodel import select, Session
+from auth.service import get_user_by_email
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -300,3 +303,60 @@ async def delete_repository_document_link(
     session.delete(db_link)
     session.commit()
     return {"ok": True}
+
+
+@router.post(
+    "/{repository_id}/access",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def grant_repository_access_by_email(
+    repository_id: UUID,
+    grant: RepositoryAccessGrantByEmail,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.WRITE)
+    ),
+):
+    """Grant read/write access to a repository by user email.
+
+    Fails silently (204) if the user email does not exist, to avoid user enumeration.
+    Only READ or WRITE can be granted via this endpoint.
+    """
+    # Validate requested access level
+    if grant.access_level not in (AccessLevel.READ, AccessLevel.WRITE):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid access level. Only 'read' or 'write' allowed.",
+        )
+
+    # Resolve user by email; fail silently if not found
+    target_user = await get_user_by_email(grant.email, session)
+    if not target_user:
+        return None
+
+    # Avoid creating redundant access for repository owner
+    repository = session.get(Repository, repository_id)
+    if repository and repository.owner_id == target_user.id:
+        return None
+
+    # Upsert RepositoryAccess
+    existing = session.exec(
+        select(RepositoryAccess).where(
+            (RepositoryAccess.repository_id == repository_id)
+            & (RepositoryAccess.user_id == target_user.id)
+        )
+    ).first()
+
+    if existing:
+        existing.access_level = grant.access_level
+        session.add(existing)
+    else:
+        new_access = RepositoryAccess(
+            repository_id=repository_id,
+            user_id=target_user.id,
+            access_level=grant.access_level,
+        )
+        session.add(new_access)
+
+    session.commit()
+    return None

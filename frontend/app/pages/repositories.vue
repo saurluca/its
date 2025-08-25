@@ -24,6 +24,12 @@ const showDeleteModal = ref(false);
 const deleteRepositoryId = ref<string | null>(null);
 const deleteRepositoryName = ref<string | null>(null);
 
+// Invite user modal state
+const showInviteModal = ref(false);
+const inviteRepositoryId = ref<string | null>(null);
+const inviteEmail = ref("");
+const inviteAccessLevel = ref<"read" | "write">("read");
+
 // HTML viewer state
 const showHtmlViewer = ref(false);
 const htmlContent = ref("");
@@ -303,6 +309,41 @@ async function confirmDelete() {
     closeDeleteModal();
 }
 
+// Invite user functions
+function openInviteModal(repositoryId: string) {
+    inviteRepositoryId.value = repositoryId;
+    inviteEmail.value = "";
+    inviteAccessLevel.value = "read";
+    showInviteModal.value = true;
+}
+
+function closeInviteModal() {
+    showInviteModal.value = false;
+    inviteRepositoryId.value = null;
+    inviteEmail.value = "";
+}
+
+async function confirmInvite() {
+    if (!inviteRepositoryId.value) return;
+    const email = inviteEmail.value.trim();
+    if (!email) {
+        notifications.warning("Please enter an email address.");
+        return;
+    }
+    try {
+        await $authFetch(`/repositories/${inviteRepositoryId.value}/access`, {
+            method: "POST",
+            body: { email, access_level: inviteAccessLevel.value },
+        });
+        notifications.success("If the user exists, access has been granted.");
+        closeInviteModal();
+        await fetchRepositories();
+    } catch (error) {
+        console.error("Error granting access:", error);
+        notifications.error("Failed to update access. Please try again.");
+    }
+}
+
 async function viewDocument(documentId: string) {
     if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
         // If clicking the same document, toggle the viewer off
@@ -395,7 +436,8 @@ async function viewDocument(documentId: string) {
                                     <DHamburgerMenu v-if="hasWriteAccess(repository)">
                                         <template #default="{ close }">
                                             <button @click="
-                                                void (0);
+                                                openInviteModal(repository.id);
+                                            close();
                                             "
                                                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                 <UserPlusIcon class="h-4 w-4" />
@@ -522,6 +564,36 @@ async function viewDocument(documentId: string) {
                 <input id="repository-name" type="text" v-model="newRepositoryName"
                     class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200"
                     placeholder="Enter repository name" @keyup.enter="confirmCreateRepository" />
+            </div>
+        </DModal>
+
+        <!-- Invite User Modal -->
+        <DModal v-if="showInviteModal" titel="Invite User" confirm-text="Invite" @close="closeInviteModal"
+            @confirm="confirmInvite">
+            <div class="p-4 space-y-4">
+                <div>
+                    <label for="invite-email" class="block mb-2 font-medium">User Email</label>
+                    <input id="invite-email" type="email" v-model="inviteEmail"
+                        class="w-full border rounded px-3 py-2 text-sm border-gray-200"
+                        placeholder="name@example.com" />
+                </div>
+                <div>
+                    <label class="block mb-2 font-medium">Access Level</label>
+                    <div class="flex gap-4 text-sm">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" value="read" v-model="inviteAccessLevel" class="accent-black"
+                                style="accent-color: black;" />
+                            <span>Read</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" value="write" v-model="inviteAccessLevel" class="accent-black"
+                                style="accent-color: black;" />
+                            <span>Write</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Owners are set when creating repositories and cannot be
+                        invited here.</p>
+                </div>
             </div>
         </DModal>
     </div>

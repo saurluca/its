@@ -121,3 +121,8 @@ class RepositoryDocumentLinkResponse(SQLModel):
     repository_id: UUID
     document_id: UUID
     created_at: datetime
+
+
+class RepositoryAccessGrantByEmail(SQLModel):
+    email: str
+    access_level: AccessLevel = AccessLevel.READ

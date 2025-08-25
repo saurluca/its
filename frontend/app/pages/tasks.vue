@@ -382,7 +382,7 @@ function closeTryTask() {
 
     <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
       <DButtonLabelled title="Generate Tasks" :icon="PlusIcon" @click="openGenerateTasksModalFromTasks">
-        Generate multiple choice or free text tasks for the current repository, based on selected documents.
+        Generate multiple choice or free text tasks for the current repository.
       </DButtonLabelled>
     </div>
 

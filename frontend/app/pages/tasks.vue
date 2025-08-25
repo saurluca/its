@@ -370,55 +370,23 @@ function closeTryTask() {
         <DViewToggle v-model="isTeacherView" />
       </div>
     </DPageHeader>
-    <div class="space-y-8">
-      <div class="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 class="text-xl font-bold mb-4">Select Repository</h2>
+    <div class="bg-white p-6 rounded-lg shadow mb-4">
+      <h2 class="text-xl font-bold mb-4">Repository Filter</h2>
 
-        <!-- <div class="flex justify-between items-center mb-4">
-          <div class="flex items-center space-x-2">
-            <span class="text-gray-700">Filter by:</span>
-            <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'repository'
-              ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-              : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-              ">
-              Repository
-            </DButton>
-            <DButton @click="toggleFilterType" variant="secondary" :class="filterType === 'document'
-              ? 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-800 border-blue-300'
-              : 'inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50'
-              ">
-              Document
-            </DButton>
-          </div>
-          <DButton @click="resetFilters" variant="secondary"
-            class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
-            Reset
-          </DButton>
-        </div> -->
-
-        <div v-if="filterType === 'repository'">
-          <!-- <DLabel>Select Repository</DLabel> -->
-          <DSearchableDropdown v-model="selectedRepositoryId"
-            :options="repositoriesList.map((repo) => ({ value: repo.id, label: repo.name }))"
-            placeholder="Select a repository" search-placeholder="Search repositories..." class="mt-1 w-full" />
-        </div>
-
-        <!-- <div v-else>
-          <DLabel>Select Document</DLabel>
-          <DSearchableDropdown v-model="selectedDocumentId" :options="[
-            { value: '', label: 'All Documents' },
-            ...documentsList,
-          ]" placeholder="All Documents" search-placeholder="Search documents..." class="mt-1 w-full" />
-        </div> -->
+      <div v-if="filterType === 'repository'">
+        <DSearchableDropdown v-model="selectedRepositoryId"
+          :options="repositoriesList.map((repo) => ({ value: repo.id, label: repo.name }))"
+          placeholder="Select a repository" search-placeholder="Search repositories..." class="mt-1 w-full" />
       </div>
+    </div>
 
-      <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
-        <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">
-          Generate Tasks
-        </DButton>
-      </div>
+    <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
+      <DButtonLabelled title="Generate Tasks" :icon="PlusIcon" @click="openGenerateTasksModalFromTasks">
+        Generate multiple choice or free text tasks for the current repository, based on selected documents.
+      </DButtonLabelled>
+    </div>
 
-      <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
+    <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
         ? {
           type: editingTask.type,
           question: editingTask.question || '',
@@ -429,36 +397,33 @@ function closeTryTask() {
         : undefined
         " @save="handleSaveTask" /> -->
 
+    <div v-if="loading" class="py-20 text-center">
+      <div class="text-xl">Loading tasks...</div>
+    </div>
 
-      <div v-if="loading" class="py-20 text-center">
-        <div class="text-xl">Loading tasks...</div>
-      </div>
-
-      <div v-else-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
-        <p class="text-gray-500">
-          No tasks available for the selected repository.
-
-        </p>
-        <div class="flex justify-center mt-2">
-          <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">
-            Generate Tasks
-          </DButton>
-        </div>
-      </div>
-
-      <div v-else-if="!isTeacherView" class="space-y-6 my-4">
-        <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index" :model-value="''"
-          :disabled="true" :is-evaluated="false" :is-correct="false" />
-      </div>
-      <div v-else class="space-y-6 my-4">
-        <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
-          @delete="deleteTask" @update="handleUpdateTask" @preview-task="startPreviewingTask" />
+    <div v-else-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
+      <p class="text-gray-500">
+        No tasks available for the selected repository.
+      </p>
+      <div class="flex justify-center mt-2">
+        <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">
+          Generate Tasks
+        </DButton>
       </div>
     </div>
 
-    <!-- Try Task Modal/Overlay -->
+    <div v-else-if="!isTeacherView" class="space-y-6 my-4">
+      <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index" :model-value="''"
+        :disabled="true" :is-evaluated="false" :is-correct="false" />
+    </div>
+    <div v-else class="space-y-6 my-4">
+      <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
+        @delete="deleteTask" @update="handleUpdateTask" @preview-task="startPreviewingTask" />
+    </div>
+
+    <!-- Test Task Modal/Overlay -->
     <div v-if="previewingTask" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div class="rounded-lg bg-white max-w-[720px] w-full max-h-[90vh]  p-6">
+      <div class="rounded-lg bg-white max-w-[942px] w-full max-h-[90vh]  p-6">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-bold">Task Preview</h2>
           <button @click="closeTryTask" class="text-gray-500 hover:text-gray-700">

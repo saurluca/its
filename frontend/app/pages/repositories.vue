@@ -346,15 +346,16 @@ async function viewDocument(documentId: string) {
                 </div>
 
                 <div v-else class="space-y-6">
-                    <div class="flex gap-3">
-                        <DButton @click="openUploadModal" variant="primary" :icon-left="UploadIcon">
-                            Document
-                        </DButton>
-                        <DButton @click="openCreateRepositoryModal" variant="secondary" :icon-left="PlusIcon">
-                            Repository
-                        </DButton>
+                    <div class="flex flex-col gap-3">
+                        <DButtonLabelled title="Repository" :icon="PlusIcon" @click="openCreateRepositoryModal">
+                            Create a new repository, to organize your documents and tasks in. It's similar to a folder.
+                        </DButtonLabelled>
+                        <div class="border-t border-gray-200"></div>
+                        <DButtonLabelled title="Document" :icon="UploadIcon" @click="openUploadModal">
+                            Upload a document to a repository. Its content will be extracted and can be used for
+                            task generation.
+                        </DButtonLabelled>
                     </div>
-
                     <div v-if="repositories.length > 0" class="space-y-4">
                         <div v-for="repository in repositories" :key="repository.id"
                             class="bg-white p-4 rounded-lg shadow border border-gray-200">

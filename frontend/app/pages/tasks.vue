@@ -82,24 +82,6 @@ if (documentIdFromRoute) {
 // tasks are already filtered by the backend
 const filteredTasks = computed(() => tasks.value);
 
-// // Toggle filter type
-// function toggleFilterType() {
-//   if (filterType.value === "repository") {
-//     filterType.value = "document";
-//     selectedRepositoryId.value = "";
-//   } else {
-//     filterType.value = "repository";
-//     selectedDocumentId.value = "";
-//   }
-// }
-
-// // Reset filters
-// function resetFilters() {
-//   selectedRepositoryId.value = "";
-//   selectedDocumentId.value = "";
-//   // Reload all tasks
-//   fetchAllTasks();
-// }
 
 // Function to fetch all tasks
 async function fetchAllTasks() {

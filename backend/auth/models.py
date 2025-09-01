@@ -4,8 +4,14 @@ from typing import List, Optional, TYPE_CHECKING
 from pydantic import EmailStr
 from uuid import UUID, uuid4
 
+# Import link models to avoid string reference issues
+from skills.models import UserSkillLink
+from tasks.models import TaskUserLink
+
 if TYPE_CHECKING:
     from repositories.models import RepositoryAccess
+    from skills.models import Skill
+    from tasks.models import Task
 
 
 class UserBase(SQLModel):
@@ -22,6 +28,16 @@ class User(UserBase, table=True):
 
     # Relationships
     repository_access: list["RepositoryAccess"] = Relationship(back_populates="user")
+    # Skills the user is working on (via repository access)
+    skills: list["Skill"] = Relationship(
+        back_populates="users",
+        link_model=UserSkillLink,
+    )
+    # Tasks the user has interacted with
+    tasks: list["Task"] = Relationship(
+        back_populates="users",
+        link_model=TaskUserLink,
+    )
 
 
 class UserCreate(SQLModel):

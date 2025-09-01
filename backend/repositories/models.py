@@ -4,10 +4,14 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from enum import Enum
 
+# Import link models to avoid string reference issues
+from skills.models import RepositorySkillLink
+
 if TYPE_CHECKING:
     from documents.models import Document
     from tasks.models import Task
     from auth.models import User
+    from skills.models import Skill
 
 
 class AccessLevel(str, Enum):
@@ -85,6 +89,10 @@ class Repository(RepositoryBase, table=True):
         back_populates="repositories",
         link_model=RepositoryTaskLink,
     )
+    skills: list["Skill"] = Relationship(
+        back_populates="repositories",
+        link_model=RepositorySkillLink,
+    )
     user_access: list["RepositoryAccess"] = Relationship(back_populates="repository")
 
 
@@ -101,6 +109,7 @@ class RepositoryResponse(RepositoryBase):
     created_at: datetime
     deleted_at: datetime | None = None
     task_count: int = 0
+    skill_count: int = 0
     access_level: AccessLevel = AccessLevel.READ
 
 
@@ -110,6 +119,8 @@ class RepositoryResponseDetail(RepositoryBase):
     deleted_at: datetime | None = None
     document_ids: list[UUID] = []
     document_names: list[str] = []
+    skill_ids: list[UUID] = []
+    skill_names: list[str] = []
 
 
 class RepositoryDocumentLinkCreate(SQLModel):

@@ -1,12 +1,17 @@
+from typing import TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from enum import Enum
-from uuid import uuid4
 
 from documents.models import Chunk
 from repositories.models import Repository, RepositoryTaskLink
 from constants import DEFAULT_NUM_TASKS
+
+
+if TYPE_CHECKING:
+    from skills.models import Skill
+    from auth.models import User
 
 
 class TaskType(str, Enum):
@@ -41,6 +46,24 @@ class AnswerOptionRead(AnswerOptionBase):
     task_id: UUID
 
 
+# many to many task to user with tracking fields
+class TaskUserLink(SQLModel, table=True):
+    task_id: UUID = Field(foreign_key="task.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+    times_correct: int = Field(
+        default=0, description="Number of times user answered correctly"
+    )
+    times_incorrect: int = Field(
+        default=0, description="Number of times user answered incorrectly"
+    )
+    times_partial: int = Field(
+        default=0, description="Number of times user got partial credit"
+    )
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: datetime | None = None
+
+
 class TaskBase(SQLModel):
     type: TaskType
     question: str
@@ -49,6 +72,9 @@ class TaskBase(SQLModel):
 
 class Task(TaskBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
+    skill_id: UUID | None = Field(
+        foreign_key="skill.id", nullable=True
+    )  # Optional skill assignment
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
 
@@ -62,16 +88,24 @@ class Task(TaskBase, table=True):
         back_populates="tasks",
         link_model=RepositoryTaskLink,
     )
+    skill: "Skill" = Relationship(back_populates="tasks")
+    # Track user interactions with this task
+    users: list["User"] = Relationship(
+        back_populates="tasks",
+        link_model=TaskUserLink,
+    )
 
 
 class TaskCreate(TaskBase):
     answer_options: list[AnswerOptionCreate] | None = None
+    skill_id: UUID | None = None  # Optional skill assignment
 
 
 class TaskUpdate(SQLModel):
     question: str | None = None
     type: TaskType | None = None
     chunk_id: UUID | None = None
+    skill_id: UUID | None = None  # Optional skill assignment
     answer_options: list[AnswerOptionCreate] | None = None
 
 
@@ -81,6 +115,7 @@ class TaskDelete(SQLModel):
 
 class TaskRead(TaskBase):
     id: UUID
+    skill_id: UUID | None = None
     created_at: datetime
     deleted_at: datetime | None = None
     answer_options: list["AnswerOption"] = []
@@ -117,6 +152,14 @@ class GenerateTasksForDocumentsRequest(SQLModel):
     document_ids: list[UUID]
     num_tasks: int = DEFAULT_NUM_TASKS
     task_type: str = "multiple_choice"
+
+
+class TaskUserProgress(SQLModel):
+    task_id: UUID
+    times_correct: int
+    times_incorrect: int
+    times_partial: int
+    updated_at: datetime
 
 
 # Rebuild models to resolve forward references

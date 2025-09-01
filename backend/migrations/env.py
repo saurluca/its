@@ -13,8 +13,9 @@ from alembic import context
 # Import all models to register them with SQLModel.metadata
 from auth.models import User  # noqa
 from documents.models import Document, Chunk  # noqa
-from tasks.models import Task, AnswerOption  # noqa
+from tasks.models import Task, AnswerOption, TaskUserLink  # noqa
 from repositories.models import Repository  # noqa
+from skills.models import Skill, UserSkillLink, RepositorySkillLink  # noqa
 
 load_dotenv()
 

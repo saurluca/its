@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-create_db_and_tables()
+# create_db_and_tables()
 
 # Initialize and configure DSPy language model
 LLMConfig.configure_dspy()

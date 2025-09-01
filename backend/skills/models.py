@@ -28,16 +28,11 @@ class RepositorySkillLink(SQLModel, table=True):
 
 
 class SkillBase(SQLModel):
-    name: str = Field(
-        unique=True, index=True, description="Unique skill name across all repositories"
-    )
+    name: str = Field(unique=True, index=True)
 
 
 class Skill(SkillBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
-    # description: str | None = Field(
-    #     default=None, description="Optional description of the skill"
-    # )
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
 
@@ -60,17 +55,15 @@ class Skill(SkillBase, table=True):
 
 # Pydantic models for API operations
 class SkillCreate(SkillBase):
-    description: str | None = None
+    pass
 
 
 class SkillUpdate(SQLModel):
     name: str | None = None
-    description: str | None = None
 
 
 class SkillRead(SkillBase):
     id: UUID
-    description: str | None = None
     created_at: datetime
     deleted_at: datetime | None = None
 

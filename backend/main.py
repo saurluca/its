@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import create_db_and_tables
 from router import router
 from tasks.router import router as tasks_router
 from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
+from skills.router import router as skills_router
 from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
 import os
@@ -16,6 +16,7 @@ from auth.models import User  # noqa
 from documents.models import Document, Chunk  # noqa
 from tasks.models import Task, AnswerOption  # noqa
 from repositories.models import Repository  # noqa
+from skills.models import Skill, UserSkillLink, RepositorySkillLink  # noqa
 
 load_dotenv()
 
@@ -54,6 +55,7 @@ app.include_router(auth_router)
 app.include_router(repositories_router)
 app.include_router(tasks_router)
 app.include_router(documents_router)
+app.include_router(skills_router)
 
 
 if __name__ == "__main__":

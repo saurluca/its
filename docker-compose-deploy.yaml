@@ -37,6 +37,8 @@ services:
       - "8000:8000"
     depends_on:
       - db
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     restart: always
 
   frontend:
@@ -48,4 +50,15 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     restart: always
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json
+    command: --interval 30 --cleanup --label-enable
+    restart: always
+# fix auto ref from backend with / ... in frontend.

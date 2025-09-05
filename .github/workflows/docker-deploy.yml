@@ -32,7 +32,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Frontend Image
-        if: steps.changes.outputs.frontend == 'true'
+        # if: steps.changes.outputs.frontend == 'true'
         run: |
           docker build ./frontend --file ./frontend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
@@ -45,7 +45,7 @@ jobs:
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
 
       - name: Push frontend Image
-        if: steps.changes.outputs.frontend == 'true'
+        # if: steps.changes.outputs.frontend == 'true'
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
 
       - name: Push backend Image

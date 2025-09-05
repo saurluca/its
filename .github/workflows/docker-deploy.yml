@@ -28,7 +28,7 @@ jobs:
               - 'backend/**'
 
       - name: Log in to GHCR
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true'
+        # if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Frontend Image

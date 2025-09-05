@@ -36,7 +36,7 @@ jobs:
         run: |
           docker build ./frontend --file ./frontend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
-            --build-arg NUXT_PUBLIC_API_BASE=https://lts.ethz.ch/api \
+            --build-arg NUXT_PUBLIC_API_BASE=https://tutor.ethz.ch/api \
 
       - name: Build backend Image
         if: steps.changes.outputs.backend == 'true'

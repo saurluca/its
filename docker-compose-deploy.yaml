@@ -43,7 +43,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-frontend:${GITHUB_REF_NAME:-main}
     container_name: frontend
     environment:
-      - NUXT_PUBLIC_API_BASE=https://lts.ethz.ch/api
+      - NUXT_PUBLIC_API_BASE=https://tutor.ethz.ch/api
     ports:
       - "3000:80"
     depends_on:

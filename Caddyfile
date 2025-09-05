@@ -1,4 +1,4 @@
-lts.ethz.ch {
+tutor.ethz.ch {
   tls mail@lucasaur.com
   encode zstd gzip
 

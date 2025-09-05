@@ -21,7 +21,7 @@ const notifications = useNotificationsStore();
 async function requestPasswordReset() {
   loading.value = true;
   try {
-    await $authFetch("/reset-password/", {
+    await $authFetch("/reset-password", {
       method: "POST",
       body: {
         password: password.value,

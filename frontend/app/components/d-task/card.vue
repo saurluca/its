@@ -14,8 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "delete", id: string): void;
-  (e: "edit" | "update", task: Task): void;
-  (e: "preview-task", task: Task): void;
+  (e: "edit" | "update" | "preview-task", task: Task): void;
 }>();
 
 // Modal state

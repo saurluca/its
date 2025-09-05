@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
 async function fetchRepositories() {
     loading.value = true;
     try {
-        const response = await $authFetch("/repositories/") as { repositories?: Repository[] } | Repository[];
+        const response = await $authFetch("/repositories") as { repositories?: Repository[] } | Repository[];
         repositories.value = ('repositories' in response ? response.repositories : response) as Repository[];
     } catch (error) {
         console.error("Error fetching repositories:", error);
@@ -84,7 +84,7 @@ async function fetchRepositories() {
 
 async function createRepository(repositoryName: string) {
     try {
-        const newRepository = await $authFetch("/repositories/", {
+        const newRepository = await $authFetch("/repositories", {
             method: "POST",
             body: { name: repositoryName },
         }) as Repository;
@@ -108,7 +108,7 @@ async function createRepository(repositoryName: string) {
 
 async function deleteRepository(id: string) {
     try {
-        await $authFetch(`/repositories/${id}/`, {
+        await $authFetch(`/repositories/${id}`, {
             method: "DELETE",
         });
 

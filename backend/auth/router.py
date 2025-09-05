@@ -71,7 +71,7 @@ async def logout(
     return {"message": "Logout successful"}
 
 
-@router.get("/users/me/", response_model=UserResponse)
+@router.get("/users/me", response_model=UserResponse)
 async def read_users_me(
     current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),
@@ -91,9 +91,7 @@ async def read_users_me(
     return user
 
 
-@router.post(
-    "/users/", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
     user_data: UserCreate,
     db: Session = Depends(get_db_session),
@@ -102,7 +100,7 @@ async def create_user_endpoint(
     return await create_user(user_data, db)
 
 
-@router.get("/users/", response_model=UserListResponse)
+@router.get("/users", response_model=UserListResponse)
 async def get_users_endpoint(
     current_user: Annotated[UserResponse, Depends(get_current_user_from_request)],
     db: Session = Depends(get_db_session),

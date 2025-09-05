@@ -28,7 +28,7 @@ from auth.service import get_user_by_email
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
-@router.get("/", response_model=list[RepositoryResponse])
+@router.get("", response_model=list[RepositoryResponse])
 async def get_repositories(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
@@ -135,9 +135,7 @@ async def get_repository_documents(
     return document_responses
 
 
-@router.post(
-    "/", status_code=status.HTTP_201_CREATED, response_model=RepositoryResponse
-)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=RepositoryResponse)
 async def create_repository(
     repository: RepositoryCreate,
     session: Session = Depends(get_db_session),

@@ -41,7 +41,7 @@ from repositories.access_control import get_repository_access
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-@router.get("/", response_model=list[TaskRead])
+@router.get("", response_model=list[TaskRead])
 async def get_tasks(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
@@ -161,7 +161,7 @@ async def get_task(
     return db_task
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
 async def create_task(
     task: TaskCreate,
     session: Session = Depends(get_db_session),

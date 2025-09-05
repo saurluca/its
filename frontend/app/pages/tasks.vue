@@ -86,7 +86,7 @@ const filteredTasks = computed(() => tasks.value);
 // Function to fetch all tasks
 async function fetchAllTasks() {
   try {
-    const response = await $authFetch("/tasks/") as Task[];
+    const response = await $authFetch("/tasks") as Task[];
     tasks.value = response.map((task: Task) => ({
       ...task,
       id: task.id,
@@ -110,9 +110,9 @@ onMounted(async () => {
   try {
     const [tasksResponse, repositoriesResponse, documentsResponse] =
       await Promise.all([
-        $authFetch("/tasks/"),
-        $authFetch("/repositories/"),
-        $authFetch("/documents/"),
+        $authFetch("/tasks"),
+        $authFetch("/repositories"),
+        $authFetch("/documents"),
       ]) as [Task[], { repositories?: Repository[] } | Repository[], ApiDocument[]];
 
     // Default to all tasks; may be overridden by route-based filtering below

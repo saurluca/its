@@ -21,7 +21,7 @@ from datetime import datetime
 router = APIRouter(prefix="/skills", tags=["skills"])
 
 
-@router.get("/", response_model=List[SkillRead])
+@router.get("", response_model=List[SkillRead])
 async def get_skills(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
@@ -74,7 +74,7 @@ async def get_skill(
     return skill
 
 
-@router.post("/", response_model=SkillRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=SkillRead, status_code=status.HTTP_201_CREATED)
 async def create_skill(
     skill_data: SkillCreate,
     session: Session = Depends(get_db_session),

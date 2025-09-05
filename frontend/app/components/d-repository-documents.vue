@@ -78,7 +78,7 @@ async function fetchAllRepositories() {
 
 async function deleteDocument(documentId: string) {
     try {
-        await $authFetch(`/documents/${documentId}/`, {
+        await $authFetch(`/documents/${documentId}`, {
             method: "DELETE",
         });
         await fetchDocuments();

@@ -31,7 +31,7 @@ import dspy
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/", response_model=list[DocumentListResponse])
+@router.get("", response_model=list[DocumentListResponse])
 async def get_documents(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),

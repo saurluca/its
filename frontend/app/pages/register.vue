@@ -15,6 +15,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const success = ref(false);
 const loading = ref(false);
 const errorMsg = ref("");
+const showConsentModal = ref(false);
+const consentGiven = ref(false);
 
 async function register() {
   try {
@@ -24,7 +26,7 @@ async function register() {
     const result = await authStore.register({
       email: email.value,
       password: password.value,
-      full_name: name.value,
+      full_name: email.value,
     });
 
     if (result.success) {
@@ -40,6 +42,24 @@ async function register() {
     loading.value = false;
   }
 }
+
+function handleRegisterClick() {
+  if (!consentGiven.value) {
+    showConsentModal.value = true;
+  } else {
+    register();
+  }
+}
+
+function handleConsentAccepted() {
+  consentGiven.value = true;
+  showConsentModal.value = false;
+  register();
+}
+
+function handleConsentCancelled() {
+  showConsentModal.value = false;
+}
 </script>
 
 <template>
@@ -53,12 +73,7 @@ async function register() {
         <p class="text-sm text-green-700">You will be redirected shortly...</p>
       </div>
 
-      <form v-else @submit.prevent="register" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <d-label for="name">Name</d-label>
-          <d-input v-model="name" type="text" id="name" name="name" required placeholder="Your name" />
-        </div>
-
+      <form v-else class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <d-label for="email">Email</d-label>
           <d-input v-model="email" type="email" id="email" name="email" required placeholder="Your email address" />
@@ -71,7 +86,7 @@ async function register() {
         </div>
 
         <div class="flex flex-col gap-2">
-          <DButton :loading="loading" type="submit" text-center>Register</DButton>
+          <DButton :loading="loading" @click="handleRegisterClick" text-center>Register</DButton>
           <DButton to="/login" variant="secondary" text-center>Already registered? Login</DButton>
         </div>
 
@@ -80,5 +95,9 @@ async function register() {
         </div>
       </form>
     </div>
+
+    <!-- Consent Modal -->
+    <ConsentModal v-if="showConsentModal" titel="Information and Consent Form" confirm-text="Accept and Register"
+      @close="handleConsentCancelled" @confirm="handleConsentAccepted" />
   </div>
 </template>

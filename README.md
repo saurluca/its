@@ -82,3 +82,14 @@ uvx pre-commit install
 
 - [ ] Free text questions
 - [ ] Reference to course material
+
+## Deployment Testing
+
+The repository includes automated deployment health checks that run in GitHub Actions:
+
+- **Health Check Scripts**: Located in `/scripts/` directory
+- **CI/CD Integration**: Automatic testing on `main` and `live` branch deployments  
+- **Verification**: Tests backend API endpoints and frontend accessibility
+- **Documentation**: See `/scripts/README.md` for detailed usage
+
+The deployment testing ensures that Docker images are functional before production deployment.

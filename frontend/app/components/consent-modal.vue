@@ -56,15 +56,15 @@ function handleConsentChange() {
                             <div class="max-h-[600px] overflow-y-auto px-6 py-4">
                                 <!-- Study Information -->
                                 <div class="mb-6">
-                                    <p class="text-sm text-gray-600 mb-2"><strong>Title:</strong> Development and
-                                        Evaluation of an Intelligent Tutoring System</p>
+                                    <p class="text-sm text-gray-600 mb-2"><strong>Title:</strong>
+                                        Collecting a dataset of student answers to short answer questions to train
+                                        an AI model for automatic evaluation </p>
                                     <p class="text-sm text-gray-600 mb-2"><strong>Place and time:</strong> ETH Zurich,
                                         Online Study, 2025</p>
                                     <p class="text-sm text-gray-600 mb-2"><strong>Contact:</strong> Luca Saur, ETH
-                                        Zurich, lusaur@ethz.ch</p>
+                                        Zurich, lusaur@ethz.ch; Adrienn Toth, ETH Zurich, adrienn.toth@gess.ethz.ch</p>
                                     <p class="text-sm text-gray-600 mb-4"><strong>Data Protection Officer:</strong>
                                         Tomislav Mitar (tomislav.mitar@sl.ethz.ch)</p>
-
                                     <p class="text-gray-700 mb-6">
                                         We would like to ask you if you are willing to participate in our research
                                         project. Your participation is
@@ -81,7 +81,7 @@ function handleConsentChange() {
                                         <p class="text-sm text-gray-700 leading-relaxed">
                                             This study investigates how large language models can provide reliable
                                             feedback on short student answers. We
-                                            aim to develop and evaluate an intelligent tutoring system that generates
+                                            aim to develop and evaluate an AI based tutoring system that generates
                                             questions based on reference texts
                                             and collects student answers. These anonymised answers will help us to
                                             fine-tune models and improve feedback

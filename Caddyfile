@@ -1,13 +1,7 @@
-dodoit.net {
+lts.ethz.ch {
   tls mail@lucasaur.com
   encode zstd gzip
 
   reverse_proxy /* frontend:3000
 }
 
-api.dodoit.net {
-  tls mail@lucasaur.com
-  encode zstd gzip
-
-  reverse_proxy /* backend:8000
-}

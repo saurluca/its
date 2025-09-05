@@ -23,6 +23,9 @@ A modern, privacy-conscious intelligent tutoring system that generates personali
 
 Set environment variables for database and AI API keys in backend/.env.example
 
+With UV no venv needs to be manually created, requirements will installed automatically as well.
+If you don't have UV install it first: [installing uv](https://docs.astral.sh/uv/getting-started/installation/)
+
 ```bash
 cd backend
 
@@ -32,6 +35,8 @@ uv run uvicorn main:app --reload
 ### Frontend Setup
 
 Set environment variables for database and AI API keys in frontend/.env.example
+
+To instal bun: [installing bun](https://bun.com/docs/installation)
 
 ```bash
 cd frontend

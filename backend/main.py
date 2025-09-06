@@ -47,7 +47,14 @@ app.add_middleware(
 # create_db_and_tables()
 
 # Initialize and configure DSPy language model
-LLMConfig.configure_dspy()
+try:
+    LLMConfig.configure_dspy()
+except ValueError as e:
+    # Allow backend to start without LLM in CI/test environments
+    if "No LLM configured" in str(e):
+        print("Warning: No LLM configured; continuing without LLM. Set USE_OLLAMA/USE_AZURE/GROK_* to enable.")
+    else:
+        raise
 
 # Include all routers
 app.include_router(router)  # health check and root endpoints

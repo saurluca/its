@@ -9,7 +9,7 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  build-frontend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -24,11 +24,9 @@ jobs:
           filters: |
             frontend:
               - 'frontend/**'
-            backend:
-              - 'backend/**'
 
       - name: Log in to GHCR
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.backend == 'true'
+        if: steps.changes.outputs.frontend == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Frontend Image
@@ -38,15 +36,35 @@ jobs:
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
             --build-arg NUXT_PUBLIC_API_BASE=https://tutor.ethz.ch/api \
 
+      - name: Push frontend Image
+        if: steps.changes.outputs.frontend == 'true'
+        run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
+
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+
+      - name: Log in to GHCR
+        if: steps.changes.outputs.backend == 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Build backend Image
         if: steps.changes.outputs.backend == 'true'
         run: |
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
-
-      - name: Push frontend Image
-        if: steps.changes.outputs.frontend == 'true'
-        run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
 
       - name: Push backend Image
         if: steps.changes.outputs.backend == 'true'
@@ -55,7 +73,7 @@ jobs:
   # Deployment testing job
   test-deployment:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-frontend build-backend
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live'
     steps:
       - name: Checkout repository

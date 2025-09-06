@@ -387,7 +387,7 @@ async function viewDocument(documentId: string) {
                 </div>
 
                 <div v-else class="space-y-6">
-                    <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-3 mr-4">
                         <DButtonLabelled title="Repository" :icon="PlusIcon" @click="openCreateRepositoryModal">
                             Create new repository to organize documents and tasks; similar to a folder.
                         </DButtonLabelled>

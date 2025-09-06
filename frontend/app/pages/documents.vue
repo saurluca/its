@@ -45,7 +45,7 @@ const notifications = useNotificationsStore();
 async function fetchDocuments() {
   loadingDocuments.value = true;
   try {
-    const data = await fetchJson<Document[]>("/documents/");
+    const data = await fetchJson<Document[]>("/documents");
     // Transform the API response to match our Document interface
     documents.value = data.map((doc: Document) => ({
       id: doc.id,
@@ -67,7 +67,7 @@ async function fetchDocuments() {
 async function fetchRepositories() {
   loadingRepositories.value = true;
   try {
-    const data = await fetchJson<Repository[]>("/repositories/");
+    const data = await fetchJson<Repository[]>("/repositories");
     repositories.value = data;
   } catch (error) {
     console.error("Error fetching repositories:", error);
@@ -131,7 +131,7 @@ function triggerFilePicker() {
 async function deleteDocument(documentId: string) {
   deletingDocument.value = true;
   try {
-    await fetchJson(`/documents/${documentId}/`, {
+    await fetchJson(`/documents/${documentId}`, {
       method: "DELETE",
     });
     // Refresh the document list
@@ -187,7 +187,7 @@ async function confirmAddToRepository() {
   if (!selectedDocumentId.value || !selectedRepositoryId.value) return;
 
   try {
-    await fetchJson("/repositories/links/", {
+    await fetchJson("/repositories/links", {
       method: "POST",
       body: {
         repository_id: selectedRepositoryId.value,
@@ -251,7 +251,7 @@ async function viewDocument(documentId: string) {
   showHtmlViewer.value = true;
 
   try {
-    const data = await fetchJson<Document>(`/documents/${documentId}/`);
+    const data = await fetchJson<Document>(`/documents/${documentId}`);
 
     if (data.content) {
       htmlContent.value = data.content;

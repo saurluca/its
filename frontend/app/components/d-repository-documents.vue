@@ -49,7 +49,7 @@ onMounted(async () => {
 async function fetchDocuments() {
     loading.value = true;
     try {
-        const data = await fetchJson<Document[]>(`/repositories/${props.repositoryId}/documents/`);
+        const data = await fetchJson<Document[]>(`/repositories/${props.repositoryId}/documents`);
         documents.value = data.map((doc: Document) => ({
             id: doc.id,
             title: doc.title,
@@ -68,7 +68,7 @@ async function fetchDocuments() {
 
 async function fetchAllRepositories() {
     try {
-        const response = await fetchJson<Repository[]>(`/repositories/`);
+        const response = await fetchJson<Repository[]>(`/repositories`);
         allRepositories.value = response;
     } catch (error) {
         console.error("Error fetching repositories:", error);

@@ -29,14 +29,11 @@ export const useAuthStore = defineStore("auth", {
         formData.append("username", email);
         formData.append("password", password);
 
-        await $fetch<{ message: string }>(
-          `${apiUrl}/auth/token`,
-          {
-            method: "POST",
-            body: formData,
-            credentials: "include", // Include cookies in the request
-          }
-        );
+        await $fetch<{ message: string }>(`${apiUrl}/auth/token`, {
+          method: "POST",
+          body: formData,
+          credentials: "include", // Include cookies in the request
+        });
 
         // Set authentication state
         this.isAuthenticated = true;
@@ -50,7 +47,15 @@ export const useAuthStore = defineStore("auth", {
         this.isAuthenticated = false;
         return {
           success: false,
-          error: error && typeof error === 'object' && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String(error.data.detail) : "Login failed",
+          error:
+            error &&
+            typeof error === "object" &&
+            "data" in error &&
+            error.data &&
+            typeof error.data === "object" &&
+            "detail" in error.data
+              ? String(error.data.detail)
+              : "Login failed",
         };
       }
     },
@@ -74,7 +79,15 @@ export const useAuthStore = defineStore("auth", {
         console.error("Registration error:", error);
         return {
           success: false,
-          error: error && typeof error === 'object' && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String(error.data.detail) : "Registration failed",
+          error:
+            error &&
+            typeof error === "object" &&
+            "data" in error &&
+            error.data &&
+            typeof error.data === "object" &&
+            "detail" in error.data
+              ? String(error.data.detail)
+              : "Registration failed",
         };
       }
     },
@@ -84,13 +97,18 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        const user = await $fetch<User>(`${apiUrl}/auth/users/me/`, {
+        const user = await $fetch<User>(`${apiUrl}/auth/users/me`, {
           credentials: "include", // Include cookies in the request
         });
 
         this.user = user;
       } catch (error: unknown) {
-        if (error && typeof error === 'object' && 'status' in error && error.status !== 401) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "status" in error &&
+          error.status !== 401
+        ) {
           console.error("Fetch user error:", error);
         }
         // If fetching user fails, clear state but don't call logout

@@ -15,6 +15,11 @@ on:
         required: false
         default: "false"
         type: boolean
+      skip_tests:
+        description: "Skip deployment tests"
+        required: false
+        default: "false"
+        type: boolean
 
 permissions:
   contents: read
@@ -86,7 +91,7 @@ jobs:
   test-deployment:
     runs-on: ubuntu-latest
     needs: [build-frontend, build-backend]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live') && github.event.inputs.skip_tests != 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

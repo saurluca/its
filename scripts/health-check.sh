@@ -86,7 +86,7 @@ fi
 
 # Additional API endpoint check (if available)
 echo -e "\n${YELLOW}=== API Endpoints Check ===${NC}"
-if check_service "API Tasks Endpoint" "$BACKEND_URL/tasks/" "200"; then
+if check_service "API Tasks Endpoint" "$BACKEND_URL/tasks" "200"; then
     echo -e "${GREEN}✅ API tasks endpoint is accessible${NC}"
 else
     echo -e "${YELLOW}⚠️  API tasks endpoint check failed (might be expected if auth is required)${NC}"

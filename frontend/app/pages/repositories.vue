@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, ClipboardList, UserPlusIcon } from "lucide-vue-next";
 import type { Repository, Document } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
+import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -196,7 +197,33 @@ function triggerFilePicker() {
 function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
-        selectedFile.value = input.files[0] || null;
+        const file = input.files[0];
+
+        if (!file) {
+            notifications.error("No file selected.");
+            return;
+        }
+
+        // Validate file type
+        const fileName = file.name.toLowerCase();
+        const fileExtension = fileName.split('.').pop() || '';
+
+        if (!SUPPORTED_MIME_TYPES.includes(fileExtension)) {
+            notifications.error(`Unsupported file type. Supported formats: ${SUPPORTED_MIME_TYPES.join(', ')}`);
+            // Clear the input
+            input.value = '';
+            return;
+        }
+
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            notifications.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Please choose a smaller file.`);
+            // Clear the input
+            input.value = '';
+            return;
+        }
+
+        selectedFile.value = file;
         // Automatically start upload when file is selected
         handleUpload();
     }
@@ -526,7 +553,11 @@ async function viewDocument(documentId: string) {
                         Hint: Enable this if there are problems extracting text from a PDF. It may take longer to
                         process.
                     </p>
-                    <input ref="fileInput" type="file" accept="*/*" class="hidden" @change="handleFileSelect" />
+                    <p class="text-xs text-gray-500">
+                        Supported formats: {{ SUPPORTED_MIME_TYPES.join(', ') }} • Max size: {{ MAX_FILE_SIZE_MB }}MB
+                    </p>
+                    <input ref="fileInput" type="file" :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')"
+                        class="hidden" @change="handleFileSelect" />
                     <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
                         Selected: {{ selectedFile.name }}
                     </div>

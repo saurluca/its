@@ -3,20 +3,6 @@ import os
 
 load_dotenv()
 
-
-# File processing constants
-SUPPORTED_MIME_TYPES = {
-    "application/pdf": ".pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-    "text/html": ".html",
-    "text/plain": ".txt",
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/tiff": ".tiff",
-}
-
 # Task generation constants
 DEFAULT_NUM_TASKS = 3
 REQUIRED_ANSWER_OPTIONS = 4

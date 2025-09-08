@@ -187,7 +187,9 @@ def flatten_pdf_in_memory(pdf_bytes):
     return flattened_pdf_bytes
 
 
-def extract_docling_doc(file_obj, flatten_pdf: bool = False) -> tuple[str, DLDocument]:
+def extract_docling_doc(
+    file_obj, filename: str, flatten_pdf: bool = False
+) -> tuple[str, DLDocument]:
     assert file_obj and hasattr(file_obj, "read"), (
         "Input must be a file-like object with .read()"
     )
@@ -195,12 +197,12 @@ def extract_docling_doc(file_obj, flatten_pdf: bool = False) -> tuple[str, DLDoc
     print("Converting doc using Docling")
     start_time = time.time()
 
-    # Build a DocumentStream as per Docling usage
-    name = getattr(file_obj, "name", None)
-    if hasattr(file_obj, "filename") and file_obj.filename:
-        name = file_obj.filename
-    if not name:
-        name = "uploaded_file.pdf"
+    # Use the provided filename directly
+    name = filename or "uploaded_file"
+
+    # Ensure name has a proper extension - if no extension, add .txt as fallback
+    if "." not in name:
+        name += ".txt"
 
     try:
         file_obj.seek(0)

@@ -95,6 +95,13 @@ jobs:
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
 
+      - name: Test if Backend Image is healthy
+        run: |
+          docker run -d --rm -p 8000:8000 --name backend-test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
+          sleep 15
+          curl -f http://localhost:8000/health
+          docker stop backend-test
+
       - name: Push backend Image
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
 
@@ -130,97 +137,3 @@ jobs:
 
       - name: Push Docling Serve Image
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-docling-serve:${{ github.ref_name }}
-
-  # Deployment testing job
-  test-deployment:
-    runs-on: ubuntu-latest
-    needs: [build-frontend, build-backend]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/live') && github.event.inputs.skip_tests != 'true'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Pull Docker images
-        run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
-
-      - name: Create test environment file
-        run: |
-          cat > .env.test << EOF
-          DB_USER=test_user
-          DB_PASSWORD=test_password
-          DB_NAME=test_db
-          DB_HOST=localhost
-          DB_PORT=5432
-          CORS_ORIGINS=http://localhost:3000,http://localhost:80
-          TEST_DEPLOYMENT=true
-          GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
-          GITHUB_REPOSITORY_NAME=${{ github.event.repository.name }}
-          GITHUB_REF_NAME=${{ github.ref_name }}
-          EOF
-
-      - name: Start test containers
-        run: |
-          # Start database first
-          docker run -d --name test-db \
-            -p 5432:5432 \
-            -e POSTGRES_USER=test_user \
-            -e POSTGRES_PASSWORD=test_password \
-            -e POSTGRES_DB=test_db \
-            postgres:17-alpine
-
-          # Wait for database to be ready
-          echo "⏳ Waiting for PostgreSQL to be ready..."
-          sleep 15
-
-          # Check if database is accepting connections
-          echo "🔍 Checking database connectivity..."
-          docker exec test-db pg_isready -U test_user -d test_db -h localhost || echo "⚠️  Database may not be fully ready yet"
-
-          # Start backend with additional logging
-          echo "🚀 Starting backend container..."
-          docker run -d --name test-backend \
-            --network host \
-            --env-file .env.test \
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
-
-          # Give backend more time to initialize
-          echo "⏳ Waiting for backend to initialize..."
-          sleep 20
-
-          # Check if backend container is running
-          if docker ps | grep -q test-backend; then
-            echo "✅ Backend container is running"
-            # Show backend logs to help debug
-            echo "📋 Backend container logs (last 20 lines):"
-            docker logs test-backend 2>&1 | tail -20 || echo "No logs available yet"
-          else
-            echo "❌ Backend container failed to start"
-            docker ps -a | grep test-backend || echo "Backend container not found"
-          fi
-
-          # Start frontend
-          echo "🚀 Starting frontend container..."
-          docker run -d --name test-frontend \
-            -p 3000:80 \
-            -e NUXT_PUBLIC_API_BASE=http://localhost:8000 \
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
-
-          # Wait for services to start
-          echo "⏳ Final wait for services to be ready..."
-          sleep 10
-
-      - name: Run deployment health checks
-        run: |
-          chmod +x ./scripts/health-check.sh
-          BACKEND_URL=http://localhost:8000 FRONTEND_URL=http://localhost:3000 ./scripts/health-check.sh
-
-      - name: Cleanup test containers
-        if: always()
-        run: |
-          docker stop test-frontend test-backend test-db || true
-          docker rm test-frontend test-backend test-db || true

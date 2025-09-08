@@ -69,7 +69,7 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        await $fetch(`${apiUrl}/auth/users/`, {
+        await $fetch(`${apiUrl}/auth/users`, {
           method: "POST",
           body: userData,
         });

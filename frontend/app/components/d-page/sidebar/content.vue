@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  FileIcon,
   LogOutIcon,
   PanelLeftClose,
   PanelRightClose,
@@ -27,11 +26,11 @@ const links = [
     to: "/tasks",
     icon: ClipboardList,
   },
-  {
-    name: "Documents",
-    to: "/documents",
-    icon: FileIcon,
-  },
+  // {
+  //   name: "Documents",
+  //   to: "/documents",
+  //   icon: FileIcon,
+  // },
   // {
   //   name: "Study",
   //   to: "/study",

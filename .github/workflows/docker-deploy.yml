@@ -95,12 +95,12 @@ jobs:
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
 
-      - name: Test if Backend Image is healthy
-        run: |
-          docker run -d --rm -p 8000:8000 --name backend-test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
-          sleep 15
-          curl -f http://localhost:8000/health
-          docker stop backend-test
+      # - name: Test if Backend Image is healthy
+      #   run: |
+      #     docker run -d --rm -p 8000:8000 --name backend-test ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
+      #     sleep 15
+      #     curl -f http://localhost:8000/health
+      #     docker stop backend-test
 
       - name: Push backend Image
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}

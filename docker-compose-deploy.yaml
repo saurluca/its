@@ -37,6 +37,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - docling-serve
     labels:
       com.centurylinklabs.watchtower.enable: true
     restart: always
@@ -50,6 +51,19 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+    restart: always
+
+  docling-serve:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-docling-serve:${GITHUB_REF_NAME:-main}
+    container_name: docling-serve
+    env_file:
+      - .env
+    ports:
+      - "5001:5001"
+    depends_on:
+      - db
     labels:
       com.centurylinklabs.watchtower.enable: true
     restart: always

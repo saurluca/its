@@ -16,7 +16,7 @@ services:
     restart: always
 
   docling:
-    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    image: ghcr.io/lucasaur/its-docling-serve:latest
     container_name: docling
     ports:
       - "5001:5001"

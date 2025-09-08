@@ -4,10 +4,10 @@ router = APIRouter()
 
 
 @router.get("/")
-def read_root():
+async def read_root():
     return {"status": "ok"}
 
 
 @router.get("/health")
-def health_check():
+async def health_check():
     return {"status": "ok"}

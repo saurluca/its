@@ -10,7 +10,6 @@ from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
 import os
 from typing import List
-from database import wait_for_database
 
 # Import all models to register them with SQLModel.metadata
 from auth.models import User  # noqa
@@ -20,13 +19,6 @@ from repositories.models import Repository  # noqa
 from skills.models import Skill, UserSkillLink, RepositorySkillLink  # noqa
 
 load_dotenv()
-
-# Wait for database to be ready only in CI test deployment
-if os.getenv("TEST_DEPLOYMENT", "false").lower() == "true":
-    print("🚀 TEST_DEPLOYMENT detected: waiting for database readiness...")
-    if not wait_for_database():
-        print("❌ Failed to connect to database. Exiting.")
-        exit(1)
 
 app = FastAPI(
     title="ITS Backend",
@@ -52,18 +44,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables on startup only in CI test deployment
-if os.getenv("TEST_DEPLOYMENT", "false").lower() == "true":
-    from database import create_db_and_tables
-
-    print("Creating database tables (TEST_DEPLOYMENT)...")
-    try:
-        create_db_and_tables()
-        print("✅ Database tables created successfully")
-    except Exception as e:
-        print(f"⚠️  Database table creation failed: {e}")
-        print("Continuing without table creation - tables might already exist")
-
 # Initialize and configure DSPy language model
 try:
     LLMConfig.configure_dspy()
@@ -83,10 +63,3 @@ app.include_router(repositories_router)
 app.include_router(tasks_router)
 app.include_router(documents_router)
 app.include_router(skills_router)
-
-# hello world
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)

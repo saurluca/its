@@ -7,7 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.16.4",
     "asyncpg>=0.30.0",
-    "docling>=2.42.1",
     "dotenv>=0.9.9",
     "dspy>=2.6.27",
     "fastapi>=0.116.1",
@@ -26,7 +25,6 @@ dependencies = [
     "sqlmodel>=0.0.24",
     "tqdm>=4.67.1",
     "uvicorn>=0.35.0",
-    "pymupdf>=1.26.3",
 ]
 fastapi = "^0.110.0"
 uvicorn = {extras = ["standard"], version = "^0.29.0"}

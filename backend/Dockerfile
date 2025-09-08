@@ -13,14 +13,14 @@ WORKDIR /app
 # Install dependencies first (for better caching)
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --no-install-project
+    uv sync --no-install-project --no-dev
 
 # Copy the rest of the application
 COPY . .
 
 # Install the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync 
+    uv sync --no-dev
 
 # Expose the port
 EXPOSE 8000

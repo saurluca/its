@@ -1,5 +1,6 @@
 from .models import Chunk
 import dspy
+from constants import MAX_TITLE_LENGTH
 
 
 # summarises a document

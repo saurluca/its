@@ -1,5 +1,7 @@
-from fastapi import FastAPI, CORSMiddleware, HTTPException, status
-from typing import BinaryIO, List, Tuple
+from tokenize import triple_quoted
+from fastapi import FastAPI, HTTPException, status, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List
 import fitz
 from PIL import Image
 import io
@@ -8,8 +10,8 @@ from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
 from docling.datamodel.document import DoclingDocument as DLDocument
 from docling.chunking import HybridChunker
-from documents.models import Chunk
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 MIN_CHUNK_LENGTH = 420
 
@@ -30,6 +32,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class Chunk(BaseModel):
+    chunk_index: int
+    chunk_text: str
+    chunk_length: int
+
+
+class ProcessDocumentResponse(BaseModel):
+    chunks: List[Chunk]
+    html_text: str
+    success: bool
 
 
 @app.get("/")
@@ -73,25 +87,20 @@ def flatten_pdf_in_memory(pdf_bytes: BytesIO) -> BytesIO:
     return flattened_pdf_bytes
 
 
-@app.post("/convert")
-def extract_docling_doc(
-    file_obj: BinaryIO, filename: str, flatten_pdf: bool = False
-) -> Tuple[str, DLDocument]:
-    if not (file_obj and hasattr(file_obj, "read")):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Input must be a file-like object with .read()"
-        )
+@app.post("/process", response_model=ProcessDocumentResponse)
+async def process_document(
+    filename: str,
+    file: UploadFile = File(...),
+    flatten_pdf: bool = False,
+) -> ProcessDocumentResponse:
+    print("Processing document")
+    print(f"filename: {filename}")
+    if not file:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No file provided")
 
     print("Converting doc using Docling")
-    # Use the provided filename directly
-    name = filename or "uploaded_file"
-
-    # Ensure name has a proper extension - if no extension, add .txt as fallback
-    if "." not in name:
-        name += ".txt"
-
-    file_obj.seek(0)
-    file_content = file_obj.read()
+    # Use the uploaded filename directly
+    file_content = await file.read()
     if not file_content:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "File is empty or could not be read"
@@ -101,7 +110,7 @@ def extract_docling_doc(
     if flatten_pdf:
         stream_like = flatten_pdf_in_memory(stream_like)
 
-    stream = DocumentStream(name=str(name), stream=stream_like)
+    stream = DocumentStream(name=str(filename), stream=stream_like)
     converter = DocumentConverter()
     result = converter.convert(stream)
     if not result or not result.document:
@@ -110,20 +119,11 @@ def extract_docling_doc(
         )
     docling_doc = result.document
 
-    # Get full text for document saving to db
+    # Get html text from docling document
     html_text = docling_doc.export_to_html()
-    if not html_text:
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR, "Could not export document to HTML"
-        )
     # remove newlines
     html_text = html_text.replace("\n", "")
 
-    return html_text, docling_doc
-
-
-@app.post("/chunk")
-def chunk_document(docling_doc: DLDocument) -> List[Chunk]:
     print("Chunking")
 
     # Use HybridChunker to split document into chunks
@@ -154,7 +154,9 @@ def chunk_document(docling_doc: DLDocument) -> List[Chunk]:
 
     if len(chunk_objects) <= 1:
         print("Only 1 chunk")
-        return chunk_objects
+        return ProcessDocumentResponse(
+            chunks=chunk_objects, success=True, html_text=html_text
+        )
 
     og_num_chunks = len(chunk_objects)
 
@@ -218,4 +220,6 @@ def chunk_document(docling_doc: DLDocument) -> List[Chunk]:
             len(chunk.chunk_text) >= MIN_CHUNK_LENGTH for chunk in chunk_objects
         ), "Not all chunks are long enough after merging"
 
-    return chunk_objects
+    return ProcessDocumentResponse(
+        chunks=chunk_objects, html_text=html_text, success=True
+    )

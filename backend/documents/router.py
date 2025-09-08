@@ -1,3 +1,4 @@
+from urllib3 import response
 from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, Query, File
 from dependencies import get_db_session, get_small_llm, get_large_llm
 from documents.models import (
@@ -17,16 +18,20 @@ from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import (
-    # extract_text_from_file_and_chunk,
     generate_document_title,
     get_document_summary,
     filter_important_chunks,
-    extract_docling_doc,
-    chunk_document,
 )
 from starlette.concurrency import run_in_threadpool
 import dspy
+import requests
+import os
+from dotenv import load_dotenv
 
+
+load_dotenv()
+
+DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -84,16 +89,26 @@ async def upload_and_chunk_document(
     small_lm: dspy.LM = Depends(get_small_llm),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    # extract text from file and chunk
-    html_text, docling_doc = await run_in_threadpool(
-        # extract_text_from_file_and_chunk,
-        # file.file,
-        # mime_type=file.content_type,
-        extract_docling_doc,
-        file.file,
-        file.filename,
-        flatten_pdf=flatten_pdf,
+    print(f"Uploading and chunking document {file.filename}...")
+
+    response = requests.post(
+        f"{DOCLING_SERVE_API_URL}/process",
+        files={"file": file.file},
+        data={"flatten_pdf": flatten_pdf},
+        params={"filename": file.filename},
     )
+
+    status_code = response.status_code
+
+    if status_code != 200:
+        raise HTTPException(status_code=status_code, detail=response.text)
+
+    results = response.json()
+    chunks_data = results["chunks"]
+    html_text = results["html_text"]
+
+    # convert chunks to list of Chunk objects
+    chunks = [Chunk(**chunk) for chunk in chunks_data]
 
     document = Document(
         title=file.filename,
@@ -106,9 +121,6 @@ async def upload_and_chunk_document(
     session.commit()
     session.refresh(document)
 
-    chunks = await run_in_threadpool(chunk_document, docling_doc)
-
-    # Add chunks with document_id reference
     for chunk in chunks:
         chunk.document_id = document.id
         session.add(chunk)

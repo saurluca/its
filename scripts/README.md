@@ -5,9 +5,11 @@ This directory contains scripts for testing deployed application health in the C
 ## Scripts
 
 ### `health-check.sh`
+
 A comprehensive health check script that verifies both backend and frontend services are running correctly.
 
 **Features:**
+
 - Tests backend health endpoints (`/health` and `/`)
 - Verifies frontend accessibility
 - Configurable retry logic with delays
@@ -15,6 +17,7 @@ A comprehensive health check script that verifies both backend and frontend serv
 - Returns proper exit codes for CI/CD integration
 
 **Usage:**
+
 ```bash
 # Basic usage
 ./scripts/health-check.sh
@@ -27,20 +30,24 @@ MAX_RETRIES=5 RETRY_DELAY=3 ./scripts/health-check.sh
 ```
 
 **Environment Variables:**
+
 - `BACKEND_URL`: Backend service URL (default: http://localhost:8000)
-- `FRONTEND_URL`: Frontend service URL (default: http://localhost:3000)  
+- `FRONTEND_URL`: Frontend service URL (default: http://localhost:3000)
 - `MAX_RETRIES`: Number of retry attempts (default: 10)
 - `RETRY_DELAY`: Delay between retries in seconds (default: 5)
 
 ### `docker-health-check.sh`
+
 A Docker-specific health check script that uses containerized curl to test services.
 
 **Features:**
+
 - Uses Docker containers for isolated testing
 - Network host mode for container-to-container communication
 - Lightweight and minimal dependencies
 
 **Usage:**
+
 ```bash
 ./scripts/docker-health-check.sh
 ```

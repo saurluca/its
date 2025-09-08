@@ -24,19 +24,22 @@ check_service() {
     local service_name="$1"
     local url="$2"
     local expected_status="${3:-200}"
-    
+
     echo -e "${YELLOW}Checking ${service_name} at ${url}...${NC}"
-    
+
     for i in $(seq 1 $MAX_RETRIES); do
-        if curl -f -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected_status"; then
-            echo -e "${GREEN}✅ ${service_name} is responding correctly${NC}"
+        response=$(curl -f -s -w "HTTPSTATUS:%{http_code};" "$url" 2>/dev/null || echo "HTTPSTATUS:000;")
+        http_code=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://' -e 's/;.*//')
+
+        if [ "$http_code" = "$expected_status" ]; then
+            echo -e "${GREEN}✅ ${service_name} is responding correctly (HTTP $http_code)${NC}"
             return 0
         else
-            echo -e "${YELLOW}⏳ ${service_name} not ready, attempt $i/$MAX_RETRIES (retrying in ${RETRY_DELAY}s...)${NC}"
+            echo -e "${YELLOW}⏳ ${service_name} not ready (HTTP $http_code), attempt $i/$MAX_RETRIES (retrying in ${RETRY_DELAY}s...)${NC}"
             sleep $RETRY_DELAY
         fi
     done
-    
+
     echo -e "${RED}❌ ${service_name} failed to respond after $MAX_RETRIES attempts${NC}"
     return 1
 }
@@ -46,20 +49,25 @@ check_service_content() {
     local service_name="$1"
     local url="$2"
     local expected_content="$3"
-    
+
     echo -e "${YELLOW}Checking ${service_name} content at ${url}...${NC}"
-    
+
     for i in $(seq 1 $MAX_RETRIES); do
         response=$(curl -f -s "$url" 2>/dev/null || echo "")
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+
         if echo "$response" | grep -q "$expected_content"; then
             echo -e "${GREEN}✅ ${service_name} content check passed${NC}"
             return 0
         else
-            echo -e "${YELLOW}⏳ ${service_name} content not ready, attempt $i/$MAX_RETRIES (retrying in ${RETRY_DELAY}s...)${NC}"
+            echo -e "${YELLOW}⏳ ${service_name} content not ready (HTTP $http_code), attempt $i/$MAX_RETRIES (retrying in ${RETRY_DELAY}s...)${NC}"
+            if [ "$http_code" != "000" ] && [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo -e "${YELLOW}   Last response: ${response:-'(empty response)'}${NC}"
+            fi
             sleep $RETRY_DELAY
         fi
     done
-    
+
     echo -e "${RED}❌ ${service_name} content check failed after $MAX_RETRIES attempts${NC}"
     return 1
 }

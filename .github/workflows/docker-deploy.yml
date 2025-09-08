@@ -15,6 +15,11 @@ on:
         required: false
         default: "false"
         type: boolean
+      force_rebuild_docling-serve:
+        description: "Force rebuild docling-serve (ignores change detection)"
+        required: false
+        default: "false"
+        type: boolean
       skip_tests:
         description: "Skip deployment tests"
         required: false
@@ -42,19 +47,22 @@ jobs:
             frontend:
               - 'frontend/**'
 
+      - name: Exit if no frontend changes and not forced
+        if: steps.changes.outputs.frontend != 'true' && github.event.inputs.force_rebuild_frontend != 'true'
+        run: |
+          echo "No frontend changes detected and force rebuild not requested. Exiting."
+          exit 0
+
       - name: Log in to GHCR
-        if: steps.changes.outputs.frontend == 'true' || github.event.inputs.force_rebuild_frontend == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Frontend Image
-        if: steps.changes.outputs.frontend == 'true' || github.event.inputs.force_rebuild_frontend == 'true'
         run: |
           docker build ./frontend --file ./frontend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }} \
             --build-arg NUXT_PUBLIC_API_BASE=https://tutor.ethz.ch/api \
 
       - name: Push frontend Image
-        if: steps.changes.outputs.frontend == 'true' || github.event.inputs.force_rebuild_frontend == 'true'
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:${{ github.ref_name }}
 
   build-backend:
@@ -73,19 +81,55 @@ jobs:
             backend:
               - 'backend/**'
 
+      - name: Exit if no backend changes and not forced
+        if: steps.changes.outputs.backend != 'true' && github.event.inputs.force_rebuild_backend != 'true'
+        run: |
+          echo "No backend changes detected and force rebuild not requested. Exiting."
+          exit 0
+
       - name: Log in to GHCR
-        if: steps.changes.outputs.backend == 'true' || github.event.inputs.force_rebuild_backend == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build backend Image
-        if: steps.changes.outputs.backend == 'true' || github.event.inputs.force_rebuild_backend == 'true'
         run: |
           docker build ./backend --file ./backend/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }} \
 
       - name: Push backend Image
-        if: steps.changes.outputs.backend == 'true' || github.event.inputs.force_rebuild_backend == 'true'
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-backend:${{ github.ref_name }}
+
+  build-docling-serve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docling-serve:
+              - 'docling-serve/**'
+
+      - name: Exit if no docling-serve changes and not forced
+        if: steps.changes.outputs.docling-serve != 'true' && github.event.inputs.force_rebuild_docling-serve != 'true'
+        run: |
+          echo "No docling-serve changes detected and force rebuild not requested. Exiting."
+          exit 0
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docling Serve Image
+        run: |
+          docker build ./docling-serve --file ./docling-serve/Dockerfile \
+            --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-docling-serve:${{ github.ref_name }} \
+
+      - name: Push Docling Serve Image
+        run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-docling-serve:${{ github.ref_name }}
 
   # Deployment testing job
   test-deployment:

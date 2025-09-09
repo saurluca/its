@@ -71,6 +71,22 @@ const showRemoveSkillModal = ref(false);
 const removingSkillId = ref<string | null>(null);
 const removingSkillName = ref<string | null>(null);
 
+// Units management modals
+const showRenameUnitModal = ref(false);
+const renamingUnitId = ref<string | null>(null);
+const renamingUnitTitle = ref("");
+const showDeleteUnitModal = ref(false);
+const deletingUnitId = ref<string | null>(null);
+const deletingUnitTitle = ref<string | null>(null);
+
+// Documents management modals
+const showRenameDocumentModal = ref(false);
+const renamingDocumentId = ref<string | null>(null);
+const renamingDocumentTitle = ref("");
+const showDeleteDocumentModal = ref(false);
+const deletingDocumentId = ref<string | null>(null);
+const deletingDocumentTitle = ref<string | null>(null);
+
 onMounted(async () => {
     if (!repositoryId.value) {
         notifications.error("Missing repositoryId in URL.");
@@ -166,6 +182,60 @@ async function confirmCreateUnit() {
     }
 }
 
+// Unit actions
+function openRenameUnitModal(unit: UnitListItem) {
+    renamingUnitId.value = unit.id;
+    renamingUnitTitle.value = unit.title;
+    showRenameUnitModal.value = true;
+}
+
+function closeRenameUnitModal() {
+    showRenameUnitModal.value = false;
+    renamingUnitId.value = null;
+    renamingUnitTitle.value = "";
+}
+
+async function confirmRenameUnit() {
+    if (!renamingUnitId.value || !renamingUnitTitle.value.trim()) return;
+    try {
+        await $authFetch(`/units/${renamingUnitId.value}`, {
+            method: "PUT",
+            body: { title: renamingUnitTitle.value.trim() },
+        });
+        notifications.success("Unit renamed.");
+        closeRenameUnitModal();
+        await refreshUnits();
+    } catch (error) {
+        console.error("Error renaming unit:", error);
+        notifications.error("Failed to rename unit. " + error);
+    }
+}
+
+function openDeleteUnitModal(unit: UnitListItem) {
+    deletingUnitId.value = unit.id;
+    deletingUnitTitle.value = unit.title;
+    showDeleteUnitModal.value = true;
+}
+
+function closeDeleteUnitModal() {
+    showDeleteUnitModal.value = false;
+    deletingUnitId.value = null;
+    deletingUnitTitle.value = null;
+}
+
+async function confirmDeleteUnit() {
+    if (!deletingUnitId.value) return;
+    try {
+        await $authFetch(`/units/${deletingUnitId.value}`, { method: "DELETE" });
+        notifications.success("Unit deleted.");
+        closeDeleteUnitModal();
+        await refreshUnits();
+    } catch (error) {
+        console.error("Error deleting unit:", error);
+        notifications.error("Failed to delete unit. " + error);
+    }
+}
+
 async function viewDocument(documentId: string) {
     if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
         showHtmlViewer.value = false;
@@ -191,6 +261,60 @@ async function viewDocument(documentId: string) {
         htmlError.value = "Failed to load document content";
     } finally {
         loadingHtml.value = false;
+    }
+}
+
+// Document actions
+function openRenameDocumentModal(doc: DocumentItem) {
+    renamingDocumentId.value = doc.id;
+    renamingDocumentTitle.value = doc.title;
+    showRenameDocumentModal.value = true;
+}
+
+function closeRenameDocumentModal() {
+    showRenameDocumentModal.value = false;
+    renamingDocumentId.value = null;
+    renamingDocumentTitle.value = "";
+}
+
+async function confirmRenameDocument() {
+    if (!renamingDocumentId.value || !renamingDocumentTitle.value.trim()) return;
+    try {
+        await $authFetch(`/documents/${renamingDocumentId.value}`, {
+            method: "PUT",
+            body: { title: renamingDocumentTitle.value.trim() },
+        });
+        notifications.success("Document renamed.");
+        closeRenameDocumentModal();
+        await refreshDocuments();
+    } catch (error) {
+        console.error("Error renaming document:", error);
+        notifications.error("Failed to rename document. " + error);
+    }
+}
+
+function openDeleteDocumentModal(doc: DocumentItem) {
+    deletingDocumentId.value = doc.id;
+    deletingDocumentTitle.value = doc.title;
+    showDeleteDocumentModal.value = true;
+}
+
+function closeDeleteDocumentModal() {
+    showDeleteDocumentModal.value = false;
+    deletingDocumentId.value = null;
+    deletingDocumentTitle.value = null;
+}
+
+async function confirmDeleteDocument() {
+    if (!deletingDocumentId.value) return;
+    try {
+        await $authFetch(`/documents/${deletingDocumentId.value}`, { method: "DELETE" });
+        notifications.success("Document deleted.");
+        closeDeleteDocumentModal();
+        await refreshDocuments();
+    } catch (error) {
+        console.error("Error deleting document:", error);
+        notifications.error("Failed to delete document. " + error);
     }
 }
 
@@ -445,7 +569,7 @@ async function confirmRemoveSkill() {
                                             </span>
                                         </div>
                                     </div>
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-2 items-center">
                                         <DButton @click="navigateToTasksForUnit(unit.id)" variant="primary"
                                             :icon-left="ClipboardList">
                                             Tasks
@@ -454,7 +578,21 @@ async function confirmRemoveSkill() {
                                             :icon-left="BookOpenIcon">
                                             Study
                                         </DButton>
-
+                                        <DHamburgerMenu>
+                                            <template #default="{ close }">
+                                                <button @click="() => { openRenameUnitModal(unit); close(); }"
+                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <PencilIcon class="h-4 w-4" />
+                                                    Rename Unit
+                                                </button>
+                                                <div class="border-t border-gray-200 my-1"></div>
+                                                <button @click="() => { openDeleteUnitModal(unit); close(); }"
+                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <TrashIcon class="h-4 w-4" />
+                                                    Delete Unit
+                                                </button>
+                                            </template>
+                                        </DHamburgerMenu>
                                     </div>
                                 </div>
                             </div>
@@ -476,13 +614,18 @@ async function confirmRemoveSkill() {
                         <div class="border-t border-gray-200 my-3"></div>
 
                         <div v-if="documents.length > 0" class="space-y-2">
-                            <div v-for="doc in documents" :key="doc.id" @click="viewDocument(doc.id)"
-                                class="bg-white p-3 rounded-lg shadow border border-gray-200 cursor-pointer hover:bg-gray-50">
+                            <div v-for="doc in documents" :key="doc.id"
+                                class="bg-white p-3 rounded-lg shadow border border-gray-200">
                                 <div class="flex items-center justify-between">
-                                    <div class="truncate">
+                                    <div class="truncate cursor-pointer" @click="viewDocument(doc.id)">
                                         <span class="font-medium">{{ doc.title }}</span>
                                     </div>
-                                    <div class="text-xs text-gray-400">ID: {{ doc.id.slice(0, 8) }}</div>
+                                    <div class="flex items-center gap-1">
+                                        <DButton variant="tertiary" class="!p-2" :icon-left="PencilIcon"
+                                            @click="openRenameDocumentModal(doc)" />
+                                        <DButton variant="danger-light" class="!p-2" :icon-left="TrashIcon"
+                                            @click="openDeleteDocumentModal(doc)" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -512,7 +655,7 @@ async function confirmRemoveSkill() {
                                     <div class="flex gap-1">
                                         <DButton variant="tertiary" class="!p-2" :icon-left="PencilIcon"
                                             @click="openRenameSkillModal(skill)" />
-                                        <DButton variant="tertiary" class="!p-2" :icon-left="TrashIcon"
+                                        <DButton variant="danger-light" class="!p-2" :icon-left="TrashIcon"
                                             @click="openRemoveSkillModal(skill)" />
                                     </div>
                                 </div>
@@ -575,6 +718,46 @@ async function confirmRemoveSkill() {
             <div class="p-4">
                 <p>Remove skill "{{ removingSkillName }}" from this repository?</p>
                 <p class="mt-2 text-sm text-gray-500">This does not delete the skill globally.</p>
+            </div>
+        </DModal>
+
+        <!-- Rename Unit Modal -->
+        <DModal v-if="showRenameUnitModal" titel="Rename Unit" confirm-text="Save" @close="closeRenameUnitModal"
+            @confirm="confirmRenameUnit">
+            <div class="p-4">
+                <label for="rename-unit" class="block mb-2 font-medium">New Title:</label>
+                <input id="rename-unit" type="text" v-model="renamingUnitTitle"
+                    class="w-full border rounded px-3 py-2 text-sm border-gray-200" placeholder="Enter new title"
+                    @keyup.enter="confirmRenameUnit" />
+            </div>
+        </DModal>
+
+        <!-- Delete Unit Modal -->
+        <DModal v-if="showDeleteUnitModal" titel="Delete Unit" confirm-text="Delete" @close="closeDeleteUnitModal"
+            @confirm="confirmDeleteUnit">
+            <div class="p-4">
+                <p>Delete unit "{{ deletingUnitTitle }}"?</p>
+                <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+            </div>
+        </DModal>
+
+        <!-- Rename Document Modal -->
+        <DModal v-if="showRenameDocumentModal" titel="Rename Document" confirm-text="Save"
+            @close="closeRenameDocumentModal" @confirm="confirmRenameDocument">
+            <div class="p-4">
+                <label for="rename-document" class="block mb-2 font-medium">New Title:</label>
+                <input id="rename-document" type="text" v-model="renamingDocumentTitle"
+                    class="w-full border rounded px-3 py-2 text-sm border-gray-200" placeholder="Enter new title"
+                    @keyup.enter="confirmRenameDocument" />
+            </div>
+        </DModal>
+
+        <!-- Delete Document Modal -->
+        <DModal v-if="showDeleteDocumentModal" titel="Delete Document" confirm-text="Delete"
+            @close="closeDeleteDocumentModal" @confirm="confirmDeleteDocument">
+            <div class="p-4">
+                <p>Delete document "{{ deletingDocumentTitle }}"?</p>
+                <p class="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
             </div>
         </DModal>
 

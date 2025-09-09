@@ -12,8 +12,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-2 sm:gap-0 ">
-        <DButton @click="emit('click')" variant="primary" :icon-left="icon ?? undefined">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-2 sm:gap-0">
+        <DButton @click="emit('click')" variant="primary" :icon-left="icon ?? undefined" class="mr-2">
             {{ title }}
         </DButton>
         <span class="text-md text-gray-500">

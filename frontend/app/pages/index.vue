@@ -138,22 +138,6 @@ function handleKeyDown(event: KeyboardEvent) {
     }
 }
 
-function navigateToStudy(repositoryId: string) {
-    const repository = repositories.value.find(r => r.id === repositoryId);
-    if (repository && (repository.task_count === undefined || repository.task_count === 0)) {
-        notifications.warning(
-            `No tasks available for "${repository.name}". Please generate tasks first by clicking the Tasks button.`,
-            3000
-        );
-        return;
-    }
-    navigateTo(`/study?repositoryId=${repositoryId}`);
-}
-
-function navigateToTasks(repositoryId: string) {
-    navigateTo(`/tasks?repositoryId=${repositoryId}`);
-}
-
 function navigateToRepository(repositoryId: string) {
     navigateTo(`/repository?repositoryId=${repositoryId}`);
 }
@@ -325,15 +309,6 @@ async function viewDocument(documentId: string) {
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-                                    <DButton v-if="hasWriteAccess(repository)" @click="navigateToTasks(repository.id)"
-                                        variant="primary" :icon-left="ClipboardList">
-                                        Tasks
-                                    </DButton>
-                                    <DButton @click="navigateToStudy(repository.id)"
-                                        :variant="hasWriteAccess(repository) ? 'tertiary' : 'primary'"
-                                        :icon-left="BookOpenIcon">
-                                        Study
-                                    </DButton>
                                     <!-- Upload button moved to repository.vue -->
                                     <DHamburgerMenu v-if="hasWriteAccess(repository)">
                                         <template #default="{ close }">

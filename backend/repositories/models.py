@@ -9,7 +9,7 @@ from skills.models import RepositorySkillLink
 
 if TYPE_CHECKING:
     from documents.models import Document
-    from tasks.models import Task
+    from units.models import Unit
     from auth.models import User
     from skills.models import Skill
 
@@ -65,11 +65,11 @@ class RepositoryDocumentLink(SQLModel, table=True):
     deleted_at: datetime | None = None
 
 
-class RepositoryTaskLink(SQLModel, table=True):
+class RepositoryUnitLink(SQLModel, table=True):
     repository_id: UUID | None = Field(
         default=None, foreign_key="repository.id", primary_key=True
     )
-    task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
+    unit_id: UUID | None = Field(default=None, foreign_key="unit.id", primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
 
@@ -85,9 +85,9 @@ class Repository(RepositoryBase, table=True):
         back_populates="repositories",
         link_model=RepositoryDocumentLink,
     )
-    tasks: list["Task"] = Relationship(
+    units: list["Unit"] = Relationship(
         back_populates="repositories",
-        link_model=RepositoryTaskLink,
+        link_model=RepositoryUnitLink,
     )
     skills: list["Skill"] = Relationship(
         back_populates="repositories",
@@ -108,7 +108,7 @@ class RepositoryResponse(RepositoryBase):
     id: UUID
     created_at: datetime
     deleted_at: datetime | None = None
-    task_count: int = 0
+    unit_count: int = 0
     skill_count: int = 0
     access_level: AccessLevel = AccessLevel.READ
 
@@ -119,6 +119,8 @@ class RepositoryResponseDetail(RepositoryBase):
     deleted_at: datetime | None = None
     document_ids: list[UUID] = []
     document_names: list[str] = []
+    unit_ids: list[UUID] = []
+    unit_names: list[str] = []
     skill_ids: list[UUID] = []
     skill_names: list[str] = []
 

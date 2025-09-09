@@ -4,14 +4,16 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
 
+from units.models import UnitTaskLink
 from documents.models import Chunk
-from repositories.models import Repository, RepositoryTaskLink
+
 from constants import DEFAULT_NUM_TASKS
 
 
 if TYPE_CHECKING:
     from skills.models import Skill
     from auth.models import User
+    from units.models import Unit
 
 
 class TaskType(str, Enum):
@@ -84,9 +86,9 @@ class Task(TaskBase, table=True):
         back_populates="task",
         cascade_delete=True,
     )
-    repositories: list["Repository"] = Relationship(
+    units: list["Unit"] = Relationship(
         back_populates="tasks",
-        link_model=RepositoryTaskLink,
+        link_model=UnitTaskLink,
     )
     skill: "Skill" = Relationship(back_populates="tasks")
     # Track user interactions with this task
@@ -148,7 +150,7 @@ class EvaluateAnswerRequest(SQLModel):
 
 
 class GenerateTasksForDocumentsRequest(SQLModel):
-    repository_id: UUID
+    unit_id: UUID
     document_ids: list[UUID]
     num_tasks: int = DEFAULT_NUM_TASKS
     task_type: str = "multiple_choice"

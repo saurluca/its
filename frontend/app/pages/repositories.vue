@@ -165,6 +165,10 @@ function navigateToTasks(repositoryId: string) {
     navigateTo(`/tasks?repositoryId=${repositoryId}`);
 }
 
+function navigateToRepository(repositoryId: string) {
+    navigateTo(`/repository?repositoryId=${repositoryId}`);
+}
+
 function toggleRepositoryExpansion(repositoryId: string) {
     if (expandedRepositories.value.has(repositoryId)) {
         expandedRepositories.value.delete(repositoryId);
@@ -437,7 +441,7 @@ async function viewDocument(documentId: string) {
                                     </button>
                                     <div class="flex flex-col">
                                         <h3 class="text-lg font-medium cursor-pointer"
-                                            @click="toggleRepositoryExpansion(repository.id)">
+                                            @click="navigateToRepository(repository.id)">
                                             {{ repository.name }}
                                         </h3>
                                         <span v-if="repository.task_count !== undefined"

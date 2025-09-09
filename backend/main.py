@@ -6,6 +6,7 @@ from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
 from skills.router import router as skills_router
+from units.router import router as units_router
 from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
 import os
@@ -63,3 +64,4 @@ app.include_router(repositories_router)
 app.include_router(tasks_router)
 app.include_router(documents_router)
 app.include_router(skills_router)
+app.include_router(units_router)

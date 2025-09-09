@@ -158,7 +158,8 @@ async def get_repository_units(
         )
 
         unit_response = UnitListResponse.model_validate(unit)
-        unit_response.repository_ids = [repo.id for repo in unit.repositories]
+        # Ensure repository_id is present (Unit → Repository is one-to-many)
+        unit_response.repository_id = unit.repository_id
         unit_response.task_count = task_count
         unit_responses.append(unit_response)
 

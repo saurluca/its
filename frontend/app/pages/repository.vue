@@ -544,7 +544,7 @@ async function confirmRemoveSkill() {
 <template>
     <div class="h-full flex">
         <!-- Left side - content -->
-        <div :class="showHtmlViewer ? 'w-1/2 overflow-y-auto mr-2 ml-6 my-8' : 'w-full mt-8'">
+        <div :class="showHtmlViewer ? 'w-1/2 overflow-y-auto mr-10 pr-4 ml-6 my-8' : 'w-full mt-8'">
             <div class="max-w-4xl mx-auto">
                 <DPageHeader :title="repo?.name ? repo.name : 'Repository'" />
 
@@ -685,7 +685,7 @@ async function confirmRemoveSkill() {
         <div v-if="showHtmlViewer" class="w-1/2 relative">
             <div class="h-full p-4">
                 <DButtonClose @click="showHtmlViewer = false; selectedDocumentId = null; htmlContent = ''"
-                    class="absolute top-2 right-2 z-10" />
+                    class="absolute top-0 right-0 z-10" />
                 <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
             </div>
         </div>

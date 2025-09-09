@@ -552,12 +552,12 @@ async function confirmRemoveSkill() {
                     <div class="text-xl">Loading repository...</div>
                 </div>
 
-                <div v-else class="space-y-10">
+                <div v-else class="space-y-12">
                     <!-- Units Section -->
                     <section>
-                        <div class="flex items-center justify-between mr-4">
+                        <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Units</h2>
-                            <div class="flex gap-2">
+                            <div class="flex">
                                 <DButton variant="primary" :icon-left="PlusIcon" @click="openCreateUnitModal">
                                     Create Unit
                                 </DButton>
@@ -565,9 +565,9 @@ async function confirmRemoveSkill() {
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
 
-                        <div v-if="units.length > 0" class="space-y-4">
+                        <div v-if="units.length > 0" class="space-y-3">
                             <div v-for="unit in units" :key="unit.id"
-                                class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                                class="bg-white p-3 rounded-lg shadow border border-gray-200">
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center">
                                         <div class="flex flex-col">
@@ -616,7 +616,7 @@ async function confirmRemoveSkill() {
 
                     <!-- Documents Section -->
                     <section>
-                        <div class="flex items-center justify-between mr-4">
+                        <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Documents</h2>
                             <DButton :icon-left="UploadIcon" variant="primary" @click="openUploadModal">
                                 Upload Document
@@ -624,7 +624,7 @@ async function confirmRemoveSkill() {
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
 
-                        <div v-if="documents.length > 0" class="space-y-2">
+                        <div v-if="documents.length > 0" class="space-y-3">
                             <div v-for="doc in documents" :key="doc.id"
                                 class="bg-white p-3 rounded-lg shadow border border-gray-200">
                                 <div class="flex items-center justify-between">
@@ -648,7 +648,7 @@ async function confirmRemoveSkill() {
 
                     <!-- Skills Section -->
                     <section>
-                        <div class="flex items-center justify-between mr-4">
+                        <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Skills</h2>
                             <DButton :icon-left="PlusIcon" variant="primary" @click="openAddSkillModal">
                                 Add Skill
@@ -656,7 +656,7 @@ async function confirmRemoveSkill() {
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
 
-                        <div v-if="skills.length > 0" class="space-y-2">
+                        <div v-if="skills.length > 0" class="space-y-3">
                             <div v-for="skill in skills" :key="skill.id"
                                 class="bg-white p-3 rounded-lg shadow border border-gray-200">
                                 <div class="flex items-center justify-between">
@@ -776,7 +776,7 @@ async function confirmRemoveSkill() {
         <DModal v-if="showUploadModal" titel="Upload Document"
             :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
             @close="closeUploadModal" @confirm="triggerFilePicker">
-            <div class="p-4 space-y-4">
+            <div class="p-4 space-y-3">
                 <!-- PDF Flattening Option and File Selection -->
                 <div class="text-sm">
                     <label class="flex items-center gap-2 cursor-pointer select-none">

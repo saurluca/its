@@ -495,6 +495,7 @@ async function viewDocument(documentId: string) {
                             <!-- Expanded documents view -->
                             <DRepositoryDocuments v-if="expandedRepositories.has(repository.id)"
                                 :repository-id="repository.id" :repository-name="repository.name"
+                                :access-level="(repository as Repository & { access_level?: AccessLevel }).access_level"
                                 @refresh-repositories="fetchRepositories" @view-document="viewDocument" />
                         </div>
                     </div>

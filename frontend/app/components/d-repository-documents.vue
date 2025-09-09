@@ -12,6 +12,7 @@ const fetchJson = $authFetch as SimpleFetch;
 interface Props {
     repositoryId: string;
     repositoryName: string;
+    accessLevel?: "read" | "write" | "owner";
 }
 
 const props = defineProps<Props>();
@@ -19,6 +20,11 @@ const emit = defineEmits<{
     (e: "refresh-repositories"): void;
     (e: "view-document", documentId: string): void;
 }>();
+
+function hasWriteAccess() {
+    const level = props.accessLevel;
+    return level === "write" || level === "owner";
+}
 
 const documents = ref<Document[]>([]);
 const loading = ref(true);
@@ -226,23 +232,7 @@ async function removeFromThisRepository(documentId: string) {
                     <div class="flex gap-2">
                         <DHamburgerMenu>
                             <template #default="{ close }">
-                                <!--          <button @click="
-                                    navigateToTasks(document.id);
-                                close();
-                                "
-                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <EyeIcon class="h-4 w-4" />
-                                    View Tasks
-                                </button> -->
-                                <button @click="
-                                    openEditTitleModal(document.id, document.title);
-                                close();
-                                "
-                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <PencilIcon class="h-4 w-4" />
-                                    Edit Title
-                                </button>
-                                <button @click="
+                                <button v-if="hasWriteAccess()" @click="
                                     openAddToRepoModal(document.id, document.title, document.repository_ids || []);
                                 close();
                                 "
@@ -250,7 +240,18 @@ async function removeFromThisRepository(documentId: string) {
                                     <PlusIcon class="h-4 w-4" />
                                     Add to other repository
                                 </button>
-                                <button @click="
+
+                                <!-- Only for people with write access -->
+                                <button v-if="hasWriteAccess()" @click="
+                                    openEditTitleModal(document.id, document.title);
+                                close();
+                                "
+                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <PencilIcon class="h-4 w-4" />
+                                    Edit Title
+                                </button>
+                                <!-- Only for people with write access -->
+                                <button v-if="hasWriteAccess()" @click="
                                     removeFromThisRepository(document.id);
                                 close();
                                 "
@@ -258,8 +259,9 @@ async function removeFromThisRepository(documentId: string) {
                                     <TrashIcon class="h-4 w-4" />
                                     Remove from repository
                                 </button>
-                                <div class="border-t border-gray-200 my-1"></div>
-                                <button @click="
+                                <div v-if="hasWriteAccess()" class="border-t border-gray-200 my-1"></div>
+                                <!-- Only for people with write access -->
+                                <button v-if="hasWriteAccess()" @click="
                                     openDeleteModal(document.id, document.title);
                                 close();
                                 "

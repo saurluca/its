@@ -452,9 +452,20 @@ async function confirmAddSkill() {
         if (!skill) throw new Error("Skill resolution failed");
 
         // Link to repository
-        await $authFetch(`/skills/repository/${repositoryId.value}/skills/${skill.id}`, {
-            method: "POST",
-        });
+        try {
+            await $authFetch(`/skills/repository/${repositoryId.value}/skills/${skill.id}`, {
+                method: "POST",
+            });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err ?? "");
+            if (msg.includes("409") || msg.toLowerCase().includes("conflict")) {
+                notifications.warning(`Skill "${name}" is already in this repository.`);
+                closeAddSkillModal();
+                await refreshSkills();
+                return;
+            }
+            throw err;
+        }
 
         notifications.success(`Skill "${name}" added.`);
         closeAddSkillModal();

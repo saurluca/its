@@ -7,8 +7,10 @@ import {
   ClipboardList,
 } from "lucide-vue-next";
 import { useSessionStorage } from "@vueuse/core";
+import type { Repository } from "~/types/models";
 
 const route = useRoute();
+const { $authFetch } = useAuthenticatedFetch();
 
 const links = [
   // {
@@ -18,9 +20,10 @@ const links = [
   // },
   {
     name: "Repositories",
-    to: "/repositories",
+    to: "/",
     icon: BookOpenIcon,
   },
+  // List repos
   {
     name: "Tasks",
     to: "/tasks",
@@ -55,6 +58,31 @@ const collapsed = useSessionStorage("collapsed", false);
 
 const organisationName = ref("ITS");
 
+// Repositories list under main navigation
+const repositories = ref<Repository[]>([]);
+const loadingRepos = ref(true);
+
+onMounted(async () => {
+  await fetchRepositories();
+});
+
+async function fetchRepositories() {
+  loadingRepos.value = true;
+  try {
+    const response = await $authFetch("/repositories") as { repositories?: Repository[] } | Repository[];
+    repositories.value = ("repositories" in response ? response.repositories : response) as Repository[];
+  } catch (error) {
+    // Non-blocking: show nothing if it fails
+    console.error("Sidebar repositories load failed", error);
+  } finally {
+    loadingRepos.value = false;
+  }
+}
+
+function repositoryIsActive(id: string) {
+  return route.path === "/repository" && String(route.query.repositoryId || "") === id;
+}
+
 </script>
 
 <template>
@@ -83,6 +111,19 @@ const organisationName = ref("ITS");
         <component :is="link.icon" class="size-4" />
       </div>
       <div class="" v-show="!collapsed">{{ link.name }}</div>
+    </NuxtLink>
+
+    <!-- Repositories list -->
+    <div class="mt-1.5 mb-0.5 text-xs text-gray-400 px-2" v-show="!collapsed">Repositories</div>
+    <div v-if="loadingRepos" class="px-2 py-1.5 text-xs text-gray-400">Loading…</div>
+    <NuxtLink v-else v-for="repo in repositories" :key="repo.id"
+      class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200"
+      :to="`/repository?repositoryId=${repo.id}`"
+      :class="repositoryIsActive(repo.id) ? 'bg-gray-200 text-gray-700' : ''">
+      <div class="flex h-5 items-center justify-center">
+        <BookOpenIcon class="size-4" />
+      </div>
+      <div class="truncate" v-show="!collapsed">{{ repo.name }}</div>
     </NuxtLink>
   </nav>
 

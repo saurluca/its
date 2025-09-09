@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ChevronDownIcon, ChevronRightIcon, ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon } from "lucide-vue-next";
+import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon } from "lucide-vue-next";
+import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -41,7 +42,6 @@ const repo = ref<RepositoryDetail | null>(null);
 
 // Units state
 const units = ref<UnitListItem[]>([]);
-const expandedUnits = ref<Set<string>>(new Set());
 const showCreateUnitModal = ref(false);
 const newUnitTitle = ref("");
 
@@ -52,6 +52,13 @@ const htmlContent = ref("");
 const loadingHtml = ref(false);
 const htmlError = ref("");
 const selectedDocumentId = ref<string | null>(null);
+
+// Upload state
+const uploading = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<File | null>(null);
+const showUploadModal = ref(false);
+const flattenPdf = ref(false);
 
 // Skills state
 const skills = ref<SkillItem[]>([]);
@@ -76,7 +83,6 @@ onMounted(async () => {
 watch(repositoryId, async (newId, oldId) => {
     if (!newId || newId === oldId) return;
     // Reset view-specific state
-    expandedUnits.value = new Set();
     showHtmlViewer.value = false;
     selectedDocumentId.value = null;
     htmlContent.value = "";
@@ -104,24 +110,21 @@ async function fetchAll() {
     }
 }
 
-function toggleUnitExpansion(unitId: string) {
-    if (expandedUnits.value.has(unitId)) {
-        expandedUnits.value.delete(unitId);
-    } else {
-        expandedUnits.value.add(unitId);
+async function refreshDocuments() {
+    try {
+        const docsResp = (await $authFetch(`/repositories/${repositoryId.value}/documents`)) as DocumentItem[];
+        documents.value = docsResp || [];
+    } catch (error) {
+        console.error("Error refreshing documents:", error);
     }
 }
 
 function navigateToTasksForUnit(unitId: string) {
-    navigateTo(`/tasks?repositoryId=${repositoryId.value}&unitId=${unitId}`);
-}
-
-function navigateToStudy() {
-    navigateTo(`/study?repositoryId=${repositoryId.value}`);
+    navigateTo(`/tasks?unitId=${unitId}`);
 }
 
 function navigateToStudyForUnit(unitId: string) {
-    navigateTo(`/study?repositoryId=${repositoryId.value}&unitId=${unitId}`);
+    navigateTo(`/study?unitId=${unitId}`);
 }
 
 function openCreateUnitModal() {
@@ -188,6 +191,96 @@ async function viewDocument(documentId: string) {
         htmlError.value = "Failed to load document content";
     } finally {
         loadingHtml.value = false;
+    }
+}
+
+// Upload actions
+function openUploadModal() {
+    showUploadModal.value = true;
+}
+
+function closeUploadModal() {
+    showUploadModal.value = false;
+    selectedFile.value = null;
+    flattenPdf.value = false;
+}
+
+function triggerFilePicker() {
+    if (uploading.value) return;
+    fileInput.value?.click();
+}
+
+function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+        const file = input.files[0];
+
+        if (!file) {
+            notifications.error("No file selected.");
+            return;
+        }
+
+        const fileName = file.name.toLowerCase();
+        const fileExtension = fileName.split('.').pop() || '';
+
+        if (!SUPPORTED_MIME_TYPES.includes(fileExtension)) {
+            notifications.error(`Unsupported file type. Supported formats: ${SUPPORTED_MIME_TYPES.join(', ')}`);
+            input.value = '';
+            return;
+        }
+
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            notifications.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Please choose a smaller file.`);
+            input.value = '';
+            return;
+        }
+
+        selectedFile.value = file;
+        handleUpload();
+    }
+}
+
+async function handleUpload() {
+    if (uploading.value || !selectedFile.value) return;
+
+    const file = selectedFile.value;
+    const fileName = file.name;
+    const shouldFlatten = flattenPdf.value;
+
+    closeUploadModal();
+
+    const processingId = notifications.loading(`Processing document "${fileName}". This may take a while.`);
+
+    try {
+        uploading.value = true;
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const uploadUrl = `/documents/upload${shouldFlatten ? "?flatten_pdf=true" : ""}`;
+        const uploadResponse = await $authFetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+        }) as { id: string };
+
+        const documentId = uploadResponse.id;
+        await $authFetch("/repositories/links", {
+            method: "POST",
+            body: {
+                repository_id: repositoryId.value,
+                document_id: documentId,
+            },
+        });
+
+        notifications.remove(processingId);
+        notifications.success(`Document "${fileName}" uploaded successfully!`);
+        await refreshDocuments();
+    } catch (error) {
+        console.error("Error uploading document:", error);
+        notifications.remove(processingId);
+        notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
+    } finally {
+        uploading.value = false;
+        selectedFile.value = null;
     }
 }
 
@@ -333,9 +426,6 @@ async function confirmRemoveSkill() {
                                 <DButton variant="primary" :icon-left="PlusIcon" @click="openCreateUnitModal">
                                     Create Unit
                                 </DButton>
-                                <DButton variant="tertiary" :icon-left="BookOpenIcon" @click="navigateToStudy">
-                                    Study
-                                </DButton>
                             </div>
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
@@ -344,15 +434,9 @@ async function confirmRemoveSkill() {
                             <div v-for="unit in units" :key="unit.id"
                                 class="bg-white p-4 rounded-lg shadow border border-gray-200">
                                 <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-2">
-                                        <button @click="toggleUnitExpansion(unit.id)"
-                                            class="p-1 hover:bg-gray-100 rounded">
-                                            <ChevronDownIcon v-if="expandedUnits.has(unit.id)" class="h-4 w-4" />
-                                            <ChevronRightIcon v-else class="h-4 w-4" />
-                                        </button>
+                                    <div class="flex items-center">
                                         <div class="flex flex-col">
-                                            <h3 class="text-lg font-medium cursor-pointer"
-                                                @click="toggleUnitExpansion(unit.id)">
+                                            <h3 class="text-lg font-medium">
                                                 {{ unit.title }}
                                             </h3>
                                             <span class="text-xs font-medium text-gray-500">
@@ -362,22 +446,15 @@ async function confirmRemoveSkill() {
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        <DButton @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
-                                            :icon-left="BookOpenIcon">
-                                            Study
-                                        </DButton>
                                         <DButton @click="navigateToTasksForUnit(unit.id)" variant="primary"
                                             :icon-left="ClipboardList">
                                             Tasks
                                         </DButton>
-                                    </div>
-                                </div>
+                                        <DButton @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
+                                            :icon-left="BookOpenIcon">
+                                            Study
+                                        </DButton>
 
-                                <!-- Expanded unit details (lightweight placeholder) -->
-                                <div v-if="expandedUnits.has(unit.id)" class="mt-3 text-sm text-gray-600">
-                                    <div class="bg-gray-50 border border-gray-200 rounded p-3">
-                                        <p>Unit ID: <span class="font-mono">{{ unit.id }}</span></p>
-                                        <p class="text-gray-500">More unit details will appear here.</p>
                                     </div>
                                 </div>
                             </div>
@@ -392,6 +469,9 @@ async function confirmRemoveSkill() {
                     <section>
                         <div class="flex items-center justify-between mr-4">
                             <h2 class="text-xl font-semibold">Documents</h2>
+                            <DButton :icon-left="UploadIcon" variant="primary" @click="openUploadModal">
+                                Upload Document
+                            </DButton>
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
 
@@ -495,6 +575,34 @@ async function confirmRemoveSkill() {
             <div class="p-4">
                 <p>Remove skill "{{ removingSkillName }}" from this repository?</p>
                 <p class="mt-2 text-sm text-gray-500">This does not delete the skill globally.</p>
+            </div>
+        </DModal>
+
+        <!-- Document Upload Modal -->
+        <DModal v-if="showUploadModal" titel="Upload Document"
+            :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
+            @close="closeUploadModal" @confirm="triggerFilePicker">
+            <div class="p-4 space-y-4">
+                <!-- PDF Flattening Option and File Selection -->
+                <div class="text-sm">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" v-model="flattenPdf" class="w-3 h-3 accent-black"
+                            style="accent-color: black;" />
+                        <span>Flatten PDF before text extraction</span>
+                    </label>
+                    <p class="text-xs text-gray-500">
+                        Hint: Enable this if there are problems extracting text from a PDF. It may take longer to
+                        process.
+                    </p>
+                    <p class="text-xs text-gray-500">
+                        Supported formats: {{ SUPPORTED_MIME_TYPES.join(', ') }} • Max size: {{ MAX_FILE_SIZE_MB }}MB
+                    </p>
+                    <input ref="fileInput" type="file" :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')"
+                        class="hidden" @change="handleFileSelect" />
+                    <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                        Selected: {{ selectedFile.name }}
+                    </div>
+                </div>
             </div>
         </DModal>
     </div>

@@ -38,18 +38,7 @@ const loadingHtml = ref(false);
 const htmlError = ref("");
 const selectedDocumentId = ref<string | null>(null);
 
-// Upload state
-const uploading = ref(false);
-const selectedRepositories = ref<string[]>([]);
-const fileInput = ref<HTMLInputElement | null>(null);
-const selectedFile = ref<File | null>(null);
-const showUploadModal = ref(false);
-const flattenPdf = ref(false);
-
-// Computed property to check if upload is allowed
-const canUpload = computed(() => {
-    return selectedRepositories.value.length > 0;
-});
+// (Upload to repository is handled in repository.vue)
 
 const notifications = useNotificationsStore();
 
@@ -177,119 +166,6 @@ function toggleRepositoryExpansion(repositoryId: string) {
     }
 }
 
-function openUploadModal() {
-    showUploadModal.value = true;
-}
-
-function openUploadModalForRepository(repository: Repository) {
-    selectedRepositories.value = [repository.id];
-    showUploadModal.value = true;
-}
-
-function closeUploadModal() {
-    showUploadModal.value = false;
-    selectedRepositories.value = [];
-    selectedFile.value = null;
-    flattenPdf.value = false;
-}
-
-function triggerFilePicker() {
-    if (uploading.value || !canUpload.value) return;
-    fileInput.value?.click();
-}
-
-function handleFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-        const file = input.files[0];
-
-        if (!file) {
-            notifications.error("No file selected.");
-            return;
-        }
-
-        // Validate file type
-        const fileName = file.name.toLowerCase();
-        const fileExtension = fileName.split('.').pop() || '';
-
-        if (!SUPPORTED_MIME_TYPES.includes(fileExtension)) {
-            notifications.error(`Unsupported file type. Supported formats: ${SUPPORTED_MIME_TYPES.join(', ')}`);
-            // Clear the input
-            input.value = '';
-            return;
-        }
-
-        // Validate file size
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            notifications.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Please choose a smaller file.`);
-            // Clear the input
-            input.value = '';
-            return;
-        }
-
-        selectedFile.value = file;
-        // Automatically start upload when file is selected
-        handleUpload();
-    }
-}
-
-async function handleUpload() {
-    if (uploading.value || !selectedFile.value || !canUpload.value) {
-        if (!canUpload.value) {
-            notifications.warning("Please select at least one repository before uploading a document.");
-        }
-        return;
-    }
-
-    // Capture file data before closing modal
-    const file = selectedFile.value;
-    const fileName = file.name;
-    const selectedRepos = [...selectedRepositories.value];
-    const shouldFlatten = flattenPdf.value;
-
-    // Close modal immediately and show processing notification
-    closeUploadModal();
-
-    // Show processing notification
-    const processingId = notifications.loading(`Processing document "${fileName}". This may take a while.`);
-
-    try {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // Upload the document
-        const uploadUrl = `/documents/upload${shouldFlatten ? "?flatten_pdf=true" : ""}`;
-        const uploadResponse = await $authFetch(uploadUrl, {
-            method: "POST",
-            body: formData,
-        }) as { id: string };
-
-        // Add document to selected repositories
-        if (selectedRepos.length > 0) {
-            const documentId = uploadResponse.id;
-
-            for (const repositoryId of selectedRepos) {
-                await $authFetch("/repositories/links", {
-                    method: "POST",
-                    body: {
-                        repository_id: repositoryId,
-                        document_id: documentId,
-                    },
-                });
-            }
-        }
-
-        // Remove processing notification and show success
-        notifications.remove(processingId);
-        notifications.success(`Document "${fileName}" uploaded successfully!`);
-        await fetchRepositories();
-    } catch (error) {
-        console.error("Error uploading document:", error);
-        // Remove processing notification and show error
-        notifications.remove(processingId);
-        notifications.error(`Failed to upload "${fileName}". Please try again. ${error}`);
-    }
-}
 
 // Modal functions for repository editing
 function openEditTitleModal(repositoryId: string, currentTitle: string) {
@@ -423,10 +299,7 @@ async function viewDocument(documentId: string) {
                             Create new repository to organize documents and tasks; similar to a folder.
                         </DButtonLabelled>
                         <div class="border-t border-gray-200"></div>
-                        <DButtonLabelled title="Document" :icon="UploadIcon" @click="openUploadModal">
-                            Upload document to repository. Contents will be extracted and can be used for
-                            task generation.
-                        </DButtonLabelled>
+                        <!-- Document upload moved to repository.vue -->
                     </div>
                     <div v-if="repositories.length > 0" class="space-y-4">
                         <div v-for="repository in repositories" :key="repository.id"
@@ -461,9 +334,7 @@ async function viewDocument(documentId: string) {
                                         :icon-left="BookOpenIcon">
                                         Study
                                     </DButton>
-                                    <DButton v-if="hasWriteAccess(repository)"
-                                        @click="openUploadModalForRepository(repository)" variant="tertiary"
-                                        :icon-left="UploadIcon" class="!p-2" />
+                                    <!-- Upload button moved to repository.vue -->
                                     <DHamburgerMenu v-if="hasWriteAccess(repository)">
                                         <template #default="{ close }">
                                             <button @click="
@@ -520,55 +391,7 @@ async function viewDocument(documentId: string) {
             </div>
         </div>
 
-        <!-- Document Upload Modal -->
-        <DModal v-if="showUploadModal" titel="Upload Document"
-            :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
-            :disabled="!canUpload" @close="closeUploadModal" @confirm="triggerFilePicker">
-            <div class="p-4 space-y-4">
-                <!-- Repository Selection (Required) -->
-                <div v-if="repositories.length > 0">
-                    <label class="block mb-2 font-medium">
-                        Select Repositories <span class="text-red-500">*</span>
-                    </label>
-                    <div class="space-y-2 max-h-40 overflow-y-auto border rounded border-gray-300 p-2">
-                        <label v-for="repository in repositories" :key="repository.id"
-                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded text-black">
-                            <input type="checkbox" :value="repository.id" v-model="selectedRepositories"
-                                class="w-4 h-4 accent-black" style="accent-color: black;" />
-                            <span>{{ repository.name }}</span>
-                        </label>
-                    </div>
-                    <p v-if="selectedRepositories.length === 0" class="text-sm text-gray-500 mt-2">
-                        You must select at least one repository to upload a document
-                    </p>
-                </div>
-
-                <div v-else class="text-sm text-gray-500 bg-yellow-50 p-2 rounded border border-yellow-200">
-                    <strong>No repositories available.</strong> Create a repository first before uploading documents.
-                </div>
-
-                <!-- PDF Flattening Option and File Selection -->
-                <div v-if="canUpload" class="text-sm">
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" v-model="flattenPdf" class="w-3 h-3 accent-black"
-                            style="accent-color: black;" />
-                        <span>Flatten PDF before text extraction</span>
-                    </label>
-                    <p class="text-xs text-gray-500">
-                        Hint: Enable this if there are problems extracting text from a PDF. It may take longer to
-                        process.
-                    </p>
-                    <p class="text-xs text-gray-500">
-                        Supported formats: {{ SUPPORTED_MIME_TYPES.join(', ') }} • Max size: {{ MAX_FILE_SIZE_MB }}MB
-                    </p>
-                    <input ref="fileInput" type="file" :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')"
-                        class="hidden" @change="handleFileSelect" />
-                    <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                        Selected: {{ selectedFile.name }}
-                    </div>
-                </div>
-            </div>
-        </DModal>
+        <!-- Document upload modal moved to repository.vue -->
 
         <!-- Edit Title Modal -->
         <DModal v-if="showEditTitleModal" titel="Edit Repository Name" confirm-text="Save" @close="closeEditTitleModal"

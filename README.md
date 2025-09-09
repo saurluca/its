@@ -46,7 +46,7 @@ bun install
 bun run dev
 ```
 
-### Database Setup
+### Database and Docling Setup
 
 ```bash
 docker-compose up -d
@@ -78,17 +78,12 @@ uvx pre-commit install
 - **AI**: Grok API, Ollama (local), through LiteLLM
 - **Deployment**: Docker, Docker Compose
 
-## Roadmap
-
-- [ ] Free text questions
-- [ ] Reference to course material
-
 ## Deployment Testing
 
 The repository includes automated deployment health checks that run in GitHub Actions:
 
 - **Health Check Scripts**: Located in `/scripts/` directory
-- **CI/CD Integration**: Automatic testing on `main` and `live` branch deployments  
+- **CI/CD Integration**: Automatic testing on `main` and `live` branch deployments
 - **Verification**: Tests backend API endpoints and frontend accessibility
 - **Documentation**: See `/scripts/README.md` for detailed usage
 

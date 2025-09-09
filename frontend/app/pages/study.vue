@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useSessionStorage } from "@vueuse/core";
-import type { Task, Repository } from "~/types/models";
+import type { Task, UnitDetail } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
 const notifications = useNotificationsStore();
 const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
-const repositoryId = ref("");
-const repositoryName = ref("");
+const unitId = ref("");
+const unitTitle = ref("");
 const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
@@ -67,19 +67,19 @@ function handleKeyPress(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  // Check if repositoryId or documentId is provided in URL parameters
-  const repoId = route.query.repositoryId as string;
+  // Check if unitId or documentId is provided in URL parameters
+  const unitIdParam = route.query.unitId as string;
   const docId = route.query.documentId as string;
 
-  if (!repoId && !docId) {
-    // No repository or document ID provided, redirect to repositories page
-    notifications.warning("No repository or document selected for study. Please select one from the repositories page.");
-    router.push("/repositories");
+  if (!unitIdParam && !docId) {
+    // No unit or document ID provided, redirect to units page
+    notifications.warning("No unit or document selected for study. Please select one from the units page.");
+    router.push("/units");
     return;
   }
 
-  if (repoId) {
-    repositoryId.value = repoId;
+  if (unitIdParam) {
+    unitId.value = unitIdParam;
     startStudy();
   }
   // Note: documentId handling would need to be implemented separately if needed
@@ -94,19 +94,19 @@ onUnmounted(() => {
 });
 
 async function startStudy() {
-  if (!repositoryId.value) {
-    error.value = "Please enter a Repository ID.";
+  if (!unitId.value) {
+    error.value = "Please enter a Unit ID.";
     return;
   }
   loading.value = true;
   error.value = null;
 
   try {
-    // First, fetch repository details to get the name
-    const repoResponse = await $authFetch(`/repositories/${repositoryId.value}`) as Repository;
-    repositoryName.value = repoResponse.name;
+    // First, fetch unit details to get the title
+    const unitResponse = await $authFetch(`/units/${unitId.value}`) as UnitDetail;
+    unitTitle.value = unitResponse.title;
 
-    const responseData = await $authFetch(`/tasks/repository/${repositoryId.value}`) as Task[];
+    const responseData = await $authFetch(`/tasks/unit/${unitId.value}`) as Task[];
 
     if (responseData && responseData.length > 0) {
       // Randomize order of tasks for this study session
@@ -209,9 +209,9 @@ function nextQuestion() {
 }
 
 async function showSource() {
-  if (!repositoryId.value || !currentTask.value?.chunk_id) {
+  if (!unitId.value || !currentTask.value?.chunk_id) {
     console.error("Missing repositoryId or chunk_id:", {
-      repositoryId: repositoryId.value,
+      unitId: unitId.value,
       chunkId: currentTask.value?.chunk_id,
     });
     return;
@@ -250,8 +250,8 @@ function closeTextViewer() {
 
 function restart() {
   pageState.value = "studying";
-  repositoryId.value = "";
-  repositoryName.value = "";
+  unitId.value = "";
+  unitTitle.value = "";
   tasks.value = [];
   currentTaskIndex.value = 0;
   currentAnswer.value = "";
@@ -266,7 +266,7 @@ function restart() {
   textContent.value = "";
   textError.value = "";
 
-  router.push("/repositories");
+  router.push("/units");
 }
 </script>
 
@@ -275,7 +275,7 @@ function restart() {
     <!-- Left side - Study interface -->
     <div :class="showTextViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
       <div class="max-w-4xl mx-auto">
-        <DPageHeader :title="repositoryName ? `Studying: ${repositoryName}` : 'Repository Study Mode'" class="mt-4" />
+        <DPageHeader :title="unitTitle ? `Studying: ${unitTitle}` : 'Unit Study Mode'" class="mt-4" />
         <div class="mx-auto max-w-4xl">
           <!-- Loading State -->
           <div v-if="loading" class="text-center space-y-4">
@@ -287,10 +287,10 @@ function restart() {
             <div class="space-y-4">
               <h2 class="text-2xl font-bold">No Tasks Found</h2>
               <p class="text-lg text-gray-600">
-                No study tasks have been generated for this repository yet.
+                No study tasks have been generated for this unit yet.
               </p>
               <p class="text-gray-500">
-                Generate some tasks to start studying this repository.
+                Generate some tasks to start studying this unit.
               </p>
             </div>
           </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ChevronDownIcon, ChevronRightIcon, ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon } from "lucide-vue-next";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -69,6 +69,17 @@ onMounted(async () => {
         notifications.error("Missing repositoryId in URL.");
         return;
     }
+    await fetchAll();
+});
+
+// React to repositoryId changes when staying on the same route
+watch(repositoryId, async (newId, oldId) => {
+    if (!newId || newId === oldId) return;
+    // Reset view-specific state
+    expandedUnits.value = new Set();
+    showHtmlViewer.value = false;
+    selectedDocumentId.value = null;
+    htmlContent.value = "";
     await fetchAll();
 });
 

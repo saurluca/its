@@ -9,6 +9,19 @@ export interface Repository {
   task_count?: number;
 }
 
+// Unit types matching backend API structure
+export interface Unit {
+  id: string;
+  title: string;
+  repository_id: string;
+  task_count?: number;
+}
+
+export interface UnitDetail extends Unit {
+  repository_name?: string;
+  task_ids?: string[];
+}
+
 // Document type matching backend API structure
 export interface Document {
   id: string;

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { PlusIcon } from "lucide-vue-next";
 import DViewToggle from "~/components/d-view-toggle.vue";
-import type { Task, Repository, Document as ApiDocument } from "~/types/models";
+import type { Task, Repository, Unit, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -12,6 +12,7 @@ const isTeacherView = ref(true);
 const tasks = ref<Task[]>([]);
 const loading = ref(true);
 const repositoriesList = ref<Repository[]>([]);
+const unitsList = ref<Unit[]>([]);
 const documentsList = ref<{ value: string; label: string }[]>([]);
 const notifications = useNotificationsStore();
 
@@ -22,18 +23,28 @@ function hasWriteAccess(repo: Repository & { access_level?: AccessLevel }) {
   return level === 'write' || level === 'owner';
 }
 
-const writableRepositories = computed<Repository[]>(() =>
+// Keep repo list for generation modal context; compute when needed to avoid unused var
+const _writableRepositories = computed<Repository[]>(() =>
   (repositoriesList.value || []).filter((r) => hasWriteAccess(r as Repository & { access_level?: AccessLevel }))
 );
 
+// Units available to the user (already access-filtered by backend)
+const availableUnits = computed<Unit[]>(() => unitsList.value || []);
+
 // Generate tasks modal state (reusable)
 const showGenerateTasksModal = ref(false);
+const selectedUnit = computed<Unit | null>(() => {
+  return availableUnits.value.find(u => u.id === selectedUnitId.value) || null;
+});
 const selectedRepositoryForTasks = computed<Repository | null>(() => {
-  return repositoriesList.value.find(r => r.id === selectedRepositoryId.value) || null;
+  const unit = selectedUnit.value;
+  if (!unit) return null;
+  const repo = repositoriesList.value.find(r => r.id === unit.repository_id);
+  return repo || null;
 });
 function openGenerateTasksModalFromTasks() {
   if (!selectedRepositoryForTasks.value) {
-    notifications.warning("Please select a repository first.");
+    notifications.warning("Please select a unit first.");
     return;
   }
   showGenerateTasksModal.value = true;
@@ -43,17 +54,17 @@ function closeGenerateTasksModalFromTasks() {
 }
 async function onGenerateTasksSuccessFromTasks() {
   showGenerateTasksModal.value = false;
-  if (selectedRepositoryId.value) {
-    await fetchTasksByRepository(selectedRepositoryId.value);
+  if (selectedUnitId.value) {
+    await fetchTasksByUnit(selectedUnitId.value);
   } else {
     await fetchAllTasks();
   }
 }
 
 // For filtering tasks
-const selectedRepositoryId = ref<string>("");
+const selectedUnitId = ref<string>("");
 const selectedDocumentId = ref<string>("");
-const filterType = ref<"repository" | "document">("repository");
+const filterType = ref<"unit" | "document">("unit");
 
 // Try task state
 const previewingTask = ref<Task | null>(null);
@@ -64,19 +75,19 @@ const isCorrect = ref<boolean | null>(null);
 const evaluating = ref<boolean>(false);
 const feedback = ref<string | null>(null);
 
-// Get document ID or repository ID from route query if present
+// Get document ID or unit ID from route query if present
 const route = useRoute();
 const router = useRouter();
 const documentIdFromRoute = route.query.documentId as string;
-const repositoryIdFromRoute = route.query.repositoryId as string;
+const unitIdFromRoute = route.query.unitId as string;
 
 // Initialize filter from route if present
 if (documentIdFromRoute) {
   selectedDocumentId.value = documentIdFromRoute;
   filterType.value = "document";
-} else if (repositoryIdFromRoute) {
-  selectedRepositoryId.value = repositoryIdFromRoute;
-  filterType.value = "repository";
+} else if (unitIdFromRoute) {
+  selectedUnitId.value = unitIdFromRoute;
+  filterType.value = "unit";
 }
 
 // tasks are already filtered by the backend
@@ -108,12 +119,13 @@ async function fetchAllTasks() {
 onMounted(async () => {
   loading.value = true;
   try {
-    const [tasksResponse, repositoriesResponse, documentsResponse] =
+    const [tasksResponse, repositoriesResponse, unitsResponse, documentsResponse] =
       await Promise.all([
         $authFetch("/tasks"),
         $authFetch("/repositories"),
+        $authFetch("/units"),
         $authFetch("/documents"),
-      ]) as [Task[], { repositories?: Repository[] } | Repository[], ApiDocument[]];
+      ]) as [Task[], { repositories?: Repository[] } | Repository[], Unit[], ApiDocument[]];
 
     // Default to all tasks; may be overridden by route-based filtering below
     tasks.value = (tasksResponse || []).map((task: Task) => ({
@@ -130,6 +142,7 @@ onMounted(async () => {
     })) as Task[];
 
     repositoriesList.value = ('repositories' in repositoriesResponse ? repositoriesResponse.repositories : repositoriesResponse) as Repository[];
+    unitsList.value = (unitsResponse || []) as Unit[];
 
     // Process documents for dropdown
     if (documentsResponse && Array.isArray(documentsResponse)) {
@@ -142,15 +155,15 @@ onMounted(async () => {
     // Apply route-based filtering on initial load
     if (documentIdFromRoute) {
       await fetchTasksByDocument(documentIdFromRoute);
-    } else if (repositoryIdFromRoute) {
-      await fetchTasksByRepository(repositoryIdFromRoute);
+    } else if (unitIdFromRoute) {
+      await fetchTasksByUnit(unitIdFromRoute);
     } else {
-      // Default to first writable repository if none selected
-      const firstRepoId = writableRepositories.value[0]?.id;
-      if (firstRepoId) {
-        selectedRepositoryId.value = firstRepoId;
-        await router.replace({ query: { ...route.query, repositoryId: firstRepoId } });
-        await fetchTasksByRepository(firstRepoId);
+      // Default to first available unit if none selected
+      const firstUnitId = availableUnits.value[0]?.id;
+      if (firstUnitId) {
+        selectedUnitId.value = firstUnitId;
+        await router.replace({ query: { ...route.query, unitId: firstUnitId } });
+        await fetchTasksByUnit(firstUnitId);
       }
     }
   } catch (error) {
@@ -191,10 +204,10 @@ async function fetchTasksByDocument(documentId: string) {
   }
 }
 
-// Function to fetch tasks by repository
-async function fetchTasksByRepository(repositoryId: string) {
+// Function to fetch tasks by unit
+async function fetchTasksByUnit(unitId: string) {
   try {
-    const response = await $authFetch(`/tasks/repository/${repositoryId}`) as Task[];
+    const response = await $authFetch(`/tasks/unit/${unitId}`) as Task[];
     tasks.value = response.map((task: Task) => ({
       ...task,
       id: task.id,
@@ -208,7 +221,7 @@ async function fetchTasksByRepository(repositoryId: string) {
       updated_at: new Date(task.updated_at),
     })) as Task[];
   } catch (error) {
-    console.error("Error fetching tasks by repository:", error);
+    console.error("Error fetching tasks by unit:", error);
   }
 }
 
@@ -222,16 +235,16 @@ watch(selectedDocumentId, (newValue) => {
   }
 });
 
-watch(selectedRepositoryId, async (newValue) => {
-  if (filterType.value !== "repository") return;
+watch(selectedUnitId, async (newValue) => {
+  if (filterType.value !== "unit") return;
   if (newValue) {
-    await router.replace({ query: { ...route.query, repositoryId: newValue } });
-    fetchTasksByRepository(newValue);
+    await router.replace({ query: { ...route.query, unitId: newValue } });
+    fetchTasksByUnit(newValue);
   } else {
-    const fallback = writableRepositories.value[0]?.id;
+    const fallback = availableUnits.value[0]?.id;
     if (fallback) {
-      selectedRepositoryId.value = fallback;
-      await router.replace({ query: { ...route.query, repositoryId: fallback } });
+      selectedUnitId.value = fallback;
+      await router.replace({ query: { ...route.query, unitId: fallback } });
     }
   }
 });
@@ -364,18 +377,18 @@ function closeTryTask() {
       </div>
     </DPageHeader>
     <div class="bg-white p-6 rounded-lg shadow mb-4">
-      <h2 class="text-xl font-bold mb-4">Repository Filter</h2>
+      <h2 class="text-xl font-bold mb-4">Unit Filter</h2>
 
-      <div v-if="filterType === 'repository'">
-        <DSearchableDropdown v-model="selectedRepositoryId"
-          :options="writableRepositories.map((repo) => ({ value: repo.id, label: repo.name }))"
-          placeholder="Select a repository" search-placeholder="Search repositories..." class="mt-1 w-full" />
+      <div v-if="filterType === 'unit'">
+        <DSearchableDropdown v-model="selectedUnitId"
+          :options="availableUnits.map((unit) => ({ value: unit.id, label: unit.title }))" placeholder="Select a unit"
+          search-placeholder="Search units..." class="mt-1 w-full" />
       </div>
     </div>
 
     <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
       <DButtonLabelled title="Generate Tasks" :icon="PlusIcon" @click="openGenerateTasksModalFromTasks">
-        Generate multiple choice or free text tasks for the current repository.
+        Generate multiple choice or free text tasks for the current unit.
       </DButtonLabelled>
     </div>
 
@@ -396,7 +409,7 @@ function closeTryTask() {
 
     <div v-else-if="filteredTasks.length === 0" class="bg-white p-6 rounded-lg shadow text-center mt-4">
       <p class="text-gray-500">
-        No tasks available for the selected repository.
+        No tasks available for the selected unit.
       </p>
       <div class="flex justify-center mt-2">
         <DButton variant="primary" @click="openGenerateTasksModalFromTasks" :icon-left="PlusIcon">

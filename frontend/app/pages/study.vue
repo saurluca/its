@@ -10,6 +10,7 @@ const notifications = useNotificationsStore();
 const pageState = ref<"studying" | "finished" | "no-tasks">("studying");
 const unitId = ref("");
 const unitTitle = ref("");
+const repositoryId = ref("");
 const tasks = ref<Task[]>([]);
 const currentTaskIndex = ref(0);
 const currentAnswer = ref("");
@@ -64,6 +65,11 @@ function handleKeyPress(event: KeyboardEvent) {
     event.preventDefault();
     restart();
   }
+  // Hotkey: 'S' to show source when available (after evaluation)
+  else if (event.key.toLowerCase() === 's' && showEvaluation.value && !evaluating.value) {
+    event.preventDefault();
+    showSource();
+  }
 }
 
 onMounted(() => {
@@ -105,6 +111,7 @@ async function startStudy() {
     // First, fetch unit details to get the title
     const unitResponse = await $authFetch(`/units/${unitId.value}`) as UnitDetail;
     unitTitle.value = unitResponse.title;
+    repositoryId.value = unitResponse.repository_id;
 
     const responseData = await $authFetch(`/tasks/unit/${unitId.value}`) as Task[];
 
@@ -266,7 +273,9 @@ function restart() {
   textContent.value = "";
   textError.value = "";
 
-  router.push("/units");
+  if (repositoryId.value) {
+    router.push(`/repository?repositoryId=${repositoryId.value}`);
+  }
 }
 </script>
 
@@ -309,7 +318,7 @@ function restart() {
                 :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
                 <DButton @click="showSource" variant="secondary" class="mt-4">
-                  Show Source
+                  Show Source (S)
                 </DButton>
                 <DButton @click="nextQuestion" class="mt-4">
                   {{
@@ -341,7 +350,7 @@ function restart() {
               <span class="font-bold">{{ tasks.length }}</span>.
             </p>
             <div class="flex justify-center">
-              <DButton @click="restart">Study Another Document</DButton>
+              <DButton @click="restart">Study Another Unit</DButton>
             </div>
             <div class="text-xs text-gray-500 text-center mt-2">
               Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue

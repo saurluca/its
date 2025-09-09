@@ -9,11 +9,11 @@ from repositories.models import (
     RepositoryDocumentLinkCreate,
     RepositoryDocumentLinkResponse,
     RepositoryResponseDetail,
-    RepositoryTaskLink,
     AccessLevel,
     RepositoryAccess,
     RepositoryAccessGrantByEmail,
 )
+from units.models import UnitTaskLink, Unit
 from repositories.access_control import (
     create_repository_access_dependency,
     get_repository_access,
@@ -24,6 +24,7 @@ from documents.models import Document, DocumentResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from auth.service import get_user_by_email
+from units.models import UnitListResponse
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -51,18 +52,9 @@ async def get_repositories(
         accessible_repos, key=lambda repo: repo.name.lower() if repo.name else ""
     )
 
-    # Create response objects with task counts and access level
-    repositories_with_task_counts = []
+    # Create response objects with access level (no task counts)
+    repositories_with_access_levels = []
     for repo in accessible_repos:
-        # Count tasks linked to this repository
-        task_count = len(
-            session.exec(
-                select(RepositoryTaskLink).where(
-                    RepositoryTaskLink.repository_id == repo.id
-                )
-            ).all()
-        )
-
         # Determine access level for the current user
         if repo.owner_id == current_user.id:
             access_level = AccessLevel.OWNER
@@ -77,13 +69,12 @@ async def get_repositories(
                 access_record.access_level if access_record else AccessLevel.READ
             )
 
-        # Create response object with task count and access level
+        # Create response object with access level only
         repo_response = RepositoryResponse.model_validate(repo)
-        repo_response.task_count = task_count
         repo_response.access_level = access_level
-        repositories_with_task_counts.append(repo_response)
+        repositories_with_access_levels.append(repo_response)
 
-    return repositories_with_task_counts
+    return repositories_with_access_levels
 
 
 @router.get("/{repository_id}", response_model=RepositoryResponseDetail)
@@ -104,6 +95,8 @@ async def get_repository(
     repo_response = RepositoryResponseDetail.model_validate(db_repository)
     repo_response.document_ids = [doc.id for doc in db_repository.documents]
     repo_response.document_names = [doc.title for doc in db_repository.documents]
+    repo_response.unit_ids = [unit.id for unit in db_repository.units]
+    repo_response.unit_names = [unit.title for unit in db_repository.units]
     return repo_response
 
 
@@ -135,6 +128,43 @@ async def get_repository_documents(
     return document_responses
 
 
+@router.get("/{repository_id}/units", response_model=list)
+async def get_repository_units(
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.READ)
+    ),
+):
+    """Get all units in a repository if user has read access."""
+
+    db_repository = session.get(Repository, repository_id)
+    if not db_repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    # Sort units alphabetically by title
+    units = sorted(
+        db_repository.units, key=lambda unit: unit.title.lower() if unit.title else ""
+    )
+    unit_responses = []
+    for unit in units:
+        # Count tasks for each unit
+        task_count = len(
+            session.exec(
+                select(UnitTaskLink).where(UnitTaskLink.unit_id == unit.id)
+            ).all()
+        )
+
+        unit_response = UnitListResponse.model_validate(unit)
+        unit_response.repository_ids = [repo.id for repo in unit.repositories]
+        unit_response.task_count = task_count
+        unit_responses.append(unit_response)
+
+    return unit_responses
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=RepositoryResponse)
 async def create_repository(
     repository: RepositoryCreate,
@@ -150,7 +180,6 @@ async def create_repository(
 
     # Create response object with task count (0 for new repository)
     repo_response = RepositoryResponse.model_validate(db_repository)
-    repo_response.task_count = 0
     repo_response.access_level = AccessLevel.OWNER
     return repo_response
 
@@ -176,18 +205,8 @@ async def update_repository(
     session.commit()
     session.refresh(db_repository)
 
-    # Count tasks linked to this repository
-    task_count = len(
-        session.exec(
-            select(RepositoryTaskLink).where(
-                RepositoryTaskLink.repository_id == repository_id
-            )
-        ).all()
-    )
-
-    # Create response object with task count
+    # Create response object without task count
     repo_response = RepositoryResponse.model_validate(db_repository)
-    repo_response.task_count = task_count
     repo_response.access_level = (
         AccessLevel.OWNER
         if db_repository.owner_id == current_user.id

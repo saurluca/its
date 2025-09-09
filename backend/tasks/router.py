@@ -21,14 +21,15 @@ from repositories.access_control import (
     create_repository_access_dependency,
     create_document_access_dependency,
     create_chunk_access_dependency,
+    create_unit_access_dependency,
 )
 from repositories.models import (
     Repository,
-    RepositoryTaskLink,
     AccessLevel,
     RepositoryAccess,
     RepositoryDocumentLink,
 )
+from units.models import Unit, UnitTaskLink
 from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse
 from uuid import UUID
@@ -41,17 +42,19 @@ from repositories.access_control import get_repository_access
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+# TODO is this even needed?
 @router.get("", response_model=list[TaskRead])
 async def get_tasks(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    """Get all tasks the current user has access to via repository links."""
-    # Get tasks accessible through repositories the user has access to
+    """Get all tasks the current user has access to via repository-unit links."""
+    # Get tasks accessible through repositories -> units the user has access to
     accessible_tasks = session.exec(
         select(Task)
-        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
-        .join(Repository, RepositoryTaskLink.repository_id == Repository.id)
+        .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+        .join(Unit, UnitTaskLink.unit_id == Unit.id)
+        .join(Repository, Unit.repository_id == Repository.id)
         .outerjoin(RepositoryAccess, Repository.id == RepositoryAccess.repository_id)
         .where(
             (Repository.owner_id == current_user.id)
@@ -114,6 +117,36 @@ async def get_tasks_by_document(
     return db_tasks
 
 
+@router.get("/unit/{unit_id}", response_model=list[TaskRead])
+async def get_tasks_by_unit(
+    unit_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_unit_access_dependency(AccessLevel.READ)
+    ),
+):
+    """
+    Get all tasks for a specific unit.
+    Requires read access to the unit via repository links.
+    """
+    # Get the unit to verify it exists
+    unit = session.get(Unit, unit_id)
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found",
+        )
+
+    # Get all tasks directly linked to this unit
+    db_tasks = session.exec(
+        select(Task)
+        .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+        .where(UnitTaskLink.unit_id == unit_id)
+    ).all()
+
+    return db_tasks
+
+
 @router.get("/repository/{repository_id}", response_model=list[TaskRead])
 async def get_tasks_by_repository(
     repository_id: UUID,
@@ -123,7 +156,7 @@ async def get_tasks_by_repository(
     ),
 ):
     """
-    Get all tasks for a specific repository using the direct task-repository relationship.
+    Get all tasks for a specific repository through the repository-unit-task relationship.
     Requires read access to the repository.
     """
     # Get the repository to verify it exists
@@ -134,11 +167,12 @@ async def get_tasks_by_repository(
             detail="Repository not found",
         )
 
-    # Get all tasks directly linked to this repository
+    # Get all tasks linked to this repository through units
     db_tasks = session.exec(
         select(Task)
-        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
-        .where(RepositoryTaskLink.repository_id == repository_id)
+        .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+        .join(Unit, UnitTaskLink.unit_id == Unit.id)
+        .where(Unit.repository_id == repository_id)
     ).all()
 
     return db_tasks
@@ -394,6 +428,7 @@ async def delete_answer_option(
     return {"ok": True}
 
 
+# TODO simplify the whole acces control thing
 @router.post("/generate_for_documents", response_model=list[TaskRead])
 async def generate_tasks_for_documents(
     request: GenerateTasksForDocumentsRequest,
@@ -402,19 +437,32 @@ async def generate_tasks_for_documents(
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """
-    Generate tasks for a number of documents and link them to the repository.
-    Requires write access to the repository.
+    Generate tasks for a number of documents and link them to the unit.
+    Requires write access to the unit via repository access.
     """
-    # Check repository access
-    await get_repository_access(
-        request.repository_id, AccessLevel.WRITE, session, current_user
-    )
+    # Check unit access (which checks repository access under the hood)
+    unit = session.get(Unit, request.unit_id)
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+        )
 
-    # Only select questions from tasks already linked to this repository as forbidden
+    # Check write access to the repository containing this unit
+    try:
+        await get_repository_access(
+            unit.repository_id, AccessLevel.WRITE, session, current_user
+        )
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Write access required to repository containing this unit",
+        )
+
+    # Only select questions from tasks already linked to this unit as forbidden
     existing_question_rows = session.exec(
         select(Task.question)
-        .join(RepositoryTaskLink, Task.id == RepositoryTaskLink.task_id)
-        .where(RepositoryTaskLink.repository_id == request.repository_id)
+        .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+        .where(UnitTaskLink.unit_id == request.unit_id)
     ).all()
     forbidden_questions: set[str] = (
         set(existing_question_rows) if existing_question_rows else set()
@@ -444,16 +492,14 @@ async def generate_tasks_for_documents(
         forbidden_questions=forbidden_questions,
     )
 
-    # Save tasks and create repository-task links
+    # Save tasks and create unit-task links
     for task in tasks:
         session.add(task)
         session.flush()  # Flush to get the task ID
 
-        # Create repository-task link
-        repository_task_link = RepositoryTaskLink(
-            repository_id=request.repository_id, task_id=task.id
-        )
-        session.add(repository_task_link)
+        # Create unit-task link
+        unit_task_link = UnitTaskLink(unit_id=request.unit_id, task_id=task.id)
+        session.add(unit_task_link)
 
     all_generated_tasks.extend(tasks)
 

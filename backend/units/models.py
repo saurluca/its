@@ -3,8 +3,6 @@ from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
 
-from repositories.models import RepositoryUnitLink
-
 
 if TYPE_CHECKING:
     from repositories.models import Repository
@@ -27,13 +25,52 @@ class Unit(UnitBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
+    repository_id: UUID = Field(foreign_key="repository.id")
 
     # Relationships
-    repositories: list["Repository"] = Relationship(
-        back_populates="units",
-        link_model=RepositoryUnitLink,
-    )
+    repository: "Repository" = Relationship(back_populates="units")
     tasks: list["Task"] = Relationship(
         back_populates="units",
-        cascade_delete=True,
+        link_model=UnitTaskLink,
     )
+
+
+class UnitCreate(UnitBase):
+    repository_id: UUID
+
+
+class UnitUpdate(SQLModel):
+    title: str | None = None
+    content: str | None = None
+    repository_id: UUID | None = None
+
+
+class UnitResponse(UnitBase):
+    id: UUID
+    created_at: datetime
+    deleted_at: datetime | None = None
+    repository_id: UUID
+    task_count: int = 0
+
+
+class UnitListResponse(SQLModel):
+    id: UUID
+    title: str
+    created_at: datetime
+    deleted_at: datetime | None = None
+    repository_id: UUID
+    task_count: int = 0
+
+
+class UnitResponseDetail(UnitBase):
+    id: UUID
+    created_at: datetime
+    deleted_at: datetime | None = None
+    repository_id: UUID
+    repository_name: str
+    task_ids: list[UUID] = []
+    task_count: int = 0
+
+
+class UnitDelete(SQLModel):
+    pass

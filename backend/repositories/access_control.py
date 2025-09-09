@@ -15,10 +15,10 @@ from repositories.models import (
     AccessLevel,
     Repository,
     RepositoryDocumentLink,
-    RepositoryTaskLink,
 )
 from documents.models import Document, Chunk
 from tasks.models import Task
+from units.models import Unit, UnitTaskLink
 
 
 async def get_repository_access(
@@ -246,23 +246,26 @@ def create_task_access_dependency(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
             )
 
-        # Get all repositories linked to this task
-        repository_links = session.exec(
-            select(RepositoryTaskLink).where(RepositoryTaskLink.task_id == task_uuid)
+        # Get all repositories linked to this task through units
+        # Repository -> Unit -> Task relationship
+        repository_ids = session.exec(
+            select(Unit.repository_id)
+            .join(UnitTaskLink, Unit.id == UnitTaskLink.unit_id)
+            .where(UnitTaskLink.task_id == task_uuid)
         ).all()
 
-        if not repository_links:
+        if not repository_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: Task not linked to any repository",
+                detail="Access denied: Task not linked to any repository through units",
             )
 
-        # Check access to at least one repository linked to this task
+        # Check access to at least one repository linked to this task through units
         access_granted = False
-        for link in repository_links:
+        for repository_id in repository_ids:
             try:
                 await get_repository_access(
-                    link.repository_id, required_access, session, current_user
+                    repository_id, required_access, session, current_user
                 )
                 access_granted = True
                 break
@@ -358,6 +361,64 @@ def create_chunk_access_dependency(
     return check_chunk_access
 
 
+def create_unit_access_dependency(
+    required_access: AccessLevel = AccessLevel.READ, unit_id_param: str = "unit_id"
+) -> Callable:
+    """
+    Create a FastAPI dependency for unit access checking via repository relationships.
+
+    Args:
+        required_access: Minimum access level required (default: READ)
+        unit_id_param: Name of the path parameter containing unit_id
+
+    Returns:
+        FastAPI dependency function
+    """
+
+    async def check_unit_access(
+        request: Request,
+        session: Session = Depends(get_db_session),
+        current_user: UserResponse = Depends(get_current_user_from_request),
+    ) -> UserResponse:
+        # Extract unit_id from path parameters
+        unit_id = request.path_params.get(unit_id_param)
+        if not unit_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing {unit_id_param} in path",
+            )
+
+        try:
+            unit_uuid = UUID(unit_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid unit ID format",
+            )
+
+        # Get unit to check if it exists
+        unit = session.get(Unit, unit_uuid)
+        if not unit:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+            )
+
+        # Check access to the repository linked to this unit
+        try:
+            await get_repository_access(
+                unit.repository_id, required_access, session, current_user
+            )
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: No access to repository containing this unit",
+            )
+
+        return current_user
+
+    return check_unit_access
+
+
 # Pre-configured dependencies for common use cases
 require_repository_read = create_repository_access_dependency(AccessLevel.READ)
 require_repository_write = create_repository_access_dependency(AccessLevel.WRITE)
@@ -371,3 +432,6 @@ require_task_write = create_task_access_dependency(AccessLevel.WRITE)
 
 require_chunk_read = create_chunk_access_dependency(AccessLevel.READ)
 require_chunk_write = create_chunk_access_dependency(AccessLevel.WRITE)
+
+require_unit_read = create_unit_access_dependency(AccessLevel.READ)
+require_unit_write = create_unit_access_dependency(AccessLevel.WRITE)

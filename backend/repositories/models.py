@@ -65,15 +65,6 @@ class RepositoryDocumentLink(SQLModel, table=True):
     deleted_at: datetime | None = None
 
 
-class RepositoryUnitLink(SQLModel, table=True):
-    repository_id: UUID | None = Field(
-        default=None, foreign_key="repository.id", primary_key=True
-    )
-    unit_id: UUID | None = Field(default=None, foreign_key="unit.id", primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now)
-    deleted_at: datetime | None = None
-
-
 class Repository(RepositoryBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
@@ -85,10 +76,7 @@ class Repository(RepositoryBase, table=True):
         back_populates="repositories",
         link_model=RepositoryDocumentLink,
     )
-    units: list["Unit"] = Relationship(
-        back_populates="repositories",
-        link_model=RepositoryUnitLink,
-    )
+    units: list["Unit"] = Relationship(back_populates="repository")
     skills: list["Skill"] = Relationship(
         back_populates="repositories",
         link_model=RepositorySkillLink,

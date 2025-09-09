@@ -2,7 +2,7 @@
 import { XIcon } from "lucide-vue-next";
 import { onClickOutside, onKeyDown } from "@vueuse/core";
 import type { MaybeElement, MaybeElementRef } from "@vueuse/core";
-import { ref, onMounted, type Component } from "vue";
+import { ref, onMounted, nextTick, type Component } from "vue";
 
 interface Props {
   titel: string;
@@ -33,7 +33,19 @@ function save() {
 }
 
 onMounted(() => {
-  document.getElementById("cancel")?.focus();
+  // Prefer focusing an input/textarea/contenteditable element inside the modal, if present.
+  nextTick(() => {
+    const root = (dialog.value as HTMLElement | null) ?? undefined;
+    const autoFocusTarget = root?.querySelector(
+      "[data-autofocus], input, textarea, [contenteditable=\"true\"]"
+    ) as HTMLElement | null | undefined;
+
+    if (autoFocusTarget && typeof autoFocusTarget.focus === "function") {
+      autoFocusTarget.focus();
+    } else {
+      document.getElementById("cancel")?.focus();
+    }
+  });
 });
 
 onClickOutside(dialog as MaybeElementRef, () => emit("close"));

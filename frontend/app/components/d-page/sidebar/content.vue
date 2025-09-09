@@ -5,6 +5,7 @@ import {
   PanelRightClose,
   BookOpenIcon,
   ClipboardList,
+  User
 } from "lucide-vue-next";
 import { useSessionStorage } from "@vueuse/core";
 import type { Repository } from "~/types/models";
@@ -28,6 +29,11 @@ const links = [
     name: "Tasks",
     to: "/tasks",
     icon: ClipboardList,
+  },
+  {
+    name: "User",
+    to: "/user",
+    icon: User,
   },
   // {
   //   name: "Documents",

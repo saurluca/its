@@ -91,13 +91,19 @@ async def get_unit(
         session.exec(select(UnitTaskLink).where(UnitTaskLink.unit_id == unit_id)).all()
     )
 
-    unit_response = UnitResponseDetail.model_validate(db_unit)
-    unit_response.repository_id = db_unit.repository_id
-    unit_response.repository_name = db_unit.repository.name
-    unit_response.task_ids = [task.id for task in db_unit.tasks]
-    unit_response.task_count = task_count
-
-    return unit_response
+    # Build detailed response explicitly to include repository_name and task info
+    repository = session.get(Repository, db_unit.repository_id)
+    return UnitResponseDetail(
+        id=db_unit.id,
+        title=db_unit.title,
+        content=db_unit.content,
+        created_at=db_unit.created_at,
+        deleted_at=db_unit.deleted_at,
+        repository_id=db_unit.repository_id,
+        repository_name=repository.name if repository else "",
+        task_ids=[task.id for task in db_unit.tasks],
+        task_count=task_count,
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=UnitResponse)

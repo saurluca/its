@@ -473,6 +473,6 @@ function closeTryTask() {
     </div>
     <!-- Generate Tasks Modal (DRY reusable component) -->
     <DGenerateTasksModal v-if="showGenerateTasksModal" :repository="selectedRepositoryForTasks"
-      @close="closeGenerateTasksModalFromTasks" @success="onGenerateTasksSuccessFromTasks" />
+      :unit-id="selectedUnitId" @close="closeGenerateTasksModalFromTasks" @success="onGenerateTasksSuccessFromTasks" />
   </div>
 </template>

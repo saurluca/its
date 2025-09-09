@@ -5,6 +5,7 @@ import { useNotificationsStore } from "~/stores/notifications";
 
 const props = defineProps<{
     repository: Repository | null;
+    unitId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -63,7 +64,7 @@ function closeModal() {
 }
 
 async function confirmGenerateTasks() {
-    if (!props.repository?.id || selectedDocuments.value.size === 0) {
+    if (!props.repository?.id || !props.unitId || selectedDocuments.value.size === 0) {
         notifications.warning("Please select at least one document to generate tasks from.");
         return;
     }
@@ -78,7 +79,7 @@ async function confirmGenerateTasks() {
         await $authFetch("/tasks/generate_for_documents", {
             method: "POST",
             body: {
-                repository_id: props.repository.id,
+                unit_id: props.unitId,
                 document_ids: Array.from(selectedDocuments.value),
                 num_tasks: numTasksToGenerate.value,
                 task_type: taskType.value,

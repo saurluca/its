@@ -437,8 +437,8 @@ async def generate_tasks_for_documents(
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """
-    Generate tasks for a number of documents and link them to the unit.
-    Requires write access to the unit via repository access.
+    Generate tasks for the provided documents and link them to the given unit.
+    Requires WRITE access to the repository that contains the unit.
     """
     # Check unit access (which checks repository access under the hood)
     unit = session.get(Unit, request.unit_id)
@@ -458,7 +458,7 @@ async def generate_tasks_for_documents(
             detail="Write access required to repository containing this unit",
         )
 
-    # Only select questions from tasks already linked to this unit as forbidden
+    # Collect forbidden questions already linked to the unit to avoid duplicates
     existing_question_rows = session.exec(
         select(Task.question)
         .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
@@ -469,39 +469,45 @@ async def generate_tasks_for_documents(
     )
 
     all_generated_tasks: list[Task] = []
-    chunks: list[Chunk] = []
 
+    # Generate tasks per document to preserve document context
     for document_id in request.document_ids:
-        chunks_for_doc = session.exec(
+        chunks_for_doc: list[Chunk] = session.exec(
             select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
         ).all()
-        chunks.extend(chunks_for_doc)
 
-    if not chunks:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No chunks found"
+        if not chunks_for_doc:
+            print("no chunks for document", document_id)
+            # Skip documents without important chunks
+            continue
+
+        generated: list[Task] = generate_tasks(
+            document_id,
+            chunks_for_doc,
+            lm,
+            request.num_tasks,
+            request.task_type,
+            forbidden_questions=forbidden_questions,
         )
 
-    # Initial generation avoiding currently forbidden questions
-    tasks = generate_tasks(
-        document_id,
-        chunks,
-        lm,
-        request.num_tasks,
-        request.task_type,
-        forbidden_questions=forbidden_questions,
-    )
+        # Persist tasks and link to unit
+        for task in generated:
+            session.add(task)
+            session.flush()  # Ensure task.id is available
 
-    # Save tasks and create unit-task links
-    for task in tasks:
-        session.add(task)
-        session.flush()  # Flush to get the task ID
+            session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
 
-        # Create unit-task link
-        unit_task_link = UnitTaskLink(unit_id=request.unit_id, task_id=task.id)
-        session.add(unit_task_link)
+            # Track question to reduce duplicates across documents
+            if task.question:
+                forbidden_questions.add(task.question)
 
-    all_generated_tasks.extend(tasks)
+        all_generated_tasks.extend(generated)
+
+    if not all_generated_tasks:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not generate any tasks",
+        )
 
     session.commit()
     return all_generated_tasks

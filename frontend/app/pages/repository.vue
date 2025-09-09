@@ -776,10 +776,10 @@ async function confirmRemoveSkill() {
         <DModal v-if="showUploadModal" titel="Upload Document"
             :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
             @close="closeUploadModal" @confirm="triggerFilePicker">
-            <div class="p-4 space-y-3">
+            <div class="p-4 space-y-4">
                 <!-- PDF Flattening Option and File Selection -->
                 <div class="text-sm">
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <label class="flex items-center gap-2 cursor-pointer select-none mb-2">
                         <input type="checkbox" v-model="flattenPdf" class="w-3 h-3 accent-black"
                             style="accent-color: black;" />
                         <span>Flatten PDF before text extraction</span>

@@ -112,7 +112,8 @@ function repositoryIsActive(id: string) {
     <hr class="mt-1 mb-1.5 text-gray-200" />
     <NuxtLink v-for="link in links" :key="link.to"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200"
-      :to="link.to" :class="route.path.startsWith(link.to) ? 'bg-gray-200 text-gray-700' : ''">
+      :to="link.to"
+      :class="(link.to === '/' ? route.path === '/' : route.path.startsWith(link.to)) ? 'bg-gray-200 text-gray-700' : ''">
       <div class="flex h-5 items-center justify-center">
         <component :is="link.icon" class="size-4" />
       </div>

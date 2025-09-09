@@ -55,15 +55,15 @@ function handleKeyPress(event: KeyboardEvent) {
     event.preventDefault();
     return;
   }
-  // Handle Enter key when evaluation is shown
-  if (event.key === 'Enter' && showEvaluation.value) {
-    event.preventDefault();
-    nextQuestion();
-  }
-  // Handle Enter key when study session is finished
-  else if (event.key === 'Enter' && pageState.value === 'finished') {
+  // Handle Enter key when study session is finished (takes precedence)
+  if (event.key === 'Enter' && pageState.value === 'finished') {
     event.preventDefault();
     restart();
+  }
+  // Handle Enter key when evaluation is shown
+  else if (event.key === 'Enter' && showEvaluation.value) {
+    event.preventDefault();
+    nextQuestion();
   }
   // Hotkey: 'S' to show source when available (after evaluation)
   else if (event.key.toLowerCase() === 's' && showEvaluation.value && !evaluating.value) {
@@ -212,6 +212,7 @@ function nextQuestion() {
     closeTextViewer();
   } else {
     pageState.value = "finished";
+    showEvaluation.value = false;
   }
 }
 

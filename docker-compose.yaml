@@ -15,11 +15,13 @@ services:
       - POSTGRES_DB=${DB_NAME}
     restart: always
 
-  docling:
-    image: ghcr.io/lucasaur/its-docling-serve:latest
-    container_name: docling
+  docling-serve:
+    image: ghcr.io/saurluca/its-docling-serve:main
+    container_name: docling-serve
+    env_file:
+      - .env
     ports:
       - "5001:5001"
+    depends_on:
+      - db
     restart: always
-    environment:
-      - DOCLING_SERVE_ENABLE_UI=1

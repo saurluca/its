@@ -121,19 +121,16 @@ jobs:
             docling-serve:
               - 'docling-serve/**'
 
-      - name: Exit if no docling-serve changes and not forced
-        if: steps.changes.outputs.docling-serve != 'true' && github.event.inputs.force_rebuild_docling-serve != 'true'
-        run: |
-          echo "No docling-serve changes detected and force rebuild not requested. Exiting."
-          exit 0
-
       - name: Log in to GHCR
+        if: ${{ steps.changes.outputs['docling-serve'] == 'true' || github.event.inputs.force_rebuild_docling-serve == 'true' }}
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docling Serve Image
+        if: ${{ steps.changes.outputs['docling-serve'] == 'true' || github.event.inputs.force_rebuild_docling-serve == 'true' }}
         run: |
           docker build ./docling-serve --file ./docling-serve/Dockerfile \
             --tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-docling-serve:${{ github.ref_name }} \
 
       - name: Push Docling Serve Image
+        if: ${{ steps.changes.outputs['docling-serve'] == 'true' || github.event.inputs.force_rebuild_docling-serve == 'true' }}
         run: docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-docling-serve:${{ github.ref_name }}

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
+import asyncio
 from datetime import datetime
 from dependencies import get_db_session, get_large_llm, get_large_llm_no_cache
 from documents.models import Chunk
@@ -519,13 +520,14 @@ async def generate_tasks_for_documents(
             # Skip documents without important chunks
             continue
 
-        generated: list[Task] = generate_tasks(
+        generated: list[Task] = await asyncio.to_thread(
+            generate_tasks,
             document_id,
             chunks_for_doc,
             lm,
             request.num_tasks,
             request.task_type,
-            forbidden_questions=forbidden_questions,
+            forbidden_questions,
         )
 
         # Persist tasks and link to unit
@@ -610,7 +612,8 @@ async def evaluate_answer(
             answer_options=db_task.answer_options,
             chunk=db_task.chunk,
         )
-        response = evaluate_student_answer(
+        response = await asyncio.to_thread(
+            evaluate_student_answer,
             task_teacher,
             request.student_answer,
             db_task.type,
@@ -641,7 +644,8 @@ async def evaluate_answer(
         answer_options=db_task.answer_options,
         chunk=db_task.chunk,
     )
-    response = evaluate_student_answer(
+    response = await asyncio.to_thread(
+        evaluate_student_answer,
         task_teacher,
         request.student_answer,
         db_task.type,

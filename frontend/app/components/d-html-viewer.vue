@@ -1,9 +1,7 @@
 <script setup>
-import { computed } from "vue";
-import { XIcon } from "lucide-vue-next";
-import DOMPurify from "dompurify";
+import { ref, watch } from "vue";
 
-defineProps({
+const props = defineProps({
   htmlContent: {
     type: String,
     default: "",
@@ -18,41 +16,48 @@ defineProps({
   },
 });
 
-// Emit close event to parent
-const emit = defineEmits(["close"]);
+const iframeSrc = ref("");
 
-function handleClose() {
-  emit("close");
-}
+// Watch for changes in htmlContent and update iframe
+watch(
+  [() => props.htmlContent],
+  ([newContent]) => {
 
-const sanitizedHtml = computed(() => DOMPurify.sanitize(props.htmlContent));
+    if (newContent) {
+      const processedContent = newContent;
+
+      const blob = new Blob([processedContent], { type: "text/html" });
+      iframeSrc.value = URL.createObjectURL(blob);
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
-  <div class="h-full w-full border border-gray-200 rounded-lg overflow-hidden relative">
-    <button @click="handleClose" aria-label="Close"
-      class="absolute top-6 right-6 z-10 rounded text-gray-500 hover:text-gray-700 text-xl leading-none px-2">
-      <XIcon />
-    </button>
-    <div class="h-full">
-      <div v-if="loading" class="flex items-center justify-center h-full">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-          <p class="text-gray-600">Loading document content...</p>
-        </div>
+  <div class="h-full w-full border border-gray-200 rounded-lg overflow-hidden">
+    <div v-if="loading" class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+        <p class="text-gray-600">Loading document content...</p>
       </div>
+    </div>
 
-      <div v-else-if="error" class="flex items-center justify-center h-full">
-        <div class="text-center">
-          <p class="text-red-600">{{ error }}</p>
-        </div>
+    <div v-else-if="error" class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <p class="text-red-600">{{ error }}</p>
       </div>
+    </div>
 
-      <div v-else class="h-full w-full overflow-auto">
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div class="p-4 prose max-w-none" v-html="sanitizedHtml"></div>
+    <div v-else-if="iframeSrc" class="h-full w-full">
+      <iframe :src="iframeSrc" class="w-full h-full border-0" frameborder="0" allowfullscreen
+        @load="onIframeLoad"></iframe>
+    </div>
+
+    <div v-else class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <p class="text-gray-500">No content available</p>
       </div>
     </div>
   </div>
-
 </template>

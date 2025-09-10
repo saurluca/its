@@ -41,14 +41,12 @@ watch(
 <template>
   <!-- Full-screen overlay on small screens; inline card on md+ -->
   <div class="fixed inset-0 z-50 bg-white md:static md:h-full md:w-full md:bg-transparent">
-    <!-- Close button visible only on small screens -->
-    <button
-      class="absolute top-3 right-3 md:hidden p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
-      aria-label="Close" type="button" @click="emit('close')">
-      <XIcon class="h-6 w-6" />
-    </button>
-
-    <div class="h-full w-full md:border md:border-gray-200 md:rounded-lg md:overflow-hidden">
+    <div class="relative h-full w-full md:border md:border-gray-200 md:rounded-lg md:overflow-hidden">
+      <button
+        class="absolute top-4 right-6 p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 z-10"
+        aria-label="Close" type="button" @click="emit('close')">
+        <XIcon class="h-6 w-6" />
+      </button>
       <div v-if="loading" class="flex items-center justify-center h-full">
         <div class="text-center">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>

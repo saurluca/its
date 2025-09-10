@@ -4,9 +4,11 @@ import { useRoute } from "vue-router";
 import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon } from "lucide-vue-next";
 import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 import { useNotificationsStore } from "~/stores/notifications";
+import { useSessionStorage } from "@vueuse/core";
 
 const { $authFetch } = useAuthenticatedFetch();
 const notifications = useNotificationsStore();
+const collapsed = useSessionStorage("collapsed", false);
 
 type UUID = string;
 
@@ -247,6 +249,7 @@ async function viewDocument(documentId: string) {
     loadingHtml.value = true;
     htmlError.value = "";
     selectedDocumentId.value = documentId;
+    collapsed.value = true;
     showHtmlViewer.value = true;
 
     try {

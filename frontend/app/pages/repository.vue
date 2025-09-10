@@ -452,11 +452,11 @@ async function handleUpload() {
     }
 }
 
-// Skills actions
-function openAddSkillModal() {
-    showAddSkillModal.value = true;
-    newSkillName.value = "";
-}
+// // Skills actions
+// function openAddSkillModal() {
+//     showAddSkillModal.value = true;
+//     newSkillName.value = "";
+// }
 
 function closeAddSkillModal() {
     showAddSkillModal.value = false;
@@ -529,11 +529,11 @@ async function refreshSkills() {
     }
 }
 
-function openRenameSkillModal(skill: SkillItem) {
-    renamingSkillId.value = skill.id;
-    renamingSkillName.value = skill.name;
-    showRenameSkillModal.value = true;
-}
+// function openRenameSkillModal(skill: SkillItem) {
+//     renamingSkillId.value = skill.id;
+//     renamingSkillName.value = skill.name;
+//     showRenameSkillModal.value = true;
+// }
 
 function closeRenameSkillModal() {
     showRenameSkillModal.value = false;
@@ -557,11 +557,11 @@ async function confirmRenameSkill() {
     }
 }
 
-function openRemoveSkillModal(skill: SkillItem) {
-    removingSkillId.value = skill.id;
-    removingSkillName.value = skill.name;
-    showRemoveSkillModal.value = true;
-}
+// function openRemoveSkillModal(skill: SkillItem) {
+//     removingSkillId.value = skill.id;
+//     removingSkillName.value = skill.name;
+//     showRemoveSkillModal.value = true;
+// }
 
 function closeRemoveSkillModal() {
     showRemoveSkillModal.value = false;
@@ -697,7 +697,7 @@ async function confirmRemoveSkill() {
                     </section>
 
                     <!-- Skills Section -->
-                    <section>
+                    <!-- <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Skills</h2>
                             <DButton v-if="hasWriteAccess" :icon-left="PlusIcon" variant="primary"
@@ -727,7 +727,7 @@ async function confirmRemoveSkill() {
                         <div v-else class="bg-white p-6 rounded-lg shadow text-center">
                             <p class="text-gray-500">No skills are defined for this repository yet.</p>
                         </div>
-                    </section>
+                    </section> -->
                 </div>
             </div>
         </div>

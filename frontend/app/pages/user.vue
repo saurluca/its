@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
+import { RefreshCw } from "lucide-vue-next";
 
 interface UserSkillProgress {
     skill_id: string;
@@ -53,7 +54,9 @@ function toPercent(p: number): number {
 <template>
     <div class="max-w-4xl mx-auto mt-8 px-4">
         <DPageHeader title="Your Skills">
-            <DButton variant="secondary" @click="fetchUserSkills">Refresh</DButton>
+            <DButton variant="secondary" @click="fetchUserSkills" :icon-left="RefreshCw">
+                Refresh
+            </DButton>
         </DPageHeader>
 
         <div v-if="loading" class="py-16 text-center">

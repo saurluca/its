@@ -1,4 +1,3 @@
-from urllib3 import response
 from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, Query, File
 from dependencies import get_db_session, get_small_llm, get_large_llm
 from documents.models import (
@@ -24,7 +23,7 @@ from documents.service import (
 )
 from starlette.concurrency import run_in_threadpool
 import dspy
-import requests
+import httpx
 import os
 from dotenv import load_dotenv
 
@@ -91,19 +90,38 @@ async def upload_and_chunk_document(
 ):
     print(f"Uploading and chunking document {file.filename}...")
 
-    response = requests.post(
-        f"{DOCLING_SERVE_API_URL}/process",
-        files={"file": file.file},
-        data={"flatten_pdf": flatten_pdf},
-        params={"filename": file.filename},
-    )
+    if not DOCLING_SERVE_API_URL:
+        raise HTTPException(
+            status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
+        )
 
-    status_code = response.status_code
+    try:
+        # Read file content asynchronously and call Docling service without blocking the event loop
+        file_bytes = await file.read()
+        async with httpx.AsyncClient(timeout=None) as client:
+            resp = await client.post(
+                f"{DOCLING_SERVE_API_URL}/process",
+                files={
+                    "file": (
+                        file.filename,
+                        file_bytes,
+                        file.content_type or "application/octet-stream",
+                    )
+                },
+                data={"flatten_pdf": str(flatten_pdf).lower()},
+                params={"filename": file.filename},
+            )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to reach Docling service: {e}"
+        )
+
+    status_code = resp.status_code
 
     if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=response.text)
+        raise HTTPException(status_code=status_code, detail=resp.text)
 
-    results = response.json()
+    results = resp.json()
     chunks_data = results["chunks"]
     html_text = results["html_text"]
 

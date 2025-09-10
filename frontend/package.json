@@ -16,6 +16,7 @@
     "@tailwindcss/vite": "^4.1.12",
     "@vueuse/core": "^12.8.2",
     "@vueuse/nuxt": "^12.8.2",
+    "dompurify": "^3.2.6",
     "lucide-vue-next": "^0.474.0",
     "nuxt": "^3.18.1",
     "pinia": "^3.0.3",

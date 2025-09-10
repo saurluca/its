@@ -13,7 +13,7 @@ from repositories.models import (
     RepositoryAccess,
     RepositoryAccessGrantByEmail,
 )
-from units.models import UnitTaskLink, Unit
+from units.models import UnitTaskLink
 from repositories.access_control import (
     create_repository_access_dependency,
     get_repository_access,

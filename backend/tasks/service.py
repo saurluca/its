@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any, cast
 from uuid import UUID
 import dspy
 import time
@@ -414,7 +414,7 @@ def get_study_tasks_for_unit(
     progress_rows: list[TaskUserLink] = session.exec(
         select(TaskUserLink).where(
             TaskUserLink.user_id == user_id,
-            TaskUserLink.task_id.in_(task_ids),
+            cast(Any, TaskUserLink.task_id).in_(task_ids),
         )
     ).all()
 

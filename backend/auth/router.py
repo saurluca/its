@@ -3,17 +3,11 @@ from auth.service import (
     authenticate_user,
     create_access_token,
     create_user,
-    get_user_by_id,
-    update_user,
-    delete_user,
-    get_users,
     get_user_by_email,
 )
 from auth.models import (
     UserResponse,
     UserCreate,
-    UserUpdate,
-    UserListResponse,
 )
 from typing import Annotated
 from datetime import timedelta
@@ -23,7 +17,6 @@ from constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session
-from uuid import UUID
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

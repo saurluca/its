@@ -7,7 +7,6 @@ from units.models import (
     UnitResponse,
     UnitListResponse,
     UnitResponseDetail,
-    UnitDelete,
     UnitTaskLink,
 )
 from repositories.models import (
@@ -18,7 +17,6 @@ from repositories.models import (
 from repositories.access_control import (
     create_unit_access_dependency,
     create_repository_access_dependency,
-    get_repository_access,
 )
 from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse

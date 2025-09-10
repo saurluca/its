@@ -4,17 +4,21 @@ import { useRoute } from "vue-router";
 import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon } from "lucide-vue-next";
 import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 import { useNotificationsStore } from "~/stores/notifications";
-import { useSessionStorage } from "@vueuse/core";
+import { useSessionStorage, useLocalStorage } from "@vueuse/core";
 
 const { $authFetch } = useAuthenticatedFetch();
 const notifications = useNotificationsStore();
 const collapsed = useSessionStorage("collapsed", false);
+const repositoryAccessLevels = useLocalStorage<Record<string, AccessLevel>>("repository_access_levels", {});
 
 type UUID = string;
+
+type AccessLevel = "read" | "write" | "owner";
 
 interface RepositoryDetail {
     id: UUID;
     name: string;
+    access_level?: AccessLevel;
 }
 
 interface UnitListItem {
@@ -41,6 +45,21 @@ const repositoryId = computed(() => (route.query.repositoryId as string) || "");
 // Page state
 const loading = ref(true);
 const repo = ref<RepositoryDetail | null>(null);
+
+const currentAccessLevel = computed<AccessLevel | undefined>(() => {
+    const level = (repo.value as RepositoryDetail | null)?.access_level;
+    if (level) return level;
+    const id = repositoryId.value;
+    console.log("id", id);
+    console.log("repositoryAccessLevels.value", repositoryAccessLevels.value);
+    return id ? repositoryAccessLevels.value[id] : undefined;
+});
+
+const hasWriteAccess = computed(() => {
+    const level = currentAccessLevel.value;
+    console.log("level", level);
+    return level === "write" || level === "owner";
+});
 
 // Units state
 const units = ref<UnitListItem[]>([]);
@@ -116,7 +135,19 @@ async function fetchAll() {
             $authFetch(`/repositories/${repositoryId.value}/documents`) as Promise<DocumentItem[]>,
             $authFetch(`/skills/repository/${repositoryId.value}`) as Promise<SkillItem[]>,
         ]);
-        repo.value = repoResp;
+        // Merge in access level from list endpoint (detail endpoint does not include it)
+        let mergedAccessLevel: AccessLevel | undefined = repoResp?.access_level;
+        if (repoResp?.id) {
+            const levelFromList = await fetchAccessLevelForRepository(repoResp.id);
+            mergedAccessLevel = mergedAccessLevel || levelFromList;
+            if (mergedAccessLevel) {
+                repositoryAccessLevels.value = {
+                    ...repositoryAccessLevels.value,
+                    [repoResp.id]: mergedAccessLevel,
+                };
+            }
+        }
+        repo.value = { ...repoResp, access_level: mergedAccessLevel } as RepositoryDetail;
         units.value = unitsResp || [];
         documents.value = docsResp || [];
         skills.value = (skillsResp || []).sort((a, b) => a.name.localeCompare(b.name));
@@ -125,6 +156,21 @@ async function fetchAll() {
         notifications.error("Failed to load repository data. " + error);
     } finally {
         loading.value = false;
+    }
+}
+
+async function fetchAccessLevelForRepository(id: string): Promise<AccessLevel | undefined> {
+    try {
+        type RepoListItem = { id: string; access_level?: AccessLevel };
+        const response = (await $authFetch(`/repositories`)) as RepoListItem[] | { repositories?: RepoListItem[] };
+        const list: RepoListItem[] = Array.isArray(response)
+            ? response
+            : (response?.repositories ?? []);
+        const match = list.find((r) => r.id === id);
+        return match?.access_level as AccessLevel | undefined;
+    } catch (err) {
+        console.warn("Failed to fetch repositories list for access level:", err);
+        return repositoryAccessLevels.value[id];
     }
 }
 
@@ -555,7 +601,7 @@ async function confirmRemoveSkill() {
                     <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Units</h2>
-                            <div class="flex">
+                            <div class="flex" v-if="hasWriteAccess">
                                 <DButton variant="primary" :icon-left="PlusIcon" @click="openCreateUnitModal">
                                     Create Unit
                                 </DButton>
@@ -579,15 +625,15 @@ async function confirmRemoveSkill() {
                                         </div>
                                     </div>
                                     <div class="flex gap-2 items-center">
-                                        <DButton @click="navigateToTasksForUnit(unit.id)" variant="primary"
-                                            :icon-left="ClipboardList">
+                                        <DButton v-if="hasWriteAccess" @click="navigateToTasksForUnit(unit.id)"
+                                            variant="primary" :icon-left="ClipboardList">
                                             Tasks
                                         </DButton>
                                         <DButton @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
                                             :icon-left="BookOpenIcon">
                                             Study
                                         </DButton>
-                                        <DHamburgerMenu>
+                                        <DHamburgerMenu v-if="hasWriteAccess">
                                             <template #default="{ close }">
                                                 <button @click="() => { openRenameUnitModal(unit); close(); }"
                                                     class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -616,7 +662,8 @@ async function confirmRemoveSkill() {
                     <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Documents</h2>
-                            <DButton :icon-left="UploadIcon" variant="primary" @click="triggerFilePicker">
+                            <DButton v-if="hasWriteAccess" :icon-left="UploadIcon" variant="primary"
+                                @click="triggerFilePicker">
                                 Upload Document
                             </DButton>
                         </div>
@@ -634,7 +681,7 @@ async function confirmRemoveSkill() {
                                     <div class="truncate cursor-pointer" @click="viewDocument(doc.id)">
                                         <span class="font-medium">{{ doc.title }}</span>
                                     </div>
-                                    <div class="flex items-center gap-1">
+                                    <div class="flex items-center gap-1" v-if="hasWriteAccess">
                                         <DButton variant="tertiary" class="!p-2" :icon-left="PencilIcon"
                                             @click="openRenameDocumentModal(doc)" />
                                         <DButton variant="danger-light" class="!p-2" :icon-left="TrashIcon"
@@ -653,7 +700,8 @@ async function confirmRemoveSkill() {
                     <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Skills</h2>
-                            <DButton :icon-left="PlusIcon" variant="primary" @click="openAddSkillModal">
+                            <DButton v-if="hasWriteAccess" :icon-left="PlusIcon" variant="primary"
+                                @click="openAddSkillModal">
                                 Add Skill
                             </DButton>
                         </div>
@@ -666,7 +714,7 @@ async function confirmRemoveSkill() {
                                     <div class="truncate">
                                         <span class="font-medium">{{ skill.name }}</span>
                                     </div>
-                                    <div class="flex gap-1">
+                                    <div class="flex gap-1" v-if="hasWriteAccess">
                                         <DButton variant="tertiary" class="!p-2" :icon-left="PencilIcon"
                                             @click="openRenameSkillModal(skill)" />
                                         <DButton variant="danger-light" class="!p-2" :icon-left="TrashIcon"

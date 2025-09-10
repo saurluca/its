@@ -105,6 +105,7 @@ class RepositoryResponseDetail(RepositoryBase):
     id: UUID
     created_at: datetime
     deleted_at: datetime | None = None
+    access_level: AccessLevel = AccessLevel.READ
     document_ids: list[UUID] = []
     document_names: list[str] = []
     unit_ids: list[UUID] = []

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
+import { useLocalStorage } from "@vueuse/core";
 import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon } from "lucide-vue-next";
 import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
@@ -42,6 +43,9 @@ function hasWriteAccess(repository: Repository & { access_level?: AccessLevel })
     return level === "write" || level === "owner";
 }
 
+// Cache access levels for quick lookups in other views (e.g., repository.vue)
+const repositoryAccessLevels = useLocalStorage<Record<string, AccessLevel>>("repository_access_levels", {});
+
 // Load repositories on component mount
 onMounted(async () => {
     await fetchRepositories();
@@ -56,7 +60,16 @@ async function fetchRepositories() {
     loading.value = true;
     try {
         const response = await $authFetch("/repositories") as { repositories?: Repository[] } | Repository[];
-        repositories.value = ('repositories' in response ? response.repositories : response) as Repository[];
+        const list = ('repositories' in response ? response.repositories : response) as (Repository & { access_level?: AccessLevel })[];
+        repositories.value = list;
+        // Persist access levels for use by other views before their own fetch completes
+        const levels: Record<string, AccessLevel> = { ...repositoryAccessLevels.value };
+        for (const r of list) {
+            if (r.id && r.access_level) {
+                levels[r.id] = r.access_level;
+            }
+        }
+        repositoryAccessLevels.value = levels;
     } catch (error) {
         console.error("Error fetching repositories:", error);
         notifications.error("Failed to load repositories. Please try again. " + error);

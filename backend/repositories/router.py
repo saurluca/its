@@ -97,6 +97,20 @@ async def get_repository(
     repo_response.document_names = [doc.title for doc in db_repository.documents]
     repo_response.unit_ids = [unit.id for unit in db_repository.units]
     repo_response.unit_names = [unit.title for unit in db_repository.units]
+    # Determine access level for current user
+    if db_repository.owner_id == current_user.id:
+        repo_response.access_level = AccessLevel.OWNER
+    else:
+        access_record = session.exec(
+            select(RepositoryAccess).where(
+                (RepositoryAccess.repository_id == db_repository.id)
+                & (RepositoryAccess.user_id == current_user.id)
+            )
+        ).first()
+        repo_response.access_level = (
+            access_record.access_level if access_record else AccessLevel.READ
+        )
+
     return repo_response
 
 

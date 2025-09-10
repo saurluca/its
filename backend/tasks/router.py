@@ -39,7 +39,11 @@ from auth.models import UserResponse
 from uuid import UUID
 from typing import Any, cast
 from sqlmodel import select, Session
-from tasks.service import generate_tasks, evaluate_student_answer
+from tasks.service import (
+    generate_tasks,
+    evaluate_student_answer,
+    get_study_tasks_for_unit,
+)
 import dspy
 from repositories.access_control import get_repository_access
 
@@ -669,3 +673,19 @@ async def evaluate_answer(
     except Exception:
         session.rollback()
     return response
+
+
+@router.get("/unit/{unit_id}/study", response_model=list[TaskRead])
+async def get_study_tasks(
+    unit_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_unit_access_dependency(AccessLevel.READ)
+    ),
+):
+    """
+    Return an ordered list of tasks for a study session for the given unit,
+    tailored to the current user using an SM-2-inspired priority.
+    """
+    tasks = get_study_tasks_for_unit(unit_id, current_user.id, session)
+    return tasks

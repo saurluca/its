@@ -113,11 +113,11 @@ async function startStudy() {
     unitTitle.value = unitResponse.title;
     repositoryId.value = unitResponse.repository_id;
 
-    const responseData = await $authFetch(`/tasks/unit/${unitId.value}`) as Task[];
+    const responseData = await $authFetch(`/tasks/unit/${unitId.value}/study`) as Task[];
 
     if (responseData && responseData.length > 0) {
-      // Randomize order of tasks for this study session
-      tasks.value = shuffleArray(responseData);
+      // Keep backend-provided order for this study session
+      tasks.value = responseData;
       currentTaskIndex.value = 0;
       pageState.value = "studying";
     } else {

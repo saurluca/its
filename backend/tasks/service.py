@@ -5,8 +5,15 @@ import time
 from tqdm import tqdm
 import random
 from fastapi import HTTPException
+from datetime import datetime, timezone
 
-from constants import REQUIRED_ANSWER_OPTIONS
+from constants import (
+    REQUIRED_ANSWER_OPTIONS,
+    TASKS_PER_SESSION,
+    SM2_PARTIAL_CREDIT,
+    SM2_NEW_TASK_BOOST,
+    SM2_RECENCY_WEIGHT,
+)
 from documents.models import Chunk
 from tasks.models import (
     Task,
@@ -15,6 +22,7 @@ from tasks.models import (
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
     TeacherResponseFreeText,
+    TaskUserLink,
 )
 
 
@@ -343,3 +351,88 @@ def evaluate_student_answer(
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error evaluating answer: {e}")
+
+
+def _compute_task_priority(
+    task: Task,
+    progress: TaskUserLink | None,
+    now: datetime,
+) -> float:
+    """
+    Compute a priority score for a task using simplified SM-2 ideas:
+    - Unseen tasks get a large boost so they appear first.
+    - Otherwise, higher when last attempt is older and correctness ratio is low.
+    """
+    if progress is None:
+        return SM2_NEW_TASK_BOOST
+
+    total = progress.times_correct + progress.times_incorrect + progress.times_partial
+    if total == 0:
+        return SM2_NEW_TASK_BOOST
+
+    # Quality as proportion of success with partial weighted
+    weighted_correct = (
+        progress.times_correct + SM2_PARTIAL_CREDIT * progress.times_partial
+    )
+    quality = weighted_correct / total  # 0..1
+
+    # Recency in days
+    last = progress.updated_at or progress.created_at
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    days_since = (now - last).total_seconds() / 86400.0
+
+    # Lower quality and older review => higher priority
+    priority = (1.0 - quality) * 10.0 + days_since * SM2_RECENCY_WEIGHT
+    return priority
+
+
+def get_study_tasks_for_unit(
+    unit_id: UUID,
+    user_id: UUID,
+    session,
+) -> list[Task]:
+    """
+    Return up to TASKS_PER_SESSION tasks for a unit, ordered by priority.
+    New tasks first; then ones with low performance and longest since review.
+    """
+    # Fetch tasks in unit
+    from sqlmodel import select
+    from units.models import UnitTaskLink
+
+    db_tasks: list[Task] = session.exec(
+        select(Task)
+        .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+        .where(UnitTaskLink.unit_id == unit_id)
+    ).all()
+
+    if not db_tasks:
+        return []
+
+    # Fetch user progress links for these tasks
+    task_ids = [t.id for t in db_tasks]
+    progress_rows: list[TaskUserLink] = session.exec(
+        select(TaskUserLink).where(
+            TaskUserLink.user_id == user_id,
+            TaskUserLink.task_id.in_(task_ids),
+        )
+    ).all()
+
+    progress_by_task = {row.task_id: row for row in progress_rows}
+    now = datetime.now(timezone.utc)
+
+    scored = [
+        (
+            _compute_task_priority(task, progress_by_task.get(task.id), now),
+            progress_by_task.get(task.id) is None,  # unseen flag
+            task,
+        )
+        for task in db_tasks
+    ]
+
+    # Sort by priority desc (higher first), while keeping unseen before seen as tie-breaker
+    # We can sort by (-priority, not unseen) to get desired order
+    scored.sort(key=lambda x: (-x[0], not x[1]))
+
+    ordered = [t for _, _, t in scored][:TASKS_PER_SESSION]
+    return ordered

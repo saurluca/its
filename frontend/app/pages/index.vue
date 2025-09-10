@@ -100,6 +100,10 @@ async function deleteRepository(id: string) {
         });
 
         repositories.value = repositories.value.filter((r) => r.id !== id);
+        // Notify other components (e.g., sidebar) that repositories changed
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("repositories:updated"));
+        }
     } catch (error) {
         console.error("Error deleting repository:", error);
         notifications.error("Failed to delete repository. Please try again. " + error);
@@ -165,6 +169,10 @@ async function confirmEditTitle() {
         // Refresh the repository list to show the updated title
         await fetchRepositories();
         closeEditTitleModal();
+        // Notify other components (e.g., sidebar) that repositories changed
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("repositories:updated"));
+        }
     } catch (error) {
         console.error("Error updating title:", error);
         notifications.error("Failed to update title. Please try again. " + error);

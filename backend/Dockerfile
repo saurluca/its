@@ -26,4 +26,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 EXPOSE 8000
 
 # Run migrations first, then start the application with proxy headers so redirects keep https
-CMD ["uv run alembic upgrade head && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --workers 12 --proxy-headers --forwarded-allow-ips='*'" ]
+CMD ["/bin/sh", "-c", "uv run alembic upgrade head && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --workers 12 --proxy-headers --forwarded-allow-ips='*'"]

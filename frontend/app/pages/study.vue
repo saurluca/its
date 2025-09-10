@@ -265,7 +265,7 @@ function restart() {
 <template>
   <div class="h-full flex">
     <!-- Left side - Study interface -->
-    <div :class="showTextViewer ? 'w-1/2 p-4 overflow-y-auto' : 'w-full p-4'">
+    <div :class="showTextViewer ? 'w-1/2 overflow-y-auto' : 'w-full'">
       <div class="max-w-4xl mx-auto">
         <DPageHeader :title="unitTitle ? `Studying: ${unitTitle}` : 'Unit Study Mode'" class="mt-4" />
         <div class="mx-auto max-w-4xl">

@@ -139,66 +139,51 @@ async function evaluateAnswer() {
   feedback.value = "Evaluating...";
   evaluating.value = true
 
-  if (currentTask.value?.type === 'multiple_choice') {
-    const correct = currentAnswer.value === currentTask.value.answer_options.find(option => option.is_correct)?.answer;
-    isCorrect.value = correct;
-    evaluationStatus.value = correct ? 'correct' : 'incorrect';
-    showEvaluation.value = true;
-    if (correct) {
-      score.value++;
-      evaluating.value = false;
-      return;
-    }
-    // Incorrect multiple choice: request backend feedback
-    try {
-      const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
-        method: "POST",
-        body: { student_answer: currentAnswer.value },
-      }) as { feedback: string; };
-      feedback.value = responseData.feedback || null;
-    } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
-      return;
-    } finally {
-      evaluating.value = false;
-    }
-  } else {
-    // Free text: wait for backend response, use new 4-way scoring system
-    try {
-      const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
-        method: "POST",
-        body: { student_answer: currentAnswer.value },
-      }) as { feedback: string; score: number; };
-      feedback.value = responseData.feedback || null;
-      const scoreNum = responseData.score;
+  try {
+    // Always call backend; it will short-circuit MC-correct and LLM others
+    const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
+      method: "POST",
+      body: { student_answer: currentAnswer.value },
+    }) as { feedback: string; score?: number };
 
-      // Handle new 4-way scoring system (0-3)
+    if (currentTask.value?.type === 'multiple_choice') {
+      const correctAnswer = currentTask.value.answer_options.find(option => option.is_correct)?.answer;
+      const correct = currentAnswer.value === correctAnswer;
+      isCorrect.value = correct;
+      evaluationStatus.value = correct ? 'correct' : 'incorrect';
+      if (!correct) {
+        feedback.value = responseData.feedback || null;
+      } else {
+        // Count correct MC
+        score.value++;
+      }
+      showEvaluation.value = true;
+    } else {
+      // Free text uses score mapping from backend
+      feedback.value = responseData.feedback || null;
+      const scoreNum = responseData.score ?? 3;
       if (scoreNum === 0) {
-        // Correct: 1 point
         evaluationStatus.value = 'correct';
         isCorrect.value = true;
         score.value += 1;
       } else if (scoreNum === 1) {
-        // Partially correct but incomplete: 0.5 points
         evaluationStatus.value = 'partial';
         isCorrect.value = false;
         score.value += 0.5;
       } else if (scoreNum === 2) {
-        // Contradictory: 0 points
         evaluationStatus.value = 'contradictory';
         isCorrect.value = false;
-      } else if (scoreNum === 3) {
-        // Irrelevant: 0 points
+      } else {
         evaluationStatus.value = 'irrelevant';
         isCorrect.value = false;
       }
       showEvaluation.value = true;
-    } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
-      return;
-    } finally {
-      evaluating.value = false;
     }
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
+    return;
+  } finally {
+    evaluating.value = false;
   }
 }
 

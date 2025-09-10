@@ -21,6 +21,12 @@ class TaskType(str, Enum):
     FREE_TEXT = "free_text"
 
 
+class ResultType(str, Enum):
+    CORRECT = "correct"
+    INCORRECT = "incorrect"
+    PARTIAL = "partial"
+
+
 class AnswerOptionBase(SQLModel):
     answer: str
     is_correct: bool
@@ -123,6 +129,19 @@ class TaskRead(TaskBase):
     answer_options: list["AnswerOption"] = []
 
 
+# Per-user progress (read model)
+class TaskUserProgress(SQLModel):
+    times_correct: int = 0
+    times_incorrect: int = 0
+    times_partial: int = 0
+    updated_at: datetime | None = None
+
+
+# Task with embedded current-user progress
+class TaskReadWithUserProgress(TaskRead):
+    user_progress: TaskUserProgress | None = None
+
+
 # Used for the teacher model to provide feedback
 class TaskReadTeacher(SQLModel):
     question: str = Field(..., description="The question being asked.")
@@ -154,14 +173,6 @@ class GenerateTasksForDocumentsRequest(SQLModel):
     document_ids: list[UUID]
     num_tasks: int = DEFAULT_NUM_TASKS
     task_type: str = "multiple_choice"
-
-
-class TaskUserProgress(SQLModel):
-    task_id: UUID
-    times_correct: int
-    times_incorrect: int
-    times_partial: int
-    updated_at: datetime
 
 
 # Rebuild models to resolve forward references

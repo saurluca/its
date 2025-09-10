@@ -8,6 +8,10 @@ DEFAULT_NUM_TASKS = 3
 REQUIRED_ANSWER_OPTIONS = 4
 MAX_TITLE_LENGTH = 100
 
+# Task recommendation constants
+TASKS_PER_SESSION = 6
+
+
 # Database constraints
 MAX_CONTENT_PREVIEW_LENGTH = 1000
 

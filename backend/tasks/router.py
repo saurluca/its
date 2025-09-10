@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
+from datetime import datetime
 from dependencies import get_db_session, get_large_llm, get_large_llm_no_cache
 from documents.models import Chunk
 from tasks.models import (
@@ -6,6 +7,8 @@ from tasks.models import (
     TaskCreate,
     TaskUpdate,
     TaskRead,
+    TaskReadWithUserProgress,
+    TaskType,
     AnswerOption,
     AnswerOptionCreate,
     AnswerOptionUpdate,
@@ -15,6 +18,7 @@ from tasks.models import (
     TeacherResponseMultipleChoice,
     TeacherResponseFreeText,
     GenerateTasksForDocumentsRequest,
+    TaskUserLink,
 )
 from repositories.access_control import (
     create_task_access_dependency,
@@ -178,7 +182,7 @@ async def get_tasks_by_repository(
     return db_tasks
 
 
-@router.get("/{task_id}", response_model=TaskRead)
+@router.get("/{task_id}", response_model=TaskReadWithUserProgress)
 async def get_task(
     task_id: UUID,
     session: Session = Depends(get_db_session),
@@ -186,13 +190,43 @@ async def get_task(
         create_task_access_dependency(AccessLevel.READ)
     ),
 ):
-    """Get a specific task if user has read access via repository links."""
+    """Get a specific task if user has read access via repository links.
+    Includes per-user progress counters for the current user.
+    """
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
-    return db_task
+    # Fetch per-user link if any
+    link = session.exec(
+        select(TaskUserLink).where(
+            TaskUserLink.task_id == task_id, TaskUserLink.user_id == current_user.id
+        )
+    ).one_or_none()
+
+    user_progress = None
+    if link is not None:
+        user_progress = {
+            "times_correct": link.times_correct,
+            "times_incorrect": link.times_incorrect,
+            "times_partial": link.times_partial,
+            "updated_at": link.updated_at,
+        }
+
+    # Compose response model with embedded user progress
+    # Pydantic/SQLModel will coerce dict to TaskUserProgress
+    return TaskReadWithUserProgress(
+        id=db_task.id,
+        type=db_task.type,
+        question=db_task.question,
+        chunk_id=db_task.chunk_id,
+        skill_id=db_task.skill_id,
+        created_at=db_task.created_at,
+        deleted_at=db_task.deleted_at,
+        answer_options=db_task.answer_options,
+        user_progress=user_progress,
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=TaskRead)
@@ -536,16 +570,102 @@ async def evaluate_answer(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
 
+    # Multiple-choice can be short-circuited without LLM if correct
+    if db_task.type == TaskType.MULTIPLE_CHOICE:
+        correct_options = [
+            opt.answer.strip().lower()
+            for opt in db_task.answer_options
+            if opt.is_correct
+        ]
+        student = (request.student_answer or "").strip().lower()
+
+        if student in correct_options:
+            # Persist as correct and return simple feedback (no LLM call)
+            try:
+                link = session.exec(
+                    select(TaskUserLink).where(
+                        TaskUserLink.task_id == task_id,
+                        TaskUserLink.user_id == current_user.id,
+                    )
+                ).one_or_none()
+                if link is None:
+                    link = TaskUserLink(task_id=task_id, user_id=current_user.id)
+                    session.add(link)
+                    session.flush()
+                link.times_correct += 1
+                link.updated_at = datetime.now()
+                session.add(link)
+                session.commit()
+            except Exception:
+                session.rollback()
+            return TeacherResponseMultipleChoice(feedback="Correct.")
+
+        # Incorrect MC: call LLM for feedback, then persist as incorrect
+        task_teacher = TaskReadTeacher(
+            question=db_task.question,
+            answer_options=db_task.answer_options,
+            chunk=db_task.chunk,
+        )
+        response = evaluate_student_answer(
+            task_teacher,
+            request.student_answer,
+            db_task.type,
+            lm,
+        )
+        try:
+            link = session.exec(
+                select(TaskUserLink).where(
+                    TaskUserLink.task_id == task_id,
+                    TaskUserLink.user_id == current_user.id,
+                )
+            ).one_or_none()
+            if link is None:
+                link = TaskUserLink(task_id=task_id, user_id=current_user.id)
+                session.add(link)
+                session.flush()
+            link.times_incorrect += 1
+            link.updated_at = datetime.now()
+            session.add(link)
+            session.commit()
+        except Exception:
+            session.rollback()
+        return response
+
+    # Free text: use LLM scoring
     task_teacher = TaskReadTeacher(
         question=db_task.question,
         answer_options=db_task.answer_options,
         chunk=db_task.chunk,
     )
-
     response = evaluate_student_answer(
         task_teacher,
         request.student_answer,
         db_task.type,
         lm,
     )
+    # Persist according to score mapping
+    try:
+        if isinstance(response, TeacherResponseFreeText):
+            score_value = response.score
+            link = session.exec(
+                select(TaskUserLink).where(
+                    TaskUserLink.task_id == task_id,
+                    TaskUserLink.user_id == current_user.id,
+                )
+            ).one_or_none()
+            if link is None:
+                link = TaskUserLink(task_id=task_id, user_id=current_user.id)
+                session.add(link)
+                session.flush()
+            if score_value == 0:
+                link.times_correct += 1
+            elif score_value == 1:
+                link.times_partial += 1
+            else:
+                link.times_incorrect += 1
+            link.updated_at = datetime.now()
+            session.add(link)
+            session.commit()
+    except Exception:
+        session.rollback()
     return response

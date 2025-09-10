@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
-import { PlusIcon, UploadIcon, ChevronDownIcon, ChevronRightIcon, PencilIcon, TrashIcon, BookOpenIcon, ClipboardList, UserPlusIcon } from "lucide-vue-next";
-import type { Repository, Document } from "~/types/models";
+import { ref, onMounted, onBeforeUnmount } from "vue";
+import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon } from "lucide-vue-next";
+import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
-import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -11,7 +10,6 @@ const { $authFetch } = useAuthenticatedFetch();
 const repositories = ref<Repository[]>([]);
 const loading = ref(true);
 const editingRepository = ref<Repository | null>(null);
-const expandedRepositories = ref<Set<string>>(new Set());
 
 // Create repository modal state
 const showCreateRepositoryModal = ref(false);
@@ -31,12 +29,7 @@ const inviteRepositoryId = ref<string | null>(null);
 const inviteEmail = ref("");
 const inviteAccessLevel = ref<"read" | "write">("read");
 
-// HTML viewer state
-const showHtmlViewer = ref(false);
-const htmlContent = ref("");
-const loadingHtml = ref(false);
-const htmlError = ref("");
-const selectedDocumentId = ref<string | null>(null);
+// HTML viewer and document expansion removed from index page
 
 // (Upload to repository is handled in repository.vue)
 
@@ -142,14 +135,6 @@ function navigateToRepository(repositoryId: string) {
     navigateTo(`/repository?repositoryId=${repositoryId}`);
 }
 
-function toggleRepositoryExpansion(repositoryId: string) {
-    if (expandedRepositories.value.has(repositoryId)) {
-        expandedRepositories.value.delete(repositoryId);
-    } else {
-        expandedRepositories.value.add(repositoryId);
-    }
-}
-
 
 // Modal functions for repository editing
 function openEditTitleModal(repositoryId: string, currentTitle: string) {
@@ -235,41 +220,13 @@ async function confirmInvite() {
     }
 }
 
-async function viewDocument(documentId: string) {
-    if (selectedDocumentId.value === documentId && showHtmlViewer.value) {
-        // If clicking the same document, toggle the viewer off
-        showHtmlViewer.value = false;
-        selectedDocumentId.value = null;
-        htmlContent.value = "";
-        return;
-    }
-
-    loadingHtml.value = true;
-    htmlError.value = "";
-    selectedDocumentId.value = documentId;
-    showHtmlViewer.value = true;
-
-    try {
-        const data = await $authFetch(`/documents/${documentId}`) as Document;
-
-        if (data.content) {
-            htmlContent.value = data.content;
-        } else {
-            htmlError.value = "Document content not found";
-        }
-    } catch (err) {
-        console.error("Error fetching document content:", err);
-        htmlError.value = "Failed to load document content";
-    } finally {
-        loadingHtml.value = false;
-    }
-}
+// Document viewing and HTML panel logic removed
 </script>
 
 <template>
     <div class="h-full flex">
-        <!-- Left side - Repositories list -->
-        <div :class="showHtmlViewer ? 'w-1/2 overflow-y-auto mr-2 ml-6 my-8' : 'w-full mt-8'">
+        <!-- Repositories list -->
+        <div class="w-full mt-8">
             <div class="max-w-4xl mx-auto">
                 <DPageHeader title="Repositories" />
 
@@ -290,12 +247,6 @@ async function viewDocument(documentId: string) {
                             class="bg-white p-4 rounded-lg shadow border border-gray-200">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-2">
-                                    <button @click="toggleRepositoryExpansion(repository.id)"
-                                        class="p-1 hover:bg-gray-100 rounded">
-                                        <ChevronDownIcon v-if="expandedRepositories.has(repository.id)"
-                                            class="h-4 w-4" />
-                                        <ChevronRightIcon v-else class="h-4 w-4" />
-                                    </button>
                                     <div class="flex flex-col">
                                         <h3 class="text-lg font-medium cursor-pointer"
                                             @click="navigateToRepository(repository.id)">
@@ -342,11 +293,7 @@ async function viewDocument(documentId: string) {
                                 </div>
                             </div>
 
-                            <!-- Expanded documents view -->
-                            <DRepositoryDocuments v-if="expandedRepositories.has(repository.id)"
-                                :repository-id="repository.id" :repository-name="repository.name"
-                                :access-level="(repository as Repository & { access_level?: AccessLevel }).access_level"
-                                @refresh-repositories="fetchRepositories" @view-document="viewDocument" />
+                            <!-- Documents expansion removed on index page -->
                         </div>
                     </div>
 
@@ -357,14 +304,7 @@ async function viewDocument(documentId: string) {
             </div>
         </div>
 
-        <!-- Right side - HTML viewer -->
-        <div v-if="showHtmlViewer" class="w-1/2 relative">
-            <div class="h-full p-4">
-                <DButtonClose @click="showHtmlViewer = false; selectedDocumentId = null; htmlContent = ''"
-                    class="absolute top-2 right-2 z-10" />
-                <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
-            </div>
-        </div>
+        <!-- HTML viewer removed on index page -->
 
         <!-- Document upload modal moved to repository.vue -->
 

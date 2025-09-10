@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useNotificationsStore } from "~/stores/notifications";
+import { onMounted } from "vue";
 definePageMeta({
   layout: "minimal",
 });
@@ -10,6 +11,13 @@ const loading = ref(false);
 
 const authStore = useAuthStore();
 const notifications = useNotificationsStore();
+
+onMounted(() => {
+  const route = useRoute();
+  if (route.query.registered === "1") {
+    notifications.success("Registration successful. You can now log in.");
+  }
+});
 
 async function login() {
   try {

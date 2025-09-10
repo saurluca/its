@@ -3,7 +3,6 @@ definePageMeta({
   layout: "minimal",
 });
 
-const name = ref("");
 const email = ref("");
 const password = ref("");
 
@@ -32,7 +31,7 @@ async function register() {
     if (result.success) {
       success.value = true;
       await sleep(1000);
-      navigateTo("/login");
+      navigateTo({ path: "/login", query: { registered: "1" } });
     } else {
       errorMsg.value = result.error || "Registration failed";
     }

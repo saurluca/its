@@ -13,6 +13,8 @@ import type { Repository } from "~/types/models";
 const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
 
+const emit = defineEmits<{ (e: 'close'): void }>();
+
 const links = [
   {
     name: "Overview",
@@ -120,7 +122,7 @@ function repositoryIsActive(id: string) {
     <hr class="mt-1 mb-1.5 text-gray-200" />
     <NuxtLink v-for="link in links" :key="link.to"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200"
-      :to="link.to"
+      :to="link.to" @click="emit('close')"
       :class="(link.to === '/' ? route.path === '/' : route.path.startsWith(link.to)) ? 'bg-gray-200 text-gray-700' : ''">
       <div class="flex h-5 items-center justify-center">
         <component :is="link.icon" class="size-4" />
@@ -133,7 +135,7 @@ function repositoryIsActive(id: string) {
     <div v-if="loadingRepos" class="px-2 py-1.5 text-xs text-gray-400">Loading…</div>
     <NuxtLink v-else v-for="repo in repositories" :key="repo.id"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200"
-      :to="`/repository?repositoryId=${repo.id}`"
+      :to="`/repository?repositoryId=${repo.id}`" @click="emit('close')"
       :class="repositoryIsActive(repo.id) ? 'bg-gray-200 text-gray-700' : ''">
       <div class="flex h-5 items-center justify-center">
         <BookOpenIcon class="size-4" />
@@ -145,7 +147,7 @@ function repositoryIsActive(id: string) {
   <nav class="flex flex-col gap-0.5 p-2">
     <NuxtLink v-for="link in footerLinks" :key="link.to"
       class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
-      :to="link.to" :class="route.path.startsWith(link.to) ? 'bg-gray-200' : ''">
+      :to="link.to" :class="route.path.startsWith(link.to) ? 'bg-gray-200' : ''" @click="emit('close')">
       <div class="flex h-5 items-center justify-center">
         <component :is="link.icon" class="size-4" />
       </div>

@@ -83,6 +83,10 @@ async function createRepository(repositoryName: string) {
             repositories.value.splice(insertIndex, 0, newRepository);
         }
         closeCreateRepositoryModal();
+        // Notify other components (e.g., sidebar) that repositories changed
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("repositories:updated"));
+        }
     } catch (error) {
         console.error("Error creating repository:", error);
         notifications.error("Failed to create repository. Please try again. " + error);

@@ -62,8 +62,22 @@ const organisationName = ref("ITS");
 const repositories = ref<Repository[]>([]);
 const loadingRepos = ref(true);
 
+const onRepositoriesUpdated = () => {
+  // Refresh repositories when notified by other parts of the app
+  fetchRepositories();
+};
+
 onMounted(async () => {
   await fetchRepositories();
+  if (typeof window !== "undefined") {
+    window.addEventListener("repositories:updated", onRepositoriesUpdated);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof window !== "undefined") {
+    window.removeEventListener("repositories:updated", onRepositoriesUpdated);
+  }
 });
 
 async function fetchRepositories() {

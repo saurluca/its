@@ -321,11 +321,6 @@ async function confirmDeleteDocument() {
     }
 }
 
-// Upload actions
-function openUploadModal() {
-    showUploadModal.value = true;
-}
-
 function closeUploadModal() {
     showUploadModal.value = false;
     selectedFile.value = null;
@@ -363,7 +358,7 @@ function handleFileSelect(event: Event) {
         }
 
         selectedFile.value = file;
-        handleUpload();
+        showUploadModal.value = true;
     }
 }
 
@@ -621,11 +616,16 @@ async function confirmRemoveSkill() {
                     <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Documents</h2>
-                            <DButton :icon-left="UploadIcon" variant="primary" @click="openUploadModal">
+                            <DButton :icon-left="UploadIcon" variant="primary" @click="triggerFilePicker">
                                 Upload Document
                             </DButton>
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
+
+                        <!-- Hidden file input (always present) -->
+                        <input ref="fileInput" type="file"
+                            :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')" class="hidden"
+                            @change="handleFileSelect" />
 
                         <div v-if="documents.length > 0" class="space-y-3">
                             <div v-for="doc in documents" :key="doc.id"
@@ -687,9 +687,8 @@ async function confirmRemoveSkill() {
         <!-- Right side - HTML viewer -->
         <div v-if="showHtmlViewer" class="w-1/2 relative">
             <div class="h-full p-4">
-                <DButtonClose @click="showHtmlViewer = false; selectedDocumentId = null; htmlContent = ''"
-                    class="absolute top-0 right-0 z-10" />
-                <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError" />
+                <DHtmlViewer :html-content="htmlContent" :loading="loadingHtml" :error="htmlError"
+                    @close="showHtmlViewer = false; selectedDocumentId = null; htmlContent = ''" />
             </div>
         </div>
 
@@ -776,12 +775,19 @@ async function confirmRemoveSkill() {
         </DModal>
 
         <!-- Document Upload Modal -->
-        <DModal v-if="showUploadModal" titel="Upload Document"
-            :confirm-text="uploading ? 'Uploading...' : 'Select File & Upload'" :confirm-icon="UploadIcon"
-            @close="closeUploadModal" @confirm="triggerFilePicker">
+        <DModal v-if="showUploadModal" titel="Upload Document" :confirm-text="uploading ? 'Uploading...' : 'Upload'"
+            :confirm-icon="UploadIcon" @close="closeUploadModal" @confirm="handleUpload">
             <div class="p-4 space-y-4">
                 <!-- PDF Flattening Option and File Selection -->
                 <div class="text-sm">
+                    <div v-if="selectedFile" class="flex items-center gap-2 mb-2">
+                        <span
+                            class="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 border border-gray-300 text-gray-800 text-sm font-medium shadow-sm">
+                            <span class="truncate max-w-xs" style="max-width: 16rem;" :title="selectedFile.name">
+                                {{ selectedFile.name }}
+                            </span>
+                        </span>
+                    </div>
                     <label class="flex items-center gap-2 cursor-pointer select-none mb-2">
                         <input type="checkbox" v-model="flattenPdf" class="w-3 h-3 accent-black"
                             style="accent-color: black;" />
@@ -791,14 +797,6 @@ async function confirmRemoveSkill() {
                         Hint: Enable this if there are problems extracting text from a PDF. It may take longer to
                         process.
                     </p>
-                    <p class="text-xs text-gray-500">
-                        Supported formats: {{ SUPPORTED_MIME_TYPES.join(', ') }} • Max size: {{ MAX_FILE_SIZE_MB }}MB
-                    </p>
-                    <input ref="fileInput" type="file" :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')"
-                        class="hidden" @change="handleFileSelect" />
-                    <div v-if="selectedFile" class="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                        Selected: {{ selectedFile.name }}
-                    </div>
                 </div>
             </div>
         </DModal>

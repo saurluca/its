@@ -4,7 +4,7 @@ import {
   PanelLeftClose,
   PanelRightClose,
   BookOpenIcon,
-  ClipboardList,
+  HomeIcon,
   User
 } from "lucide-vue-next";
 import { useSessionStorage } from "@vueuse/core";
@@ -14,22 +14,16 @@ const route = useRoute();
 const { $authFetch } = useAuthenticatedFetch();
 
 const links = [
-  // {
-  //   name: "Home",
-  //   to: "/",
-  //   icon: HomeIcon,
-  // },
   {
-    name: "Repositories",
+    name: "Overview",
     to: "/",
-    icon: BookOpenIcon,
+    icon: HomeIcon,
   },
-  // List repos
-  {
-    name: "Tasks",
-    to: "/tasks",
-    icon: ClipboardList,
-  },
+  // {
+  //   name: "Tasks",
+  //   to: "/tasks",
+  //   icon: ClipboardList,
+  // },
   {
     name: "User",
     to: "/user",

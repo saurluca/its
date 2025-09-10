@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useSessionStorage } from "@vueuse/core";
+import { useSessionStorage, useMediaQuery } from "@vueuse/core";
 import type { Task, UnitDetail } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -24,20 +24,14 @@ const feedback = ref<string | null>(null);
 const router = useRouter();
 const evaluating = ref<boolean>(false);
 
-
-// Utility: Fisher-Yates shuffle to randomize tasks each session
-function shuffleArray<T>(items: T[]): T[] {
-  const array = [...items];
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const temp = array[i]!;
-    array[i] = array[j]!;
-    array[j] = temp;
-  }
-  return array;
-}
-
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
+
+// Progress: tasks completed out of total
+const tasksDone = computed(() => {
+  const total = tasks.value.length;
+  const idx = currentTaskIndex.value;
+  return showEvaluation.value ? Math.min(idx + 1, total) : idx;
+});
 
 // Text viewer state
 const showTextViewer = ref(false);
@@ -47,6 +41,9 @@ const textError = ref("");
 
 // Sidebar state
 const collapsed = useSessionStorage("collapsed", false);
+
+// Detect touch/mobile devices to hide keyboard shortcut hints
+const isMobile = useMediaQuery('(hover: none) and (pointer: coarse)');
 
 // Keyboard handler for Enter key
 function handleKeyPress(event: KeyboardEvent) {
@@ -272,6 +269,10 @@ function restart() {
       <div class="max-w-4xl mx-auto">
         <DPageHeader :title="unitTitle ? `Studying: ${unitTitle}` : 'Unit Study Mode'" class="mt-4" />
         <div class="mx-auto max-w-4xl">
+          <!-- Progress Bar -->
+          <div v-if="pageState === 'studying' && tasks.length > 0" class="mt-4 mb-6">
+            <DProgressBar :current="tasksDone" :total="tasks.length" />
+          </div>
           <!-- Loading State -->
           <div v-if="loading" class="text-center space-y-4">
             <div class="text-xl">Loading tasks...</div>
@@ -304,7 +305,7 @@ function restart() {
                 :feedback="feedback ?? ''" class="mt-4" />
               <div class="flex flex-wrap justify-end gap-2">
                 <DButton @click="showSource" variant="secondary" class="mt-4">
-                  Show Source (S)
+                  Show Source<span v-if="!isMobile"> (S)</span>
                 </DButton>
                 <DButton @click="nextQuestion" class="mt-4">
                   {{
@@ -338,7 +339,7 @@ function restart() {
             <div class="flex justify-center">
               <DButton @click="restart">Study Another Unit</DButton>
             </div>
-            <div class="text-xs text-gray-500 text-center mt-2">
+            <div v-if="!isMobile" class="text-xs text-gray-500 text-center mt-2">
               Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to continue
             </div>
           </div>

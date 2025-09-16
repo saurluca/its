@@ -6,6 +6,8 @@ from documents.router import router as documents_router
 from repositories.router import router as repositories_router
 from auth.router import router as auth_router
 from skills.router import router as skills_router
+from reports.router import router as reports_router
+from reports.models import Report  # noqa: F401 - ensure model is registered
 from units.router import router as units_router
 from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
@@ -65,3 +67,4 @@ app.include_router(tasks_router)
 app.include_router(documents_router)
 app.include_router(skills_router)
 app.include_router(units_router)
+app.include_router(reports_router)

@@ -75,4 +75,3 @@ services:
       - /root/.docker/config.json:/config.json
     command: --interval 30 --cleanup --label-enable
     restart: always
-# fix auto ref from backend with / ... in frontend.

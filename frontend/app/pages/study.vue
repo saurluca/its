@@ -24,6 +24,17 @@ const feedback = ref<string | null>(null);
 const router = useRouter();
 const evaluating = ref<boolean>(false);
 
+// Reporting UI state (per-task)
+const showTaskReport = ref(false);
+const reportOptions = ref({
+  too_easy: false,
+  too_hard: false,
+  not_appropriate: false,
+  not_relevant: false,
+});
+const reportText = ref("");
+const reportSubmitting = ref(false);
+
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
 
 // Progress: tasks completed out of total
@@ -260,6 +271,43 @@ function restart() {
     router.push(`/repository?repositoryId=${repositoryId.value}`);
   }
 }
+
+async function submitTaskReport() {
+  if (!currentTask.value) return;
+  if (reportSubmitting.value) return;
+  reportSubmitting.value = true;
+  try {
+    const tags = Object.entries(reportOptions.value)
+      .filter(([_, v]) => v)
+      .map(([k]) => k)
+      .join(",");
+
+    await $authFetch("/reports/", {
+      method: "POST",
+      body: {
+        report_type: "task",
+        url: window.location.href,
+        category_tags: tags || null,
+        message: reportText.value || null,
+        task_id: currentTask.value.id,
+        unit_id: unitId.value || null,
+      },
+    });
+    notifications.success("Thanks for the report!");
+    showTaskReport.value = false;
+    reportOptions.value = {
+      too_easy: false,
+      too_hard: false,
+      not_appropriate: false,
+      not_relevant: false,
+    };
+    reportText.value = "";
+  } catch (e) {
+    notifications.error("Failed to submit report");
+  } finally {
+    reportSubmitting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -303,7 +351,10 @@ function restart() {
               <DTaskResult v-if="!isCorrect || currentTask.type === 'free_text'" :task="currentTask"
                 :index="currentTaskIndex" :user-answer="currentAnswer" :status="evaluationStatus"
                 :feedback="feedback ?? ''" class="mt-4" />
-              <div class="flex flex-wrap justify-end gap-2">
+              <div class="flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <DButton variant="secondary" class="mt-4" @click="showTaskReport = true">Report this task</DButton>
+                </div>
                 <DButton @click="showSource" variant="secondary" class="mt-4">
                   Show Source<span v-if="!isMobile"> (S)</span>
                 </DButton>
@@ -348,7 +399,7 @@ function restart() {
     </div>
 
     <!-- Right side - Text viewer -->
-    <div v-if="showTextViewer" class="w-1/2 border-l border-gray-200">
+    <div v-if="showTextViewer" class="w-1/2">
       <div class="h-full p-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Source Text</h2>
@@ -358,6 +409,35 @@ function restart() {
         </div>
         <div class="h-[calc(100%-4rem)]">
           <DTextViewer :text-content="textContent" :loading="loadingText" :error="textError" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Report Sheet/Modal -->
+    <div v-if="showTaskReport" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="showTaskReport = false"></div>
+      <div class="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+        <h3 class="text-lg font-semibold mb-2">Report task issue</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="reportOptions.too_easy" /> Too easy
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="reportOptions.too_hard" /> Too hard
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="reportOptions.not_appropriate" /> Not appropriate
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="reportOptions.not_relevant" /> Not relevant
+          </label>
+        </div>
+        <textarea v-model="reportText" rows="3"
+          class="mt-3 w-full rounded border border-gray-300 p-2 focus:ring-2 focus:ring-red-300"
+          placeholder="Optional details" />
+        <div class="mt-4 flex justify-end gap-2">
+          <DButton variant="secondary" @click="showTaskReport = false">Cancel</DButton>
+          <DButton :disabled="reportSubmitting" @click="submitTaskReport">Submit</DButton>
         </div>
       </div>
     </div>

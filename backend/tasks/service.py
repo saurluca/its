@@ -1,11 +1,14 @@
 from typing import List, Any, cast
 from uuid import UUID
+import asyncio
 import dspy
 import time
 from tqdm import tqdm
 import random
 from fastapi import HTTPException
 from datetime import datetime, timezone
+from sqlmodel import Session, select
+from dependencies import get_database_engine, get_large_llm_no_cache
 
 from constants import (
     REQUIRED_ANSWER_OPTIONS,
@@ -24,6 +27,7 @@ from tasks.models import (
     TeacherResponseFreeText,
     TaskUserLink,
 )
+from units.models import UnitTaskLink
 
 
 class TaskMultipleChoice(dspy.Signature):
@@ -317,6 +321,65 @@ def generate_tasks(
         raise Exception("No tasks could be generated from the provided chunks")
 
     return tasks
+
+
+async def process_generate_tasks_for_documents(
+    unit_id: UUID,
+    document_ids: List[UUID],
+    num_tasks: int,
+    task_type: TaskType,
+    forbidden_questions: set[str],
+):
+    """Background task that generates tasks for given documents and links them to a unit."""
+    print(f"[bg] Start generating tasks for unit {unit_id}...")
+    engine = get_database_engine()
+    with Session(engine) as session:
+        try:
+            all_generated_tasks: list[Task] = []
+
+            for document_id in document_ids:
+                chunks_for_doc: list[Chunk] = session.exec(
+                    select(Chunk).where(
+                        Chunk.document_id == document_id, Chunk.important
+                    )
+                ).all()
+
+                if not chunks_for_doc:
+                    print("[bg] no chunks for document", document_id)
+                    continue
+
+                lm = get_large_llm_no_cache()
+                generated: list[Task] = await asyncio.to_thread(
+                    generate_tasks,
+                    document_id,
+                    chunks_for_doc,
+                    lm,
+                    num_tasks,
+                    task_type,
+                    forbidden_questions,
+                )
+
+                for task in generated:
+                    session.add(task)
+                    session.flush()
+                    session.add(UnitTaskLink(unit_id=unit_id, task_id=task.id))
+                    if task.question:
+                        forbidden_questions.add(task.question)
+
+                all_generated_tasks.extend(generated)
+
+            if all_generated_tasks:
+                session.commit()
+                print(
+                    f"[bg] Finished generating {len(all_generated_tasks)} tasks for unit {unit_id}"
+                )
+            else:
+                print(
+                    f"[bg] No tasks generated for unit {unit_id} (no important chunks or other constraints)"
+                )
+        except Exception as e:
+            session.rollback()
+            print(f"[bg] Error generating tasks for unit {unit_id}: {e}")
 
 
 def evaluate_student_answer(

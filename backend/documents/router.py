@@ -1,5 +1,14 @@
-from fastapi import APIRouter, status, Depends, HTTPException, UploadFile, Query, File
-from dependencies import get_db_session, get_small_llm, get_large_llm
+from fastapi import (
+    APIRouter,
+    status,
+    Depends,
+    HTTPException,
+    UploadFile,
+    Query,
+    File,
+    BackgroundTasks,
+)
+from dependencies import get_db_session
 from documents.models import (
     Chunk,
     Document,
@@ -16,14 +25,7 @@ from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
-from documents.service import (
-    generate_document_title,
-    get_document_summary,
-    filter_important_chunks,
-)
-from starlette.concurrency import run_in_threadpool
-import dspy
-import httpx
+from documents.service import process_document_upload
 import os
 from dotenv import load_dotenv
 
@@ -81,97 +83,47 @@ async def get_document(
 
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     flatten_pdf: bool = Query(default=False, description="Whether to flatten the PDF"),
     session: Session = Depends(get_db_session),
-    large_lm: dspy.LM = Depends(get_large_llm),
-    small_lm: dspy.LM = Depends(get_small_llm),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    print(f"Uploading and chunking document {file.filename}...")
+    print(
+        f"Uploading and scheduling background processing for document {file.filename}..."
+    )
 
     if not DOCLING_SERVE_API_URL:
         raise HTTPException(
             status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
         )
 
-    try:
-        # Read file content asynchronously and call Docling service without blocking the event loop
-        file_bytes = await file.read()
-        async with httpx.AsyncClient(timeout=None) as client:
-            resp = await client.post(
-                f"{DOCLING_SERVE_API_URL}/process",
-                files={
-                    "file": (
-                        file.filename,
-                        file_bytes,
-                        file.content_type or "application/octet-stream",
-                    )
-                },
-                data={"flatten_pdf": str(flatten_pdf).lower()},
-                params={"filename": file.filename},
-            )
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=502, detail=f"Failed to reach Docling service: {e}"
-        )
-
-    status_code = resp.status_code
-
-    if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=resp.text)
-
-    results = resp.json()
-    chunks_data = results["chunks"]
-    html_text = results["html_text"]
-
-    # convert chunks to list of Chunk objects
-    chunks = [Chunk(**chunk) for chunk in chunks_data]
-
+    # Create a placeholder document so we can return immediately with an ID
     document = Document(
         title=file.filename,
-        content=html_text,
+        content="",
         source_file=file.filename,
     )
-
-    # commit to generate id, then used by chunks
     session.add(document)
     session.commit()
     session.refresh(document)
 
-    for chunk in chunks:
-        chunk.document_id = document.id
-        session.add(chunk)
+    # Read file content to pass into background task
+    file_bytes = await file.read()
+    filename = file.filename
+    content_type = file.content_type or "application/octet-stream"
 
-    session.commit()
-    session.refresh(document)
-
-    print("Summarising document...")
-    summary_result = await run_in_threadpool(get_document_summary, html_text, large_lm)
-    document.summary = summary_result.summary
-
-    print("Generating title...")
-    # create title for document based on summary
-    document.title = await run_in_threadpool(
-        generate_document_title, summary_result.summary, small_lm
-    )
-    session.add(document)
-
-    print("Filtering important chunks...")
-    # Filter important chunks using the new service function
-    result = await run_in_threadpool(
-        filter_important_chunks, chunks, summary_result, small_lm
+    # Schedule background processing
+    background_tasks.add_task(
+        process_document_upload,
+        document.id,
+        file_bytes,
+        filename,
+        content_type,
+        flatten_pdf,
     )
 
-    # mark chunks as important or unimportant
-    for chunk in document.chunks:
-        chunk.important = chunk.chunk_index not in result["unimportant_chunks_ids"]
-        session.add(chunk)
-    session.commit()
-    session.refresh(document)
-
-    print(f"Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant")
-
+    # Immediately return placeholder document (200 OK)
     return document
 
 

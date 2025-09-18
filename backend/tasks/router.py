@@ -1,7 +1,12 @@
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, BackgroundTasks
 import asyncio
 from datetime import datetime
-from dependencies import get_db_session, get_large_llm, get_large_llm_no_cache
+from dependencies import (
+    get_db_session,
+    get_large_llm,
+    get_large_llm_no_cache,
+    get_database_engine,
+)
 from documents.models import Chunk
 from tasks.models import (
     Task,
@@ -44,6 +49,7 @@ from tasks.service import (
     generate_tasks,
     evaluate_student_answer,
     get_study_tasks_for_unit,
+    process_generate_tasks_for_documents,
 )
 import dspy
 from repositories.access_control import get_repository_access
@@ -471,8 +477,8 @@ async def delete_answer_option(
 @router.post("/generate_for_documents", response_model=list[TaskRead])
 async def generate_tasks_for_documents(
     request: GenerateTasksForDocumentsRequest,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_db_session),
-    lm: dspy.LM = Depends(get_large_llm_no_cache),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """
@@ -507,50 +513,18 @@ async def generate_tasks_for_documents(
         set(existing_question_rows) if existing_question_rows else set()
     )
 
-    all_generated_tasks: list[Task] = []
+    # Schedule background generation and return immediately
+    background_tasks.add_task(
+        process_generate_tasks_for_documents,
+        request.unit_id,
+        request.document_ids,
+        request.num_tasks,
+        request.task_type,
+        forbidden_questions,
+    )
 
-    # Generate tasks per document to preserve document context
-    for document_id in request.document_ids:
-        chunks_for_doc: list[Chunk] = session.exec(
-            select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
-        ).all()
-
-        if not chunks_for_doc:
-            print("no chunks for document", document_id)
-            # Skip documents without important chunks
-            continue
-
-        generated: list[Task] = await asyncio.to_thread(
-            generate_tasks,
-            document_id,
-            chunks_for_doc,
-            lm,
-            request.num_tasks,
-            request.task_type,
-            forbidden_questions,
-        )
-
-        # Persist tasks and link to unit
-        for task in generated:
-            session.add(task)
-            session.flush()  # Ensure task.id is available
-
-            session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
-
-            # Track question to reduce duplicates across documents
-            if task.question:
-                forbidden_questions.add(task.question)
-
-        all_generated_tasks.extend(generated)
-
-    if not all_generated_tasks:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Could not generate any tasks",
-        )
-
-    session.commit()
-    return all_generated_tasks
+    # Return empty list immediately to satisfy response_model but avoid long wait
+    return []
 
 
 @router.post(

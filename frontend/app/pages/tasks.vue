@@ -33,6 +33,7 @@ const availableUnits = computed<Unit[]>(() => unitsList.value || []);
 
 // Generate tasks modal state (reusable)
 const showGenerateTasksModal = ref(false);
+let tasksPollTimer: number | null = null;
 const selectedUnit = computed<Unit | null>(() => {
   return availableUnits.value.find(u => u.id === selectedUnitId.value) || null;
 });
@@ -54,8 +55,12 @@ function closeGenerateTasksModalFromTasks() {
 }
 async function onGenerateTasksSuccessFromTasks() {
   showGenerateTasksModal.value = false;
+  // Kick off immediate fetch and start short-lived polling to catch backend completion
   if (selectedUnitId.value) {
-    await fetchTasksByUnit(selectedUnitId.value);
+    const unitId = selectedUnitId.value;
+    const initialCount = tasks.value.length;
+    await fetchTasksByUnit(unitId);
+    startTasksPollingForUnit(unitId, initialCount);
   } else {
     await fetchAllTasks();
   }
@@ -181,6 +186,10 @@ onMounted(() => {
 // Remove keyboard event listener when component is unmounted
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  if (tasksPollTimer) {
+    clearInterval(tasksPollTimer);
+    tasksPollTimer = null;
+  }
 });
 
 // Function to fetch tasks by document
@@ -288,6 +297,36 @@ function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && previewingTask.value) {
     closeTryTask();
   }
+}
+
+function startTasksPollingForUnit(unitId: string, initialCount: number) {
+  if (tasksPollTimer) {
+    clearInterval(tasksPollTimer);
+    tasksPollTimer = null;
+  }
+  const startTime = Date.now();
+  tasksPollTimer = window.setInterval(async () => {
+    try {
+      await fetchTasksByUnit(unitId);
+      if (tasks.value.length > initialCount) {
+        if (tasksPollTimer) {
+          clearInterval(tasksPollTimer);
+          tasksPollTimer = null;
+        }
+      }
+      // Stop polling after 60s
+      if (Date.now() - startTime > 60_000 && tasksPollTimer) {
+        clearInterval(tasksPollTimer);
+        tasksPollTimer = null;
+      }
+    } catch (err) {
+      // Best-effort polling; stop on errors
+      if (tasksPollTimer) {
+        clearInterval(tasksPollTimer);
+        tasksPollTimer = null;
+      }
+    }
+  }, 3000);
 }
 
 async function evaluateAnswer() {

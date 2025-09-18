@@ -1,6 +1,13 @@
-from .models import Chunk
+from .models import Chunk, Document
 import dspy
 from constants import MAX_TITLE_LENGTH
+import os
+import httpx
+from uuid import UUID
+from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
+from dependencies import get_database_engine, get_large_llm, get_small_llm
+from sqlmodel import select as sql_select
 
 
 # summarises a document
@@ -129,3 +136,112 @@ def filter_important_chunks(
         else 0,
         "chunk_evaluations": chunk_evaluations,
     }
+
+
+async def process_document_upload(
+    document_id: UUID,
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+    flatten_pdf: bool,
+):
+    """Background task to process an uploaded document.
+
+    - Calls Docling service
+    - Stores content and chunks
+    - Generates summary and title
+    - Marks important chunks
+    """
+    print(f"[bg] Start processing document {filename} ({document_id})...")
+    print(f"Flatten pdf status: {flatten_pdf}")
+    DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
+    if not DOCLING_SERVE_API_URL:
+        print("[bg] DOCLING_SERVE_API_URL not configured; aborting document processing")
+        return
+
+    engine = get_database_engine()
+    with Session(engine) as session:
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                resp = await client.post(
+                    f"{DOCLING_SERVE_API_URL}/process",
+                    files={
+                        "file": (
+                            filename,
+                            file_bytes,
+                            content_type,
+                        )
+                    },
+                    params={
+                        "filename": filename,
+                        "flatten_pdf": str(bool(flatten_pdf)).lower(),
+                    },
+                )
+
+            if resp.status_code != 200:
+                print(
+                    f"[bg] Docling processing failed for {document_id}: {resp.status_code} {resp.text}"
+                )
+                return
+
+            results = resp.json()
+            chunks_data = results.get("chunks", [])
+            html_text = results.get("html_text", "")
+
+            db_document = session.get(Document, document_id)
+            if not db_document:
+                print(f"[bg] Document {document_id} not found in DB")
+                return
+
+            # Update content
+            db_document.content = html_text
+            session.add(db_document)
+            session.commit()
+            session.refresh(db_document)
+
+            # Persist chunks
+            for chunk in chunks_data:
+                db_chunk = Chunk(**chunk)
+                db_chunk.document_id = document_id
+                session.add(db_chunk)
+            session.commit()
+
+            # Summarize and title generation
+            print(f"[bg] Summarising document {document_id}...")
+            large_lm = get_large_llm()
+            small_lm = get_small_llm()
+            summary_result = await run_in_threadpool(
+                get_document_summary, html_text, large_lm
+            )
+            db_document.summary = summary_result.summary
+
+            print(f"[bg] Generating title for document {document_id}...")
+            db_document.title = await run_in_threadpool(
+                generate_document_title, summary_result.summary, small_lm
+            )
+            session.add(db_document)
+            session.commit()
+            session.refresh(db_document)
+
+            # Filter important chunks
+            print(f"[bg] Filtering important chunks for document {document_id}...")
+
+            chunks = session.exec(
+                sql_select(Chunk).where(Chunk.document_id == document_id)
+            ).all()
+            result = await run_in_threadpool(
+                filter_important_chunks, chunks, summary_result, small_lm
+            )
+            for chunk in chunks:
+                chunk.important = (
+                    chunk.chunk_index not in result["unimportant_chunks_ids"]
+                )
+                session.add(chunk)
+            session.commit()
+
+            print(
+                f"[bg] Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
+            )
+        except Exception as e:
+            session.rollback()
+            print(f"[bg] Error processing document {document_id}: {e}")

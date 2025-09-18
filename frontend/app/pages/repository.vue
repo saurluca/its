@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon } from "lucide-vue-next";
 import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
@@ -80,6 +80,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
 const showUploadModal = ref(false);
 const flattenPdf = ref(false);
+let docsPollTimer: number | null = null;
 
 // Skills state
 const skills = ref<SkillItem[]>([]);
@@ -158,6 +159,13 @@ async function fetchAll() {
         loading.value = false;
     }
 }
+
+onUnmounted(() => {
+    if (docsPollTimer) {
+        clearInterval(docsPollTimer);
+        docsPollTimer = null;
+    }
+});
 
 async function fetchAccessLevelForRepository(id: string): Promise<AccessLevel | undefined> {
     try {
@@ -374,7 +382,7 @@ function closeUploadModal() {
 }
 
 function triggerFilePicker() {
-    if (uploading.value) return;
+    // Allow picking multiple files in sequence; do not block on ongoing upload
     fileInput.value?.click();
 }
 
@@ -442,6 +450,8 @@ async function handleUpload() {
         notifications.remove(processingId);
         notifications.success(`Document "${fileName}" uploaded successfully!`);
         await refreshDocuments();
+        // Start polling documents to quickly reflect background completion (title/summary/chunks)
+        startDocumentsPolling();
     } catch (error) {
         console.error("Error uploading document:", error);
         notifications.remove(processingId);
@@ -450,6 +460,29 @@ async function handleUpload() {
         uploading.value = false;
         selectedFile.value = null;
     }
+}
+
+function startDocumentsPolling() {
+    if (docsPollTimer) {
+        clearInterval(docsPollTimer);
+        docsPollTimer = null;
+    }
+    const startTime = Date.now();
+    docsPollTimer = window.setInterval(async () => {
+        try {
+            await refreshDocuments();
+            // Stop after 60 seconds
+            if (Date.now() - startTime > 60_000 && docsPollTimer) {
+                clearInterval(docsPollTimer);
+                docsPollTimer = null;
+            }
+        } catch (err) {
+            if (docsPollTimer) {
+                clearInterval(docsPollTimer);
+                docsPollTimer = null;
+            }
+        }
+    }, 3000);
 }
 
 // // Skills actions

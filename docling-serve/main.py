@@ -6,17 +6,21 @@ import fitz
 from PIL import Image
 import io
 from io import BytesIO
-from docling.document_converter import DocumentConverter
-from docling.datamodel.base_models import DocumentStream
-from docling.datamodel.document import DoclingDocument as DLDocument
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode
+from docling.datamodel.base_models import DocumentStream, InputFormat
 from docling.chunking import HybridChunker
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
 MIN_CHUNK_LENGTH = 420
 
-
 load_dotenv()
+
+pipeline_options = PdfPipelineOptions(do_table_structure=True)
+pipeline_options.do_formula_enrichment = True
+pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
+
 
 app = FastAPI(
     title="Docling Serve",
@@ -111,7 +115,11 @@ async def process_document(
         stream_like = flatten_pdf_in_memory(stream_like)
 
     stream = DocumentStream(name=str(filename), stream=stream_like)
-    converter = DocumentConverter()
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
+    )
     result = converter.convert(stream)
     if not result or not result.document:
         raise HTTPException(

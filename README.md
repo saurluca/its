@@ -1,21 +1,22 @@
 # Privacy-Focused Intelligent Tutoring System
 
-A modern, privacy-conscious intelligent tutoring system that generates personalized learning tasks from your course materials while giving you full control over your data.
+A modern, privacy-conscious intelligent tutoring system that generates personalised learning tasks from your course materials while giving you full control over your data.
 
 ## Features
 
 - **Document Upload**: Upload course materials (PDFs, documents) for automatic processing
 - **AI-Generated Tasks**: Automatically creates multiple-choice questions
-- **Personalized Learning**: Study mode with individual feedback and progress tracking
+- **Personalised Learning**: Study mode with individual feedback and progress tracking
 - **Privacy Control**: You decide how much data to share - from local processing to cloud AI
-- **Course Management**: Organize materials into courses and track learning progress
+- **Course Management**: Organise materials into courses and track learning progress
 
 ## Architecture
 
-- **Backend**: FastAPI with PostgreSQL, using DSPy for AI task generation
-- **Frontend**: Nuxt.js with Vue 3, Tailwind CSS for modern UI
-- **AI**: Configurable LLM support (Groq, Ollama) for privacy-conscious AI processing
-- **Database**: SQLModel with automatic migrations
+- **Frontend:** Vue, Nuxt, TailwindCSS
+- **Backend:** Python, FastAPI, PostgreSQL
+- **CICD:** Docker, GitHub, GitHub Actions, 
+- **AI:** DSPy, OpenRouter, GPT-4o, GPT-4o-mini
+- **Document Parsing:** Docling
 
 ## Quick Start
 

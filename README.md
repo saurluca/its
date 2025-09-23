@@ -61,8 +61,8 @@ uvx pre-commit install
 
 ## 🔒 Privacy Features
 
+- **Everything Open Source**: You can easil host the system yourself
 - **Local Processing**: Option to run AI models locally via Ollama
-- **No Data Retention**: Clear data deletion options
 - **Transparent Processing**: See exactly how your materials are processed
 - **Control over Personal Data** Decide which data is saved about you
 
@@ -71,13 +71,6 @@ uvx pre-commit install
 1. **Upload** your course materials (lectures, textbooks, notes)
 2. **Generate** AI-powered questions and tasks automatically
 3. **Study** with personalized feedback and progress tracking
-
-## 🛠️ Tech Stack
-
-- **Backend**: FastAPI, SQLModel, DSPy, PostgreSQL
-- **Frontend**: Nuxt.js, Vue 3, Tailwind CSS
-- **AI**: Grok API, Ollama (local), through LiteLLM
-- **Deployment**: Docker, Docker Compose
 
 ## Deployment Testing
 

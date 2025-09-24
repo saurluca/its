@@ -177,6 +177,27 @@ function handleConsentChange() {
                                     </section>
 
                                     <section>
+                                        <h4 class="text-base font-medium text-gray-900 mb-2">How much time will it take?
+                                        </h4>
+                                        <p class="text-sm text-gray-700 leading-relaxed">
+                                            The minimum time commitment is 15 minutes. However, the study is designed to
+                                            be flexible,
+                                            and you can participate for as long as you want.
+                                        </p>
+                                    </section>
+
+                                    <section>
+                                        <h4 class="text-base font-medium text-gray-900 mb-2">Will this affect my grades?
+                                        </h4>
+                                        <p class="text-sm text-gray-700 leading-relaxed">
+                                            No, this study does not affect your grades. Neither non-participation nor
+                                            participation and the type of answers to the questions asked have any
+                                            influence
+                                            on your grades.
+                                        </p>
+                                    </section>
+
+                                    <section>
                                         <h4 class="text-base font-medium text-gray-900 mb-2">Who reviewed the study?
                                         </h4>
                                         <p class="text-sm text-gray-700 leading-relaxed">

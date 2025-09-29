@@ -31,3 +31,5 @@ backend/test.db
 
 # vscode stuff
 .vscode/
+
+.ruff_cache/

@@ -42,7 +42,7 @@ async function submitReport() {
 
     <!-- Floating Report Button -->
     <button
-      class="fixed bottom-4 right-4 z-50 rounded-full bg-red-600 text-white shadow-lg px-4 py-2 sm:px-5 sm:py-3 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-400 flex items-center gap-2"
+      class="fixed bottom-4 right-4 z-50 rounded-full bg-red-400 text-red-900 shadow-lg px-4 py-2 sm:px-5 sm:py-3 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-400 flex items-center gap-2"
       aria-label="Report a problem" @click="showReportDialog = true">
       <FlagIcon class="h-4 w-4" />
       <span class="hidden sm:inline">Report</span>

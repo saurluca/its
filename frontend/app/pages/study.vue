@@ -375,7 +375,8 @@ async function submitTaskReport() {
                 </div>
               </template>
               <template v-else>
-                <DButton @click="evaluateAnswer">Evaluate</DButton>
+                <DButton @click="evaluateAnswer" :disabled="!currentAnswer || currentAnswer.trim() === ''">Evaluate
+                </DButton>
               </template>
             </div>
           </div>

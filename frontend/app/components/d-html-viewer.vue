@@ -43,9 +43,9 @@ watch(
   <div class="fixed inset-0 z-50 bg-white md:static md:h-full md:w-full md:bg-transparent">
     <div class="relative h-full w-full md:border md:border-gray-200 md:rounded-lg md:overflow-hidden">
       <button
-        class="absolute top-4 right-6 p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 z-10"
+        class="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-0 focus:ring-gray-400 z-10"
         aria-label="Close" type="button" @click="emit('close')">
-        <XIcon class="h-6 w-6" />
+        <XIcon class="h-5 w-5" />
       </button>
       <div v-if="loading" class="flex items-center justify-center h-full">
         <div class="text-center">

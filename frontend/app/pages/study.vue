@@ -46,7 +46,7 @@ const tasksDone = computed(() => {
 
 // Text viewer state
 const showTextViewer = ref(false);
-const textContent = ref("");
+const htmlContent = ref("");
 const loadingText = ref(false);
 const textError = ref("");
 
@@ -235,8 +235,15 @@ async function showSource() {
       throw new Error("Chunk data not found");
     }
 
-    // For repository-based study, we'll show the chunk text directly
-    textContent.value = chunkData.chunk_text;
+    // Convert plain text to HTML (escape HTML and preserve whitespace)
+    const escapedText = chunkData.chunk_text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    htmlContent.value = `<html><head><style>body { font-family: system-ui, -apple-system, sans-serif; padding: 1rem; white-space: pre-wrap; line-height: 1.75; font-size: 0.875rem; background-color: #f9fafb; }</style></head><body>${escapedText}</body></html>`;
   } catch (err) {
     console.error("Error fetching chunk content:", err);
     textError.value = "Failed to load chunk content";
@@ -264,7 +271,7 @@ function restart() {
 
   // Reset text viewer state
   showTextViewer.value = false;
-  textContent.value = "";
+  htmlContent.value = "";
   textError.value = "";
 
   if (repositoryId.value) {
@@ -302,7 +309,7 @@ async function submitTaskReport() {
       not_relevant: false,
     };
     reportText.value = "";
-  } catch (e) {
+  } catch {
     notifications.error("Failed to submit report");
   } finally {
     reportSubmitting.value = false;
@@ -399,18 +406,10 @@ async function submitTaskReport() {
       </div>
     </div>
 
-    <!-- Right side - Text viewer -->
-    <div v-if="showTextViewer" class="w-1/2">
-      <div class="h-full p-4">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold">Source Text</h2>
-          <DButton @click="closeTextViewer" variant="secondary" class="!p-2">
-            Close
-          </DButton>
-        </div>
-        <div class="h-[calc(100%-4rem)]">
-          <DTextViewer :text-content="textContent" :loading="loadingText" :error="textError" />
-        </div>
+    <!-- Right side - HTML viewer -->
+    <div v-if="showTextViewer" class="relative w-0 md:w-1/2">
+      <div class="h-full md:p-4">
+        <DHtmlViewer :html-content="htmlContent" :loading="loadingText" :error="textError" @close="closeTextViewer" />
       </div>
     </div>
 

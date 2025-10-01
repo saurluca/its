@@ -690,10 +690,17 @@ async function confirmRemoveSkill() {
                                             variant="primary" :icon-left="ClipboardList">
                                             Tasks
                                         </DButton>
-                                        <DButton @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
+
+                                        <!-- Study button or message based on task count and access level -->
+                                        <DButton v-if="(unit.task_count || 0) > 0"
+                                            @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
                                             :icon-left="BookOpenIcon">
                                             Study
                                         </DButton>
+                                        <span v-else-if="!hasWriteAccess" class="text-xs text-gray-500 italic">
+                                            No tasks created yet
+                                        </span>
+
                                         <DHamburgerMenu v-if="hasWriteAccess">
                                             <template #default="{ close }">
                                                 <button @click="() => { openRenameUnitModal(unit); close(); }"

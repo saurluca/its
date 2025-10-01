@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { PlusIcon } from "lucide-vue-next";
-import DViewToggle from "~/components/d-view-toggle.vue";
 import type { Task, Repository, Unit, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
 const { $authFetch } = useAuthenticatedFetch();
 
-// Define view state
-const isTeacherView = ref(true);
 const tasks = ref<Task[]>([]);
 const loading = ref(true);
 const repositoriesList = ref<Repository[]>([]);
@@ -319,7 +316,7 @@ function startTasksPollingForUnit(unitId: string, initialCount: number) {
         clearInterval(tasksPollTimer);
         tasksPollTimer = null;
       }
-    } catch (err) {
+    } catch {
       // Best-effort polling; stop on errors
       if (tasksPollTimer) {
         clearInterval(tasksPollTimer);
@@ -410,11 +407,7 @@ function closeTryTask() {
 
 <template>
   <div class="h-full max-w-4xl mx-auto mt-8">
-    <DPageHeader title="Tasks">
-      <div class="flex items-center gap-2">
-        <DViewToggle v-model="isTeacherView" />
-      </div>
-    </DPageHeader>
+    <DPageHeader title="Tasks" />
     <div class="bg-white p-6 rounded-lg shadow mb-4">
       <h2 class="text-xl font-bold mb-4">Unit Filter</h2>
 
@@ -425,22 +418,11 @@ function closeTryTask() {
       </div>
     </div>
 
-    <div v-if="isTeacherView && filteredTasks.length > 0" class="flex justify-start mb-4">
+    <div v-if="filteredTasks.length > 0" class="flex justify-start mb-4">
       <DButtonLabelled title="Generate Tasks" :icon="PlusIcon" @click="openGenerateTasksModalFromTasks">
         Generate multiple choice or free text tasks for the current unit.
       </DButtonLabelled>
     </div>
-
-    <!-- <DTaskForm v-if="isTeacherView" :chunks="[]" :initial-task="editingTask
-        ? {
-          type: editingTask.type,
-          question: editingTask.question || '',
-          chunkId: editingTask.chunk_id || '',
-          options: editingTask.answer_options?.map(option => option.answer) || [],
-          correctAnswer: editingTask.answer_options?.find(option => option.is_correct)?.answer || '',
-        }
-        : undefined
-        " @save="handleSaveTask" /> -->
 
     <div v-if="loading" class="py-20 text-center">
       <div class="text-xl">Loading tasks...</div>
@@ -457,13 +439,9 @@ function closeTryTask() {
       </div>
     </div>
 
-    <div v-else-if="!isTeacherView" class="space-y-6 my-4">
-      <DTaskAnswer v-for="(task, index) in filteredTasks" :key="task.id" :task="task" :index="index" :model-value="''"
-        :disabled="true" :is-evaluated="false" :is-correct="false" />
-    </div>
     <div v-else class="space-y-6 my-4">
-      <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" :is-teacher-view="isTeacherView"
-        @delete="deleteTask" @update="handleUpdateTask" @preview-task="startPreviewingTask" />
+      <DTaskCard v-for="task in filteredTasks" :key="task.id" :task="task" @delete="deleteTask"
+        @update="handleUpdateTask" @preview-task="startPreviewingTask" />
     </div>
 
     <!-- Test Task Modal/Overlay -->

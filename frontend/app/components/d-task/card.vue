@@ -9,7 +9,6 @@ const notifications = useNotificationsStore();
 
 const props = defineProps<{
   task: Task;
-  isTeacherView: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -245,7 +244,7 @@ const freeTextAnswer = computed({
       </span>
 
       <!-- Action buttons -->
-      <div v-if="isTeacherView" class="flex space-x-2 ml-4">
+      <div class="flex space-x-2 ml-4">
         <button v-if="!isEditing" @click="() => emit('preview-task', task)"
           class="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
           title="Preview Task">

@@ -620,6 +620,10 @@ async function confirmRemoveSkill() {
 
 <template>
     <div class="h-full flex">
+        <!-- Hidden file input (shared across the page) -->
+        <input ref="fileInput" type="file" :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')" class="hidden"
+            @change="handleFileSelect" />
+
         <!-- Left side - content -->
         <div :class="showHtmlViewer ? 'w-full md:w-1/2 overflow-y-auto md:mr-10 md:pr-4 ml-6 my-8' : 'w-full mt-8'">
             <div class="max-w-4xl mx-auto">
@@ -627,6 +631,30 @@ async function confirmRemoveSkill() {
 
                 <div v-if="loading" class="py-20 text-center">
                     <div class="text-xl">Loading repository...</div>
+                </div>
+
+                <!-- Empty State: No documents and no units -->
+                <div v-else-if="documents.length === 0 && units.length === 0" class="py-20">
+                    <div class="max-w-md mx-auto text-center space-y-6">
+                        <div class="space-y-2">
+                            <h2 class="text-2xl font-semibold text-gray-900">Repository is Empty</h2>
+                            <p class="text-gray-600">
+                                Get started by uploading your first document. Documents are used to generate study
+                                materials and tasks.
+                            </p>
+                        </div>
+
+                        <div v-if="hasWriteAccess" class="pt-1 flex justify-center">
+                            <DButton :icon-left="UploadIcon" variant="primary" size="lg" @click="triggerFilePicker">
+                                Upload Your First Document
+                            </DButton>
+                        </div>
+
+                        <div v-else class="pt-4">
+                            <p class="text-sm text-gray-500">You don't have permission to upload documents to this
+                                repository.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-else class="space-y-12">
@@ -687,7 +715,7 @@ async function confirmRemoveSkill() {
                         </div>
 
                         <div v-else class="bg-white p-6 rounded-lg shadow text-center">
-                            <p class="text-gray-500">No units in this repository.</p>
+                            <p class="text-gray-500">No units in this repository. Create one to get started.</p>
                         </div>
                     </section>
 
@@ -701,11 +729,6 @@ async function confirmRemoveSkill() {
                             </DButton>
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
-
-                        <!-- Hidden file input (always present) -->
-                        <input ref="fileInput" type="file"
-                            :accept="SUPPORTED_MIME_TYPES.map(ext => '.' + ext).join(',')" class="hidden"
-                            @change="handleFileSelect" />
 
                         <div v-if="documents.length > 0" class="space-y-3">
                             <div v-for="doc in documents" :key="doc.id"

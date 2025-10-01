@@ -16,7 +16,7 @@ services:
     restart: always
 
   docling-serve:
-    image: ghcr.io/saurluca/its-docling-serve:latest
+    image: ghcr.io/saurluca/its-docling-serve:main
     container_name: docling-serve
     env_file:
       - .env

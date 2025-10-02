@@ -1,28 +1,3 @@
-**For Later**
-- [ ] Skill system ???
-- [ ] Topic system ???
-- [ ] Show original document instead of parsed docuemtn to student
-	- [ ] Save original document
-	- [ ] (optional) search chunk in og document
-	- [ ] Display
-- [ ] Teacher Dashboard 
-	- [ ] see student performance in class
-- [ ] Student dashboard
-	- [ ] track personal progress
-- [ ] Show producet before signup, people dont want to sign up otherwise, to much effoer
-	- Potnetial let them run on localstorage first?
-	- Smoothen onboarding experince with login, currently a bit of a wall
-	- Landing page?
-- [ ] Switch to redis or something similar for long runing tasks like exercise generation and document upload / conversion
-	- [ ] Multi document Upload
-- [ ] Pictures extract from documents
-	- [ ] And can be used in tasks
-
-
-**Possible Additions**
-
-
-
 **Daniel**
 - [ ] Prompt for specifc tasks / topics
 	- [ ] Search and filter relevant chunks
@@ -70,6 +45,30 @@
 - [ ] Fix deletion repdencies when deleting for example repos
 - [ ] Repo deleted but not direclty updated in sidebar
 
+
+
+**For Later**
+- [ ] Skill system ???
+- [ ] Topic system ???
+- [ ] Show original document instead of parsed docuemtn to student
+	- [ ] Save original document
+	- [ ] (optional) search chunk in og document
+	- [ ] Display
+- [ ] Teacher Dashboard 
+	- [ ] see student performance in class
+- [ ] Student dashboard
+	- [ ] track personal progress
+- [ ] Show producet before signup, people dont want to sign up otherwise, to much effoer
+	- Potnetial let them run on localstorage first?
+	- Smoothen onboarding experince with login, currently a bit of a wall
+	- Landing page?
+- [ ] Switch to redis or something similar for long runing tasks like exercise generation and document upload / conversion
+	- [ ] Multi document Upload
+- [ ] Pictures extract from documents
+	- [ ] And can be used in tasks
+
+
+**Possible Additions**
 
 
 

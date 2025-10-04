@@ -476,7 +476,7 @@ function startDocumentsPolling() {
                 clearInterval(docsPollTimer);
                 docsPollTimer = null;
             }
-        } catch (err) {
+        } catch {
             if (docsPollTimer) {
                 clearInterval(docsPollTimer);
                 docsPollTimer = null;

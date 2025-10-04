@@ -1,4 +1,4 @@
-from fastapi import Request, Depends, HTTPException, status
+from fastapi import Request, Depends, HTTPException, status, WebSocket
 import jwt
 from jwt.exceptions import InvalidTokenError
 from auth.models import TokenData, UserResponse
@@ -6,6 +6,7 @@ from dependencies import get_db_session
 from sqlmodel import Session, select
 from auth.models import User
 from constants import SECRET_KEY, ALGORITHM
+from starlette.websockets import WebSocketDisconnect
 
 
 def get_user_from_db(db: Session, email: str):
@@ -54,4 +55,37 @@ async def get_current_user_from_request(
     user = get_user_from_db(db, email=email_value)
     if user is None:
         raise credentials_exception
+    return user
+
+
+async def get_current_user_from_websocket(
+    websocket: WebSocket, db: Session = Depends(get_db_session)
+):
+    """Authenticate a websocket connection via the HTTP-only access token."""
+
+    token = websocket.cookies.get("access_token")
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            raise InvalidTokenError()
+        token_data = TokenData(email=email)
+    except InvalidTokenError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+
+    email_value = token_data.email
+    if email_value is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+
+    user = get_user_from_db(db, email=email_value)
+    if user is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+
     return user

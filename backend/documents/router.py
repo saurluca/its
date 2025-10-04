@@ -1,12 +1,14 @@
 from fastapi import (
     APIRouter,
-    status,
-    Depends,
-    HTTPException,
-    UploadFile,
-    Query,
-    File,
+    WebSocket,
+    WebSocketDisconnect,
     BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
 )
 from dependencies import get_db_session
 from documents.models import (
@@ -19,13 +21,18 @@ from documents.models import (
 from repositories.access_control import (
     create_document_access_dependency,
     create_chunk_access_dependency,
+    get_repository_access,
 )
 from repositories.models import AccessLevel, RepositoryDocumentLink
-from auth.dependencies import get_current_user_from_request
+from auth.dependencies import (
+    get_current_user_from_request,
+    get_current_user_from_websocket,
+)
 from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import process_document_upload
+from documents.events import document_events_manager
 import os
 from dotenv import load_dotenv
 
@@ -123,8 +130,63 @@ async def upload_and_chunk_document(
         flatten_pdf,
     )
 
+    await document_events_manager.broadcast_status(
+        document.id,
+        status="queued",
+        message="Document queued for processing",
+        payload={"uploader_id": str(current_user.id)},
+    )
+
     # Immediately return placeholder document (200 OK)
     return document
+
+
+@router.websocket("/ws/{document_id}")
+async def document_status_ws(
+    websocket: WebSocket,
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_websocket),
+):
+    document = session.get(Document, document_id)
+    if not document:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    repo_links = session.exec(
+        select(RepositoryDocumentLink).where(
+            RepositoryDocumentLink.document_id == document_id
+        )
+    ).all()
+
+    if not repo_links:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    access_granted = False
+    for link in repo_links:
+        try:
+            await get_repository_access(
+                link.repository_id, AccessLevel.READ, session, current_user
+            )
+            access_granted = True
+            break
+        except HTTPException:
+            continue
+
+    if not access_granted:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await document_events_manager.connect(document_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await document_events_manager.disconnect(document_id, websocket)
 
 
 @router.put("/{document_id}", response_model=Document)

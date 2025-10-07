@@ -1,11 +1,10 @@
-from fastapi import APIRouter, status, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, status, Depends, HTTPException
 import asyncio
 from datetime import datetime
 from dependencies import (
     get_db_session,
     get_large_llm,
     get_large_llm_no_cache,
-    get_database_engine,
 )
 from documents.models import Chunk
 from tasks.models import (
@@ -49,7 +48,6 @@ from tasks.service import (
     generate_tasks,
     evaluate_student_answer,
     get_study_tasks_for_unit,
-    process_generate_tasks_for_documents,
 )
 import dspy
 from repositories.access_control import get_repository_access
@@ -473,16 +471,15 @@ async def delete_answer_option(
     return {"ok": True}
 
 
-# TODO simplify the whole acces control thing
 @router.post("/generate_for_documents", response_model=list[TaskRead])
 async def generate_tasks_for_documents(
     request: GenerateTasksForDocumentsRequest,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
     """
     Generate tasks for the provided documents and link them to the given unit.
+    Runs inline (awaited) and returns the created tasks. No polling or background jobs.
     Requires WRITE access to the repository that contains the unit.
     """
     # Check unit access (which checks repository access under the hood)
@@ -513,18 +510,47 @@ async def generate_tasks_for_documents(
         set(existing_question_rows) if existing_question_rows else set()
     )
 
-    # Schedule background generation and return immediately
-    background_tasks.add_task(
-        process_generate_tasks_for_documents,
-        request.unit_id,
-        request.document_ids,
-        request.num_tasks,
-        request.task_type,
-        forbidden_questions,
+    created_tasks: list[Task] = []
+
+    # Normalize task type to string for generator
+    task_type_value = (
+        request.task_type
+        if isinstance(request.task_type, str)
+        else request.task_type.value  # type: ignore[attr-defined]
     )
 
-    # Return empty list immediately to satisfy response_model but avoid long wait
-    return []
+    # For each document, generate tasks and persist
+    for document_id in request.document_ids:
+        chunks_for_doc: list[Chunk] = session.exec(
+            select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
+        ).all()
+
+        if not chunks_for_doc:
+            continue
+
+        lm = get_large_llm_no_cache()
+        generated: list[Task] = await asyncio.to_thread(
+            generate_tasks,
+            document_id,
+            chunks_for_doc,
+            lm,
+            request.num_tasks,
+            task_type_value,
+            forbidden_questions,
+        )
+
+        for task in generated:
+            session.add(task)
+            session.flush()
+            session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
+            if task.question:
+                forbidden_questions.add(task.question)
+            created_tasks.append(task)
+
+    if created_tasks:
+        session.commit()
+
+    return created_tasks
 
 
 @router.post(

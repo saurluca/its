@@ -1,12 +1,11 @@
 from fastapi import (
     APIRouter,
-    status,
     Depends,
-    HTTPException,
-    UploadFile,
-    Query,
     File,
-    BackgroundTasks,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
 )
 from dependencies import get_db_session
 from documents.models import (
@@ -21,7 +20,9 @@ from repositories.access_control import (
     create_chunk_access_dependency,
 )
 from repositories.models import AccessLevel, RepositoryDocumentLink
-from auth.dependencies import get_current_user_from_request
+from auth.dependencies import (
+    get_current_user_from_request,
+)
 from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
@@ -83,22 +84,21 @@ async def get_document(
 
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     flatten_pdf: bool = Query(default=False, description="Whether to flatten the PDF"),
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    print(
-        f"Uploading and scheduling background processing for document {file.filename}..."
-    )
-
+    """
+    Upload a document and process it inline. Returns the fully processed document.
+    No background tasks or websockets.
+    """
     if not DOCLING_SERVE_API_URL:
         raise HTTPException(
             status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
         )
 
-    # Create a placeholder document so we can return immediately with an ID
+    # Create initial document row so we have an ID and basic metadata
     document = Document(
         title=file.filename,
         content="",
@@ -108,14 +108,13 @@ async def upload_and_chunk_document(
     session.commit()
     session.refresh(document)
 
-    # Read file content to pass into background task
+    # Read file content and process inline (async)
     file_bytes = await file.read()
     filename = file.filename
     content_type = file.content_type or "application/octet-stream"
 
-    # Schedule background processing
-    background_tasks.add_task(
-        process_document_upload,
+    # Run processing (async IO + threadpool for blocking parts)
+    await process_document_upload(
         document.id,
         file_bytes,
         filename,
@@ -123,8 +122,12 @@ async def upload_and_chunk_document(
         flatten_pdf,
     )
 
-    # Immediately return placeholder document (200 OK)
+    # Reload the document after processing
+    session.refresh(document)
     return document
+
+
+# Removed websocket endpoint for simplicity
 
 
 @router.put("/{document_id}", response_model=Document)

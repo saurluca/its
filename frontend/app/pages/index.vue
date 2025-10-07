@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon } from "lucide-vue-next";
+import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon, LogOutIcon } from "lucide-vue-next";
 import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -30,6 +30,11 @@ const inviteRepositoryId = ref<string | null>(null);
 const inviteEmail = ref("");
 const inviteAccessLevel = ref<"read" | "write">("read");
 
+// Leave repository modal state
+const showLeaveModal = ref(false);
+const leaveRepositoryId = ref<string | null>(null);
+const leaveRepositoryName = ref<string | null>(null);
+
 // HTML viewer and document expansion removed from index page
 
 // (Upload to repository is handled in repository.vue)
@@ -41,6 +46,10 @@ type AccessLevel = "read" | "write" | "owner";
 function hasWriteAccess(repository: Repository & { access_level?: AccessLevel }) {
     const level = repository.access_level;
     return level === "write" || level === "owner";
+}
+
+function isOwner(repository: Repository & { access_level?: AccessLevel }) {
+    return repository.access_level === "owner";
 }
 
 // Cache access levels for quick lookups in other views (e.g., repository.vue)
@@ -245,6 +254,45 @@ async function confirmInvite() {
     }
 }
 
+// Leave repository functions
+function openLeaveModal(repositoryId: string, repositoryName: string) {
+    leaveRepositoryId.value = repositoryId;
+    leaveRepositoryName.value = repositoryName;
+    showLeaveModal.value = true;
+}
+
+function closeLeaveModal() {
+    showLeaveModal.value = false;
+    leaveRepositoryId.value = null;
+    leaveRepositoryName.value = null;
+}
+
+async function confirmLeave() {
+    if (!leaveRepositoryId.value) return;
+    try {
+        const response = await $authFetch(`/repositories/${leaveRepositoryId.value}/leave`, {
+            method: "DELETE",
+        }) as { ok: boolean; repository_deleted: boolean };
+
+        if (response.repository_deleted) {
+            notifications.success("Repository was deleted as you were the last member.");
+        } else {
+            notifications.success("You have left the repository.");
+        }
+
+        closeLeaveModal();
+        await fetchRepositories();
+
+        // Notify other components (e.g., sidebar) that repositories changed
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("repositories:updated"));
+        }
+    } catch (error) {
+        console.error("Error leaving repository:", error);
+        notifications.error("Failed to leave repository. Please try again.");
+    }
+}
+
 // Document viewing and HTML panel logic removed
 </script>
 
@@ -285,34 +333,47 @@ async function confirmInvite() {
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-                                    <!-- Upload button moved to repository.vue -->
-                                    <DHamburgerMenu v-if="hasWriteAccess(repository)">
+                                    <!-- Invite User button - visible to users with write access -->
+                                    <DButton v-if="hasWriteAccess(repository)" @click="openInviteModal(repository.id)"
+                                        variant="tertiary" :icon-left="UserPlusIcon">
+                                        Invite User
+                                    </DButton>
+
+                                    <!-- Hamburger menu for additional actions -->
+                                    <DHamburgerMenu v-if="hasWriteAccess(repository) || !isOwner(repository)">
                                         <template #default="{ close }">
-                                            <button @click="
-                                                openInviteModal(repository.id);
-                                            close();
-                                            "
-                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                <UserPlusIcon class="h-4 w-4" />
-                                                Invite User
-                                            </button>
-                                            <button @click="
-                                                openEditTitleModal(repository.id, repository.name);
-                                            close();
-                                            "
-                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                <PencilIcon class="h-4 w-4" />
-                                                Edit Name
-                                            </button>
-                                            <div class="border-t border-gray-200 my-1"></div>
-                                            <button @click="
-                                                openDeleteModal(repository.id, repository.name);
-                                            close();
-                                            "
-                                                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                                <TrashIcon class="h-4 w-4" />
-                                                Delete
-                                            </button>
+                                            <!-- Owner-only options -->
+                                            <template v-if="isOwner(repository)">
+                                                <button @click="
+                                                    openEditTitleModal(repository.id, repository.name);
+                                                close();
+                                                "
+                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <PencilIcon class="h-4 w-4" />
+                                                    Edit Name
+                                                </button>
+                                                <div class="border-t border-gray-200 my-1"></div>
+                                                <button @click="
+                                                    openDeleteModal(repository.id, repository.name);
+                                                close();
+                                                "
+                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <TrashIcon class="h-4 w-4" />
+                                                    Delete
+                                                </button>
+                                            </template>
+
+                                            <!-- Non-owner option -->
+                                            <template v-else>
+                                                <button @click="
+                                                    openLeaveModal(repository.id, repository.name);
+                                                close();
+                                                "
+                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <LogOutIcon class="h-4 w-4" />
+                                                    Leave Repository
+                                                </button>
+                                            </template>
                                         </template>
                                     </DHamburgerMenu>
                                 </div>
@@ -393,6 +454,19 @@ async function confirmInvite() {
                     <p class="text-xs text-gray-500 mt-1">Owners are set when creating repositories and cannot be
                         invited here.</p>
                 </div>
+            </div>
+        </DModal>
+
+        <!-- Leave Repository Modal -->
+        <DModal v-if="showLeaveModal" titel="Leave Repository" confirm-text="Leave" @close="closeLeaveModal"
+            @confirm="confirmLeave">
+            <div class="p-4">
+                <p>
+                    Are you sure you want to leave the repository "{{ leaveRepositoryName }}"?
+                </p>
+                <p class="mt-2 text-sm text-gray-500">
+                    If you are the last person with access, the repository will be deleted.
+                </p>
             </div>
         </DModal>
     </div>

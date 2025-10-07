@@ -392,3 +392,72 @@ async def grant_repository_access_by_email(
 
     session.commit()
     return None
+
+
+@router.delete("/{repository_id}/leave")
+async def leave_repository(
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(get_current_user_from_request),
+):
+    """Leave a repository. If the user is the last person with access, delete the repository.
+
+    Owners cannot leave their own repository - they must delete it explicitly.
+    """
+    # Check if repository exists
+    repository = session.get(Repository, repository_id)
+    if not repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    # Check if user is the owner - owners cannot leave, they must delete
+    if repository.owner_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Repository owners cannot leave. Delete the repository instead.",
+        )
+
+    # Find user's access record
+    user_access = session.exec(
+        select(RepositoryAccess).where(
+            (RepositoryAccess.repository_id == repository_id)
+            & (RepositoryAccess.user_id == current_user.id)
+        )
+    ).first()
+
+    if not user_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this repository",
+        )
+
+    # Count total people with access (owner + all access records)
+    all_access_records = session.exec(
+        select(RepositoryAccess).where(RepositoryAccess.repository_id == repository_id)
+    ).all()
+
+    # Total people = owner (1) + access records
+    total_people = 1 + len(all_access_records)
+
+    # If user is the last person (owner + this user = 2 people, and user is leaving)
+    # This means only owner remains, so we delete the repository
+    if total_people == 2:
+        # Remove all RepositoryAccess rows for this repository first to avoid FK null updates
+        access_rows = session.exec(
+            select(RepositoryAccess).where(
+                RepositoryAccess.repository_id == repository_id
+            )
+        ).all()
+        for row in access_rows:
+            session.delete(row)
+
+        # Delete the repository entirely
+        session.delete(repository)
+        session.commit()
+        return {"ok": True, "repository_deleted": True}
+    else:
+        # Just remove user's access (delete the row to avoid NULLing repository_id)
+        session.delete(user_access)
+        session.commit()
+        return {"ok": True, "repository_deleted": False}

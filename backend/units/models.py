@@ -25,7 +25,7 @@ class Unit(UnitBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
-    repository_id: UUID = Field(foreign_key="repository.id")
+    repository_id: UUID = Field(foreign_key="repository.id", ondelete="CASCADE")
 
     # Relationships
     repository: "Repository" = Relationship(back_populates="units")

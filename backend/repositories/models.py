@@ -76,7 +76,10 @@ class Repository(RepositoryBase, table=True):
         back_populates="repositories",
         link_model=RepositoryDocumentLink,
     )
-    units: list["Unit"] = Relationship(back_populates="repository")
+    units: list["Unit"] = Relationship(
+        back_populates="repository",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     skills: list["Skill"] = Relationship(
         back_populates="repositories",
         link_model=RepositorySkillLink,

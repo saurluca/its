@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon, LogOutIcon } from "lucide-vue-next";
+import { PlusIcon, PencilIcon, TrashIcon, LogOutIcon, UsersIcon } from "lucide-vue-next";
 import type { Repository } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
 
@@ -24,11 +24,6 @@ const showDeleteModal = ref(false);
 const deleteRepositoryId = ref<string | null>(null);
 const deleteRepositoryName = ref<string | null>(null);
 
-// Invite user modal state
-const showInviteModal = ref(false);
-const inviteRepositoryId = ref<string | null>(null);
-const inviteEmail = ref("");
-const inviteAccessLevel = ref<"read" | "write">("read");
 
 // Leave repository modal state
 const showLeaveModal = ref(false);
@@ -165,6 +160,10 @@ function navigateToRepository(repositoryId: string) {
     navigateTo(`/repository?repositoryId=${repositoryId}`);
 }
 
+function navigateToManagement(repositoryId: string) {
+    navigateTo(`/management?repositoryId=${repositoryId}`);
+}
+
 
 // Modal functions for repository editing
 function openEditTitleModal(repositoryId: string, currentTitle: string) {
@@ -217,41 +216,6 @@ async function confirmDelete() {
     if (!deleteRepositoryId.value) return;
     await deleteRepository(deleteRepositoryId.value);
     closeDeleteModal();
-}
-
-// Invite user functions
-function openInviteModal(repositoryId: string) {
-    inviteRepositoryId.value = repositoryId;
-    inviteEmail.value = "";
-    inviteAccessLevel.value = "read";
-    showInviteModal.value = true;
-}
-
-function closeInviteModal() {
-    showInviteModal.value = false;
-    inviteRepositoryId.value = null;
-    inviteEmail.value = "";
-}
-
-async function confirmInvite() {
-    if (!inviteRepositoryId.value) return;
-    const email = inviteEmail.value.trim();
-    if (!email) {
-        notifications.warning("Please enter an email address.");
-        return;
-    }
-    try {
-        await $authFetch(`/repositories/${inviteRepositoryId.value}/access`, {
-            method: "POST",
-            body: { email, access_level: inviteAccessLevel.value },
-        });
-        notifications.success("If the user exists, access has been granted.");
-        closeInviteModal();
-        await fetchRepositories();
-    } catch (error) {
-        console.error("Error granting access:", error);
-        notifications.error("Failed to update access. Please try again.");
-    }
 }
 
 // Leave repository functions
@@ -333,49 +297,32 @@ async function confirmLeave() {
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
-                                    <!-- Invite User button - visible to users with write access -->
-                                    <DButton v-if="hasWriteAccess(repository)" @click="openInviteModal(repository.id)"
-                                        variant="tertiary" :icon-left="UserPlusIcon">
-                                        Invite User
+                                    <!-- Manage Users button - visible to users with write or owner access -->
+                                    <DButton v-if="hasWriteAccess(repository)"
+                                        @click="navigateToManagement(repository.id)" variant="tertiary"
+                                        :icon-left="UsersIcon">
+                                        Manage
                                     </DButton>
 
-                                    <!-- Hamburger menu for additional actions -->
-                                    <DHamburgerMenu v-if="hasWriteAccess(repository) || !isOwner(repository)">
-                                        <template #default="{ close }">
-                                            <!-- Owner-only options -->
-                                            <template v-if="isOwner(repository)">
-                                                <button @click="
-                                                    openEditTitleModal(repository.id, repository.name);
-                                                close();
-                                                "
-                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                    <PencilIcon class="h-4 w-4" />
-                                                    Edit Name
-                                                </button>
-                                                <div class="border-t border-gray-200 my-1"></div>
-                                                <button @click="
-                                                    openDeleteModal(repository.id, repository.name);
-                                                close();
-                                                "
-                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                                    <TrashIcon class="h-4 w-4" />
-                                                    Delete
-                                                </button>
-                                            </template>
+                                    <!-- Owner-only options -->
+                                    <template v-if="isOwner(repository)">
+                                        <DButton @click="openEditTitleModal(repository.id, repository.name)"
+                                            variant="secondary" :icon-left="PencilIcon">
 
-                                            <!-- Non-owner option -->
-                                            <template v-else>
-                                                <button @click="
-                                                    openLeaveModal(repository.id, repository.name);
-                                                close();
-                                                "
-                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                                    <LogOutIcon class="h-4 w-4" />
-                                                    Leave Repository
-                                                </button>
-                                            </template>
-                                        </template>
-                                    </DHamburgerMenu>
+                                        </DButton>
+                                        <DButton @click="openDeleteModal(repository.id, repository.name)"
+                                            variant="danger-light" :icon-left="TrashIcon">
+
+                                        </DButton>
+                                    </template>
+
+                                    <!-- Non-owner option -->
+                                    <template v-else>
+                                        <DButton @click="openLeaveModal(repository.id, repository.name)"
+                                            variant="danger-light" :icon-left="LogOutIcon">
+
+                                        </DButton>
+                                    </template>
                                 </div>
                             </div>
 
@@ -424,36 +371,6 @@ async function confirmLeave() {
                 <input id="repository-name" type="text" v-model="newRepositoryName"
                     class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200"
                     placeholder="Enter repository name" @keyup.enter="confirmCreateRepository" />
-            </div>
-        </DModal>
-
-        <!-- Invite User Modal -->
-        <DModal v-if="showInviteModal" titel="Invite User" confirm-text="Invite" @close="closeInviteModal"
-            @confirm="confirmInvite">
-            <div class="p-4 space-y-4">
-                <div>
-                    <label for="invite-email" class="block mb-2 font-medium">User Email</label>
-                    <input id="invite-email" type="email" v-model="inviteEmail"
-                        class="w-full border rounded px-3 py-2 text-sm border-gray-200"
-                        placeholder="name@example.com" />
-                </div>
-                <div>
-                    <label class="block mb-2 font-medium">Access Level</label>
-                    <div class="flex gap-4 text-sm">
-                        <label class="inline-flex items-center gap-2 cursor-pointer">
-                            <input type="radio" value="read" v-model="inviteAccessLevel" class="accent-black"
-                                style="accent-color: black;" />
-                            <span>Read</span>
-                        </label>
-                        <label class="inline-flex items-center gap-2 cursor-pointer">
-                            <input type="radio" value="write" v-model="inviteAccessLevel" class="accent-black"
-                                style="accent-color: black;" />
-                            <span>Write</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Owners are set when creating repositories and cannot be
-                        invited here.</p>
-                </div>
             </div>
         </DModal>
 

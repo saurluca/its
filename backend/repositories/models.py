@@ -131,3 +131,14 @@ class RepositoryDocumentLinkResponse(SQLModel):
 class RepositoryAccessGrantByEmail(SQLModel):
     email: str
     access_level: AccessLevel = AccessLevel.READ
+
+
+class RepositoryUserResponse(SQLModel):
+    """Response model for users with repository access"""
+
+    user_id: UUID
+    email: str | None
+    full_name: str | None
+    access_level: AccessLevel
+    granted_at: datetime
+    is_owner: bool = False

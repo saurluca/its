@@ -123,3 +123,13 @@ export interface UserUpdateForm {
   password?: string;
   disabled?: boolean;
 }
+
+// Repository user with access level
+export interface RepositoryUser {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  access_level: "read" | "write" | "owner";
+  granted_at: Date;
+  is_owner: boolean;
+}

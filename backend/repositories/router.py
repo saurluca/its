@@ -12,6 +12,8 @@ from repositories.models import (
     AccessLevel,
     RepositoryAccess,
     RepositoryAccessGrantByEmail,
+    RepositoryUserResponse,
+    RepositoryAccessUpdate,
 )
 from units.models import UnitTaskLink
 from repositories.access_control import (
@@ -461,3 +463,158 @@ async def leave_repository(
         session.delete(user_access)
         session.commit()
         return {"ok": True, "repository_deleted": False}
+
+
+@router.get("/{repository_id}/users", response_model=list[RepositoryUserResponse])
+async def get_repository_users(
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.WRITE)
+    ),
+):
+    """Get all users with access to a repository. Requires WRITE or OWNER access."""
+    from auth.models import User
+
+    repository = session.get(Repository, repository_id)
+    if not repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    users_list = []
+
+    # Add owner first
+    if repository.owner_id:
+        owner = session.get(User, repository.owner_id)
+        if owner:
+            users_list.append(
+                RepositoryUserResponse(
+                    user_id=owner.id,
+                    email=owner.email,
+                    full_name=owner.full_name,
+                    access_level=AccessLevel.OWNER,
+                    granted_at=repository.created_at,
+                    is_owner=True,
+                )
+            )
+
+    # Add other users with access
+    access_records = session.exec(
+        select(RepositoryAccess).where(RepositoryAccess.repository_id == repository_id)
+    ).all()
+
+    for access in access_records:
+        user = session.get(User, access.user_id)
+        if user:
+            users_list.append(
+                RepositoryUserResponse(
+                    user_id=user.id,
+                    email=user.email,
+                    full_name=user.full_name,
+                    access_level=access.access_level,
+                    granted_at=access.granted_at,
+                    is_owner=False,
+                )
+            )
+
+    return users_list
+
+
+@router.put("/{repository_id}/access/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_user_access(
+    repository_id: UUID,
+    user_id: UUID,
+    access_update: RepositoryAccessUpdate,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.OWNER)
+    ),
+):
+    """Update a user's access level. Requires OWNER access. Only READ or WRITE can be set."""
+    # Validate access level
+    if access_update.access_level not in (AccessLevel.READ, AccessLevel.WRITE):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid access level. Only 'read' or 'write' allowed.",
+        )
+
+    repository = session.get(Repository, repository_id)
+    if not repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    # Cannot modify owner's access
+    if repository.owner_id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify owner's access level",
+        )
+
+    # Find the access record
+    access_record = session.exec(
+        select(RepositoryAccess).where(
+            (RepositoryAccess.repository_id == repository_id)
+            & (RepositoryAccess.user_id == user_id)
+        )
+    ).first()
+
+    if not access_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have access to this repository",
+        )
+
+    # Update access level
+    access_record.access_level = access_update.access_level
+    session.add(access_record)
+    session.commit()
+
+    return None
+
+
+@router.delete(
+    "/{repository_id}/access/{user_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def remove_user_access(
+    repository_id: UUID,
+    user_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_repository_access_dependency(AccessLevel.OWNER)
+    ),
+):
+    """Remove a user's access to a repository. Requires OWNER access."""
+    repository = session.get(Repository, repository_id)
+    if not repository:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+        )
+
+    # Cannot remove owner's access
+    if repository.owner_id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove owner from repository. Delete the repository instead.",
+        )
+
+    # Find the access record
+    access_record = session.exec(
+        select(RepositoryAccess).where(
+            (RepositoryAccess.repository_id == repository_id)
+            & (RepositoryAccess.user_id == user_id)
+        )
+    ).first()
+
+    if not access_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have access to this repository",
+        )
+
+    # Remove access
+    session.delete(access_record)
+    session.commit()
+
+    return None

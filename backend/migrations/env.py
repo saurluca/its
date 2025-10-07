@@ -16,6 +16,7 @@ from documents.models import Document, Chunk  # noqa
 from tasks.models import Task, AnswerOption, TaskUserLink  # noqa
 from repositories.models import Repository  # noqa
 from skills.models import Skill, UserSkillLink, RepositorySkillLink  # noqa
+from reports.models import Report  # noqa
 
 load_dotenv()
 

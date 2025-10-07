@@ -30,7 +30,6 @@ const availableUnits = computed<Unit[]>(() => unitsList.value || []);
 
 // Generate tasks modal state (reusable)
 const showGenerateTasksModal = ref(false);
-let tasksPollTimer: number | null = null;
 const selectedUnit = computed<Unit | null>(() => {
   return availableUnits.value.find(u => u.id === selectedUnitId.value) || null;
 });
@@ -50,16 +49,58 @@ function openGenerateTasksModalFromTasks() {
 function closeGenerateTasksModalFromTasks() {
   showGenerateTasksModal.value = false;
 }
-async function onGenerateTasksSuccessFromTasks() {
+async function onGenerateTasksConfirm(params: {
+  documentIds: string[];
+  numTasks: number;
+  taskType: "multiple_choice" | "free_text";
+}) {
+  console.log("Starting task generation in background");
+
+  // Close modal immediately
   showGenerateTasksModal.value = false;
-  // Kick off immediate fetch and start short-lived polling to catch backend completion
-  if (selectedUnitId.value) {
-    const unitId = selectedUnitId.value;
-    const initialCount = tasks.value.length;
-    await fetchTasksByUnit(unitId);
-    startTasksPollingForUnit(unitId, initialCount);
-  } else {
-    await fetchAllTasks();
+
+  const repository = selectedRepositoryForTasks.value;
+  if (!repository || !selectedUnitId.value) return;
+
+  const repositoryName = repository.name;
+  const taskTypeText = params.taskType === "multiple_choice" ? "multiple choice" : "free text";
+  const processingId = notifications.loading(
+    `Generating ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}" from ${params.documentIds.length} document${params.documentIds.length === 1 ? "" : "s"}. This may take a while.`
+  );
+
+  try {
+    const createdTasks = await $authFetch("/tasks/generate_for_documents", {
+      method: "POST",
+      body: {
+        unit_id: selectedUnitId.value,
+        document_ids: params.documentIds,
+        num_tasks: params.numTasks,
+        task_type: params.taskType,
+      },
+    }) as Task[];
+
+    notifications.remove(processingId);
+    notifications.success(`Successfully generated ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}"!`);
+
+    // Add the created tasks to the list
+    if (Array.isArray(createdTasks) && createdTasks.length > 0) {
+      const normalized = createdTasks.map((task: Task) => ({
+        ...task,
+        created_at: new Date(task.created_at),
+        updated_at: new Date(task.updated_at),
+        answer_options: task.answer_options || [],
+      })) as Task[];
+      tasks.value = [...normalized, ...tasks.value];
+      console.log("tasks", tasks.value);
+    } else {
+      // Fallback: refetch tasks if no tasks returned
+      if (selectedUnitId.value) await fetchTasksByUnit(selectedUnitId.value);
+      else await fetchAllTasks();
+    }
+  } catch (error) {
+    console.error("Error generating tasks:", error);
+    notifications.remove(processingId);
+    notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
   }
 }
 
@@ -183,10 +224,6 @@ onMounted(() => {
 // Remove keyboard event listener when component is unmounted
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
-  if (tasksPollTimer) {
-    clearInterval(tasksPollTimer);
-    tasksPollTimer = null;
-  }
 });
 
 // Function to fetch tasks by document
@@ -296,35 +333,7 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-function startTasksPollingForUnit(unitId: string, initialCount: number) {
-  if (tasksPollTimer) {
-    clearInterval(tasksPollTimer);
-    tasksPollTimer = null;
-  }
-  const startTime = Date.now();
-  tasksPollTimer = window.setInterval(async () => {
-    try {
-      await fetchTasksByUnit(unitId);
-      if (tasks.value.length > initialCount) {
-        if (tasksPollTimer) {
-          clearInterval(tasksPollTimer);
-          tasksPollTimer = null;
-        }
-      }
-      // Stop polling after 60s
-      if (Date.now() - startTime > 60_000 && tasksPollTimer) {
-        clearInterval(tasksPollTimer);
-        tasksPollTimer = null;
-      }
-    } catch {
-      // Best-effort polling; stop on errors
-      if (tasksPollTimer) {
-        clearInterval(tasksPollTimer);
-        tasksPollTimer = null;
-      }
-    }
-  }, 3000);
-}
+// Removed polling; tasks are returned by the backend and injected immediately
 
 async function evaluateAnswer() {
   if (!previewingTask.value || currentAnswer.value === null || currentAnswer.value === "") {
@@ -490,6 +499,6 @@ function closeTryTask() {
     </div>
     <!-- Generate Tasks Modal (DRY reusable component) -->
     <DGenerateTasksModal v-if="showGenerateTasksModal" :repository="selectedRepositoryForTasks"
-      :unit-id="selectedUnitId" @close="closeGenerateTasksModalFromTasks" @success="onGenerateTasksSuccessFromTasks" />
+      :unit-id="selectedUnitId" @close="closeGenerateTasksModalFromTasks" @confirm="onGenerateTasksConfirm" />
   </div>
 </template>

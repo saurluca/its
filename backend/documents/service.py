@@ -8,7 +8,6 @@ from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 from dependencies import get_database_engine, get_large_llm, get_small_llm
 from sqlmodel import select as sql_select
-from .events import document_events_manager
 
 
 # summarises a document
@@ -146,41 +145,22 @@ async def process_document_upload(
     content_type: str,
     flatten_pdf: bool,
 ):
-    """Background task to process an uploaded document.
+    """Process an uploaded document inline.
 
     - Calls Docling service
     - Stores content and chunks
     - Generates summary and title
     - Marks important chunks
     """
-    print(f"[bg] Start processing document {filename} ({document_id})...")
+    print(f"Start processing document {filename} ({document_id})...")
     print(f"Flatten pdf status: {flatten_pdf}")
-    await document_events_manager.broadcast_status(
-        document_id,
-        status="processing",
-        message="Starting document processing",
-        payload={"step": "start"},
-    )
     DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
     if not DOCLING_SERVE_API_URL:
-        print("[bg] DOCLING_SERVE_API_URL not configured; aborting document processing")
-        await document_events_manager.broadcast_status(
-            document_id,
-            status="error",
-            message="Document processing service is not configured.",
-            payload={"step": "configuration"},
-        )
-        return
+        raise RuntimeError("DOCLING_SERVE_API_URL not configured")
 
     engine = get_database_engine()
     with Session(engine) as session:
         try:
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="processing",
-                message="Sending document to text extraction service",
-                payload={"step": "docling"},
-            )
             async with httpx.AsyncClient(timeout=None) as client:
                 resp = await client.post(
                     f"{DOCLING_SERVE_API_URL}/process",
@@ -198,19 +178,9 @@ async def process_document_upload(
                 )
 
             if resp.status_code != 200:
-                print(
-                    f"[bg] Docling processing failed for {document_id}: {resp.status_code} {resp.text}"
+                raise RuntimeError(
+                    f"Docling processing failed: {resp.status_code} {resp.text}"
                 )
-                await document_events_manager.broadcast_status(
-                    document_id,
-                    status="error",
-                    message="Document processing failed during text extraction.",
-                    payload={
-                        "step": "docling",
-                        "status_code": resp.status_code,
-                    },
-                )
-                return
 
             results = resp.json()
             chunks_data = results.get("chunks", [])
@@ -218,22 +188,9 @@ async def process_document_upload(
 
             db_document = session.get(Document, document_id)
             if not db_document:
-                print(f"[bg] Document {document_id} not found in DB")
-                await document_events_manager.broadcast_status(
-                    document_id,
-                    status="error",
-                    message="Uploaded document reference was not found.",
-                    payload={"step": "database"},
-                )
-                return
+                raise RuntimeError("Document not found after creation")
 
             # Update content
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="processing",
-                message="Storing extracted document content",
-                payload={"step": "persist_content"},
-            )
             db_document.content = html_text
             session.add(db_document)
             session.commit()
@@ -247,13 +204,7 @@ async def process_document_upload(
             session.commit()
 
             # Summarize and title generation
-            print(f"[bg] Summarising document {document_id}...")
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="processing",
-                message="Generating summary",
-                payload={"step": "summarise"},
-            )
+            print(f"Summarising document {document_id}...")
             large_lm = get_large_llm()
             small_lm = get_small_llm()
             summary_result = await run_in_threadpool(
@@ -261,13 +212,7 @@ async def process_document_upload(
             )
             db_document.summary = summary_result.summary
 
-            print(f"[bg] Generating title for document {document_id}...")
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="processing",
-                message="Generating document title",
-                payload={"step": "title"},
-            )
+            print(f"Generating title for document {document_id}...")
             db_document.title = await run_in_threadpool(
                 generate_document_title, summary_result.summary, small_lm
             )
@@ -276,13 +221,7 @@ async def process_document_upload(
             session.refresh(db_document)
 
             # Filter important chunks
-            print(f"[bg] Filtering important chunks for document {document_id}...")
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="processing",
-                message="Prioritising key sections",
-                payload={"step": "filter_chunks"},
-            )
+            print(f"Filtering important chunks for document {document_id}...")
 
             chunks = session.exec(
                 sql_select(Chunk).where(Chunk.document_id == document_id)
@@ -298,26 +237,9 @@ async def process_document_upload(
             session.commit()
 
             print(
-                f"[bg] Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
-            )
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="completed",
-                message="Document processed successfully",
-                payload={
-                    "step": "completed",
-                    "title": db_document.title,
-                    "summary": db_document.summary,
-                    "important_chunks": result["num_of_all_chunks"]
-                    - result["num_of_unimportant_chunks"],
-                },
+                f"Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
             )
         except Exception as e:
             session.rollback()
-            print(f"[bg] Error processing document {document_id}: {e}")
-            await document_events_manager.broadcast_status(
-                document_id,
-                status="error",
-                message="An unexpected error occurred while processing the document.",
-                payload={"step": "exception", "detail": str(e)},
-            )
+            print(f"Error processing document {document_id}: {e}")
+            raise

@@ -1,8 +1,5 @@
 from fastapi import (
     APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
-    BackgroundTasks,
     Depends,
     File,
     HTTPException,
@@ -21,18 +18,15 @@ from documents.models import (
 from repositories.access_control import (
     create_document_access_dependency,
     create_chunk_access_dependency,
-    get_repository_access,
 )
 from repositories.models import AccessLevel, RepositoryDocumentLink
 from auth.dependencies import (
     get_current_user_from_request,
-    get_current_user_from_websocket,
 )
 from auth.models import UserResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from documents.service import process_document_upload
-from documents.events import document_events_manager
 import os
 from dotenv import load_dotenv
 
@@ -90,22 +84,21 @@ async def get_document(
 
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     flatten_pdf: bool = Query(default=False, description="Whether to flatten the PDF"),
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    print(
-        f"Uploading and scheduling background processing for document {file.filename}..."
-    )
-
+    """
+    Upload a document and process it inline. Returns the fully processed document.
+    No background tasks or websockets.
+    """
     if not DOCLING_SERVE_API_URL:
         raise HTTPException(
             status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
         )
 
-    # Create a placeholder document so we can return immediately with an ID
+    # Create initial document row so we have an ID and basic metadata
     document = Document(
         title=file.filename,
         content="",
@@ -115,14 +108,13 @@ async def upload_and_chunk_document(
     session.commit()
     session.refresh(document)
 
-    # Read file content to pass into background task
+    # Read file content and process inline (async)
     file_bytes = await file.read()
     filename = file.filename
     content_type = file.content_type or "application/octet-stream"
 
-    # Schedule background processing
-    background_tasks.add_task(
-        process_document_upload,
+    # Run processing (async IO + threadpool for blocking parts)
+    await process_document_upload(
         document.id,
         file_bytes,
         filename,
@@ -130,63 +122,12 @@ async def upload_and_chunk_document(
         flatten_pdf,
     )
 
-    await document_events_manager.broadcast_status(
-        document.id,
-        status="queued",
-        message="Document queued for processing",
-        payload={"uploader_id": str(current_user.id)},
-    )
-
-    # Immediately return placeholder document (200 OK)
+    # Reload the document after processing
+    session.refresh(document)
     return document
 
 
-@router.websocket("/ws/{document_id}")
-async def document_status_ws(
-    websocket: WebSocket,
-    document_id: UUID,
-    session: Session = Depends(get_db_session),
-    current_user: UserResponse = Depends(get_current_user_from_websocket),
-):
-    document = session.get(Document, document_id)
-    if not document:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    repo_links = session.exec(
-        select(RepositoryDocumentLink).where(
-            RepositoryDocumentLink.document_id == document_id
-        )
-    ).all()
-
-    if not repo_links:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    access_granted = False
-    for link in repo_links:
-        try:
-            await get_repository_access(
-                link.repository_id, AccessLevel.READ, session, current_user
-            )
-            access_granted = True
-            break
-        except HTTPException:
-            continue
-
-    if not access_granted:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await document_events_manager.connect(document_id, websocket)
-
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pass
-    finally:
-        await document_events_manager.disconnect(document_id, websocket)
+# Removed websocket endpoint for simplicity
 
 
 @router.put("/{document_id}", response_model=Document)

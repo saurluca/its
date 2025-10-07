@@ -9,7 +9,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    (e: "close" | "success"): void;
+    (e: "close"): void;
+    (e: "confirm", params: {
+        documentIds: string[];
+        numTasks: number;
+        taskType: "multiple_choice" | "free_text";
+    }): void;
 }>();
 
 const { $authFetch } = useAuthenticatedFetch();
@@ -63,37 +68,19 @@ function closeModal() {
     emit("close");
 }
 
-async function confirmGenerateTasks() {
+function confirmGenerateTasks() {
     if (!props.repository?.id || !props.unitId || selectedDocuments.value.size === 0) {
         notifications.warning("Please select at least one document to generate tasks from.");
         return;
     }
 
-    const repositoryName = props.repository.name;
-    const taskTypeText = taskType.value === "multiple_choice" ? "multiple choice" : "free text";
-    const processingId = notifications.loading(
-        `Generating ${numTasksToGenerate.value} ${taskTypeText} tasks for "${repositoryName}" from ${selectedDocuments.value.size} document${selectedDocuments.value.size === 1 ? "" : "s"}. This may take a while.`
-    );
-
-    try {
-        await $authFetch("/tasks/generate_for_documents", {
-            method: "POST",
-            body: {
-                unit_id: props.unitId,
-                document_ids: Array.from(selectedDocuments.value),
-                num_tasks: numTasksToGenerate.value,
-                task_type: taskType.value,
-            },
-        });
-
-        notifications.remove(processingId);
-        notifications.success(`Successfully generated ${numTasksToGenerate.value} ${taskTypeText} tasks for "${repositoryName}"!`);
-        emit("success");
-    } catch (error) {
-        console.error("Error generating tasks:", error);
-        notifications.remove(processingId);
-        notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
-    }
+    // Emit the parameters to the parent and close immediately
+    emit("confirm", {
+        documentIds: Array.from(selectedDocuments.value),
+        numTasks: numTasksToGenerate.value,
+        taskType: taskType.value,
+    });
+    emit("close");
 }
 </script>
 

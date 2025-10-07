@@ -80,7 +80,6 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
 const showUploadModal = ref(false);
 const flattenPdf = ref(false);
-let docsPollTimer: number | null = null;
 
 // Skills state
 const skills = ref<SkillItem[]>([]);
@@ -161,10 +160,6 @@ async function fetchAll() {
 }
 
 onUnmounted(() => {
-    if (docsPollTimer) {
-        clearInterval(docsPollTimer);
-        docsPollTimer = null;
-    }
 });
 
 async function fetchAccessLevelForRepository(id: string): Promise<AccessLevel | undefined> {
@@ -450,8 +445,6 @@ async function handleUpload() {
         notifications.remove(processingId);
         notifications.success(`Document "${fileName}" uploaded successfully!`);
         await refreshDocuments();
-        // Start polling documents to quickly reflect background completion (title/summary/chunks)
-        startDocumentsPolling();
     } catch (error) {
         console.error("Error uploading document:", error);
         notifications.remove(processingId);
@@ -462,28 +455,7 @@ async function handleUpload() {
     }
 }
 
-function startDocumentsPolling() {
-    if (docsPollTimer) {
-        clearInterval(docsPollTimer);
-        docsPollTimer = null;
-    }
-    const startTime = Date.now();
-    docsPollTimer = window.setInterval(async () => {
-        try {
-            await refreshDocuments();
-            // Stop after 60 seconds
-            if (Date.now() - startTime > 60_000 && docsPollTimer) {
-                clearInterval(docsPollTimer);
-                docsPollTimer = null;
-            }
-        } catch {
-            if (docsPollTimer) {
-                clearInterval(docsPollTimer);
-                docsPollTimer = null;
-            }
-        }
-    }, 3000);
-}
+// Polling removed; upload is processed inline
 
 // // Skills actions
 // function openAddSkillModal() {

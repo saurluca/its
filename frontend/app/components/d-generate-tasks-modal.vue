@@ -74,6 +74,16 @@ function confirmGenerateTasks() {
         return;
     }
 
+    if (numTasksToGenerate.value > 50) {
+        notifications.warning("Maximum 50 tasks per request allowed. Please enter a number between 1 and 50.");
+        return;
+    }
+
+    if (numTasksToGenerate.value < 1) {
+        notifications.warning("Please enter at least 1 task to generate.");
+        return;
+    }
+
     // Emit the parameters to the parent and close immediately
     emit("confirm", {
         documentIds: Array.from(selectedDocuments.value),
@@ -100,6 +110,7 @@ function confirmGenerateTasks() {
                     <label for="num-tasks" class="block mb-2 font-medium">Number of tasks:</label>
                     <input id="num-tasks" type="number" min="1" max="50" v-model.number="numTasksToGenerate"
                         class="w-full border rounded-lg px-3 py-2 text-sm border-gray-200" />
+                    <p class="text-xs text-gray-500 mt-1">Maximum 50 tasks per request</p>
                 </div>
                 <div>
                     <label for="task-type" class="block mb-2 font-medium">Task type:</label>

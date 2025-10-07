@@ -482,6 +482,13 @@ async def generate_tasks_for_documents(
     Runs inline (awaited) and returns the created tasks. No polling or background jobs.
     Requires WRITE access to the repository that contains the unit.
     """
+    # Validate max tasks limit
+    if request.num_tasks > 50:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Maximum 50 tasks per request allowed",
+        )
+
     # Check unit access (which checks repository access under the hood)
     unit = session.get(Unit, request.unit_id)
     if not unit:

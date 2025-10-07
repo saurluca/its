@@ -21,8 +21,13 @@ class ReportBase(SQLModel):
     # optional user agent string for debugging
     user_agent: Optional[str] = None
     # optional contextual references
-    task_id: Optional[UUID] = Field(default=None, foreign_key="task.id")
-    unit_id: Optional[UUID] = Field(default=None, foreign_key="unit.id")
+    # If a referenced task or unit is deleted, keep the report and null the FK
+    task_id: Optional[UUID] = Field(
+        default=None, foreign_key="task.id", ondelete="SET NULL"
+    )
+    unit_id: Optional[UUID] = Field(
+        default=None, foreign_key="unit.id", ondelete="SET NULL"
+    )
 
 
 class Report(ReportBase, table=True):

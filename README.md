@@ -10,7 +10,7 @@ A modern, privacy-conscious intelligent tutoring system that generates personali
 - **Course Management**: Organise materials into courses and track learning progress
 
 
-<img width="1921" height="1081" alt="image" src="https://github.com/user-attachments/assets/813f6c1c-7332-48bd-ab70-22af97bd2e70" />
+<img width="1911" height="971" alt="image" src="https://github.com/user-attachments/assets/6cd2a74a-358c-4fad-82eb-e8ec46d20ea7" />
 
 
 ## Architecture

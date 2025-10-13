@@ -7,8 +7,11 @@ A modern, privacy-conscious intelligent tutoring system that generates personali
 - **Document Upload**: Upload course materials (PDFs, documents) for automatic processing
 - **AI-Generated Tasks**: Automatically creates multiple-choice questions
 - **Personalised Learning**: Study mode with individual feedback and progress tracking
-- **Privacy Control**: You decide how much data to share - from local processing to cloud AI
 - **Course Management**: Organise materials into courses and track learning progress
+
+
+<img width="1921" height="1081" alt="image" src="https://github.com/user-attachments/assets/813f6c1c-7332-48bd-ab70-22af97bd2e70" />
+
 
 ## Architecture
 

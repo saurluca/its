@@ -9,8 +9,13 @@ A modern, privacy-conscious intelligent tutoring system that generates personali
 - **Personalised Learning**: Study mode with individual feedback and progress tracking
 - **Course Management**: Organise materials into courses and track learning progress
 
+## Manage lectures
 
 <img width="1911" height="971" alt="image" src="https://github.com/user-attachments/assets/6cd2a74a-358c-4fad-82eb-e8ec46d20ea7" />
+
+## Study
+
+<img width="1242" height="831" alt="image" src="https://github.com/user-attachments/assets/888564f3-b573-4483-a334-5d07eaefe5d0" />
 
 
 ## Architecture

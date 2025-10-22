@@ -29,7 +29,7 @@ export const useAuthStore = defineStore("auth", {
         formData.append("username", email);
         formData.append("password", password);
 
-        await $fetch<{ message: string }>(`${apiUrl}/token`, {
+        await $fetch<{ message: string }>(`${apiUrl}/auth/token`, {
           method: "POST",
           body: formData,
           credentials: "include", // Include cookies in the request
@@ -69,7 +69,7 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        await $fetch(`${apiUrl}/users`, {
+        await $fetch(`${apiUrl}/auth/users`, {
           method: "POST",
           body: userData,
         });
@@ -97,23 +97,26 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        const user = await $fetch<User>(`${apiUrl}/users/me`, {
+        const user = await $fetch<User>(`${apiUrl}/auth/users/me`, {
           credentials: "include", // Include cookies in the request
-          headers: {
-            'Content-Type': 'application/json',
-          },
         });
 
         this.user = user;
-        this.isAuthenticated = true;
-        return user;
       } catch (error: unknown) {
-    console.error("Fetch user error:", error);
-    this.user = null;
-    this.isAuthenticated = false;
-    throw error;
-  }
-},
+        if (
+          error &&
+          typeof error === "object" &&
+          "status" in error &&
+          error.status !== 401
+        ) {
+          console.error("Fetch user error:", error);
+        }
+        // If fetching user fails, clear state but don't call logout
+        this.user = null;
+        this.isAuthenticated = false;
+        throw error; // Re-throw so initializeAuth can handle it
+      }
+    },
 
     async logout() {
       const config = useRuntimeConfig();
@@ -121,7 +124,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         // Call logout endpoint to clear cookie
-        await $fetch(`${apiUrl}/logout`, {
+        await $fetch(`${apiUrl}/auth/logout`, {
           method: "POST",
           credentials: "include",
         });

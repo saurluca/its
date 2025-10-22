@@ -23,7 +23,18 @@ export const useAuthenticatedFetch = () => {
   const baseURL = config.public.apiBase;
 
   const $authFetch = async (url: string, options: any = {}) => {
+    // Add /api prefix to relative URLs that need it
     let finalUrl = url;
+    const apiEndpoints = [
+      '/repositories', '/documents', '/tasks', '/skills', 
+      '/units', '/reports', '/users', '/token', '/logout'
+    ];
+    
+    if (url.startsWith('/') && !url.startsWith('/api')) {
+      if (apiEndpoints.some(endpoint => url.startsWith(endpoint))) {
+        finalUrl = '/api' + url;
+      }
+    }
 
     // Prepare headers - don't set Content-Type for FormData
     const headers: Record<string, string> = { ...options.headers };

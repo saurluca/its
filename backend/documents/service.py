@@ -145,68 +145,60 @@ async def process_document_upload(
     content_type: str,
     flatten_pdf: bool,
 ):
-    """Process an uploaded document inline."""
+    """Process an uploaded document inline.
+
+    - Calls Docling service
+    - Stores content and chunks
+    - Generates summary and title
+    - Marks important chunks
+    """
     print(f"Start processing document {filename} ({document_id})...")
     print(f"Flatten pdf status: {flatten_pdf}")
-    
     DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
     if not DOCLING_SERVE_API_URL:
         raise RuntimeError("DOCLING_SERVE_API_URL not configured")
 
-    print(f"Using Docling URL: {DOCLING_SERVE_API_URL}")
-
     engine = get_database_engine()
     with Session(engine) as session:
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                print(f"Sending request to Docling service...")
-                
-                # Prepare the request - filename as query parameter, not form data
-                files = {
-                    "file": (filename, file_bytes, content_type)
-                }
-                params = {  # This becomes query parameters
-                    "filename": filename,
-                    "flatten_pdf": str(bool(flatten_pdf)).lower(),
-                }
-                
-                print(f"Request details: files={list(files.keys())}, params={params}")
-                
+            async with httpx.AsyncClient(timeout=None) as client:
                 resp = await client.post(
                     f"{DOCLING_SERVE_API_URL}/process",
-                    files=files,
-                    params=params,  # Use params for query parameters
-                    timeout=30.0
+                    files={
+                        "file": (
+                            filename,
+                            file_bytes,
+                            content_type,
+                        )
+                    },
+                    params={
+                        "filename": filename,
+                        "flatten_pdf": str(bool(flatten_pdf)).lower(),
+                    },
                 )
 
-            print(f"Docling response status: {resp.status_code}")
-            
             if resp.status_code != 200:
-                error_detail = resp.text[:500]
-                print(f"Docling processing failed: {resp.status_code} - {error_detail}")
                 raise RuntimeError(
-                    f"Docling processing failed: {resp.status_code} - {error_detail}"
+                    f"Docling processing failed: {resp.status_code} {resp.text}"
                 )
 
             results = resp.json()
             chunks_data = results.get("chunks", [])
             html_text = results.get("html_text", "")
-            
-            print(f"Docling processing successful. Got {len(chunks_data)} chunks, HTML text length: {len(html_text)}")
 
-            # Update document content
             db_document = session.get(Document, document_id)
             if not db_document:
                 raise RuntimeError("Document not found after creation")
 
+            # Update content
             db_document.content = html_text
             session.add(db_document)
             session.commit()
             session.refresh(db_document)
 
             # Persist chunks
-            for chunk_data in chunks_data:
-                db_chunk = Chunk(**chunk_data)
+            for chunk in chunks_data:
+                db_chunk = Chunk(**chunk)
                 db_chunk.document_id = document_id
                 session.add(db_chunk)
             session.commit()
@@ -247,13 +239,7 @@ async def process_document_upload(
             print(
                 f"Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
             )
-            
-        except httpx.ConnectError as e:
-            print(f"Cannot connect to Docling service at {DOCLING_SERVE_API_URL}: {e}")
-            raise RuntimeError(f"Cannot connect to document processing service: {e}")
-        except httpx.TimeoutException as e:
-            print(f"Docling service timeout: {e}")
-            raise RuntimeError("Document processing service timeout")
         except Exception as e:
-            print(f"Unexpected error during document processing: {e}")
+            session.rollback()
+            print(f"Error processing document {document_id}: {e}")
             raise

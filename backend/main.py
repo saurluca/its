@@ -60,11 +60,11 @@ except ValueError as e:
         raise
 
 # Include all routers
-app.include_router(router)  # health check and root endpoints
-app.include_router(auth_router)
-app.include_router(repositories_router)
-app.include_router(tasks_router)
-app.include_router(documents_router)
-app.include_router(skills_router)
-app.include_router(units_router)
-app.include_router(reports_router)
+app.include_router(router, prefix="/api")  # health check and root endpoints
+app.include_router(auth_router, prefix="/api")
+app.include_router(repositories_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")
+app.include_router(skills_router, prefix="/api")
+app.include_router(units_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")

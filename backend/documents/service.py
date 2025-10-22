@@ -145,15 +145,6 @@ async def process_document_upload(
     content_type: str,
     flatten_pdf: bool,
 ):
-    """Process an uploaded document inline.
-
-    - Calls Docling service
-    - Stores content and chunks
-    - Generates summary and title
-    - Marks important chunks
-    """
-    print(f"Start processing document {filename} ({document_id})...")
-    print(f"Flatten pdf status: {flatten_pdf}")
     DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
     if not DOCLING_SERVE_API_URL:
         raise RuntimeError("DOCLING_SERVE_API_URL not configured")
@@ -161,36 +152,34 @@ async def process_document_upload(
     engine = get_database_engine()
     with Session(engine) as session:
         try:
-            async with httpx.AsyncClient(timeout=None) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 resp = await client.post(
                     f"{DOCLING_SERVE_API_URL}/process",
-                    files={
-                        "file": (
-                            filename,
-                            file_bytes,
-                            content_type,
-                        )
-                    },
+                    files={"file": (filename, file_bytes, content_type)},
                     params={
                         "filename": filename,
                         "flatten_pdf": str(bool(flatten_pdf)).lower(),
                     },
                 )
 
+            print(f"Docling response status: {resp.status_code}")
+
             if resp.status_code != 200:
+                error_detail = resp.text[:500]
+                print(f"Docling processing failed: {resp.status_code} - {error_detail}")
                 raise RuntimeError(
-                    f"Docling processing failed: {resp.status_code} {resp.text}"
+                    f"Docling processing failed: {resp.status_code} - {error_detail}"
                 )
 
             results = resp.json()
             chunks_data = results.get("chunks", [])
             html_text = results.get("html_text", "")
 
+            # Update document content
             db_document = session.get(Document, document_id)
             if not db_document:
                 raise RuntimeError("Document not found after creation")
 
-            # Update content
             db_document.content = html_text
             session.add(db_document)
             session.commit()
@@ -222,7 +211,6 @@ async def process_document_upload(
 
             # Filter important chunks
             print(f"Filtering important chunks for document {document_id}...")
-
             chunks = session.exec(
                 sql_select(Chunk).where(Chunk.document_id == document_id)
             ).all()
@@ -236,9 +224,16 @@ async def process_document_upload(
                 session.add(chunk)
             session.commit()
 
-            print(
-                f"Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
-            )
+            print(f"Finished processing document {document_id}")
+
+        except httpx.ConnectError as e:
+            session.rollback()
+            print(f"Cannot connect to Docling service: {e}")
+            raise RuntimeError(f"Cannot connect to document processing service")
+        except httpx.TimeoutException as e:
+            session.rollback()
+            print(f"Docling service timeout: {e}")
+            raise RuntimeError("Document processing timeout - file may be too large")
         except Exception as e:
             session.rollback()
             print(f"Error processing document {document_id}: {e}")

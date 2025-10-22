@@ -1,4 +1,3 @@
-import { useAuthStore } from "~/stores/auth";
 
 export const useAuth = () => {
   const authStore = useAuthStore();
@@ -21,23 +20,44 @@ export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
-  // Use the API base URL as configured (don't force HTTPS for localhost)
   const baseURL = config.public.apiBase;
 
-  const $authFetch = $fetch.create({
-    baseURL: baseURL,
-    onRequest({ options }) {
-      // Include credentials (cookies) in all requests
-      options.credentials = "include";
-    },
-    onResponseError({ response }) {
-      if (response.status === 401) {
-        authStore.logout();
+  const $authFetch = async (url: string, options: any = {}) => {
+    // Add /api prefix to relative URLs that need it
+    let finalUrl = url;
+    const apiEndpoints = [
+      '/repositories', '/documents', '/tasks', '/skills', 
+      '/units', '/reports', '/users', '/token', '/logout'
+    ];
+    
+    if (url.startsWith('/') && !url.startsWith('/api')) {
+      if (apiEndpoints.some(endpoint => url.startsWith(endpoint))) {
+        finalUrl = '/api' + url;
       }
-    },
-  });
+    }
+
+    // Prepare headers - don't set Content-Type for FormData
+    const headers: Record<string, string> = { ...options.headers };
+    
+    // Only set Content-Type to application/json if:
+    // 1. Not already set by caller
+    // 2. Body is not FormData
+    // 3. Body exists and is not undefined
+    if (!headers['Content-Type'] && 
+        !(options.body instanceof FormData) && 
+        options.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    return await $fetch(finalUrl, {
+      baseURL: baseURL,
+      credentials: "include",
+      ...options,
+      headers,
+    });
+  };
 
   return {
-    $authFetch: $authFetch as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    $authFetch: $authFetch as any,
   };
 };

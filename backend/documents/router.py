@@ -91,40 +91,52 @@ async def upload_and_chunk_document(
 ):
     """
     Upload a document and process it inline. Returns the fully processed document.
-    No background tasks or websockets.
     """
-    if not DOCLING_SERVE_API_URL:
-        raise HTTPException(
-            status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
+    try:
+        if not DOCLING_SERVE_API_URL:
+            raise HTTPException(
+                status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
+            )
+
+        # Create initial document row
+        document = Document(
+            title=file.filename,
+            content="",
+            source_file=file.filename,
+        )
+        session.add(document)
+        session.commit()
+        session.refresh(document)
+
+        # Read file content and process inline
+        file_bytes = await file.read()
+        filename = file.filename
+        content_type = file.content_type or "application/octet-stream"
+
+        # Run processing
+        await process_document_upload(
+            document.id,
+            file_bytes,
+            filename,
+            content_type,
+            flatten_pdf,
         )
 
-    # Create initial document row so we have an ID and basic metadata
-    document = Document(
-        title=file.filename,
-        content="",
-        source_file=file.filename,
-    )
-    session.add(document)
-    session.commit()
-    session.refresh(document)
+        # Reload the document after processing
+        session.refresh(document)
+        return document
 
-    # Read file content and process inline (async)
-    file_bytes = await file.read()
-    filename = file.filename
-    content_type = file.content_type or "application/octet-stream"
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Log the actual error
+        print(f"Error in document upload: {str(e)}")
+        import traceback
 
-    # Run processing (async IO + threadpool for blocking parts)
-    await process_document_upload(
-        document.id,
-        file_bytes,
-        filename,
-        content_type,
-        flatten_pdf,
-    )
-
-    # Reload the document after processing
-    session.refresh(document)
-    return document
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process document: {str(e)}"
+        )
 
 
 # Removed websocket endpoint for simplicity

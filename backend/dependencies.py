@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 import dspy
 from sqlmodel import Session, create_engine
+from sqlalchemy.orm import sessionmaker
 from config import DatabaseConfig
 from dotenv import load_dotenv
 
@@ -10,6 +11,7 @@ load_dotenv()
 
 # Create engine using configuration
 engine = create_engine(DatabaseConfig.get_database_url(), echo=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db_session():

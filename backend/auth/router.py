@@ -19,7 +19,7 @@ from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session
 
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/token")

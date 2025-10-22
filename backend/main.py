@@ -77,7 +77,6 @@ app.add_middleware(
 # Initialize and configure DSPy language model
 try:
     LLMConfig.configure_dspy()
-    print("LLM configured successfully")
 except ValueError as e:
     # Allow backend to start without LLM in CI/test environments
     if "No LLM configured" in str(e):
@@ -90,7 +89,7 @@ except ValueError as e:
 # Include all routers with a common prefix
 app.include_router(router)  # health check and root endpoints
 app.include_router(auth_router, prefix="/api")
-app.include_router(repositories_router, prefix="/api")
+app.include_router(repositories_router)
 app.include_router(tasks_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")

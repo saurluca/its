@@ -148,7 +148,7 @@ async def process_document_upload(
     """Process an uploaded document inline."""
     print(f"Start processing document {filename} ({document_id})...")
     print(f"Flatten pdf status: {flatten_pdf}")
-    
+
     DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
     if not DOCLING_SERVE_API_URL:
         raise RuntimeError("DOCLING_SERVE_API_URL not configured")
@@ -158,29 +158,27 @@ async def process_document_upload(
     engine = get_database_engine()
     with Session(engine) as session:
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 print(f"Sending request to Docling service...")
-                
+
                 # Prepare the request - filename as query parameter, not form data
-                files = {
-                    "file": (filename, file_bytes, content_type)
-                }
+                files = {"file": (filename, file_bytes, content_type)}
                 params = {  # This becomes query parameters
                     "filename": filename,
                     "flatten_pdf": str(bool(flatten_pdf)).lower(),
                 }
-                
+
                 print(f"Request details: files={list(files.keys())}, params={params}")
-                
+
                 resp = await client.post(
                     f"{DOCLING_SERVE_API_URL}/process",
                     files=files,
                     params=params,  # Use params for query parameters
-                    timeout=30.0
+                    timeout=60.0,
                 )
 
             print(f"Docling response status: {resp.status_code}")
-            
+
             if resp.status_code != 200:
                 error_detail = resp.text[:500]
                 print(f"Docling processing failed: {resp.status_code} - {error_detail}")
@@ -191,8 +189,10 @@ async def process_document_upload(
             results = resp.json()
             chunks_data = results.get("chunks", [])
             html_text = results.get("html_text", "")
-            
-            print(f"Docling processing successful. Got {len(chunks_data)} chunks, HTML text length: {len(html_text)}")
+
+            print(
+                f"Docling processing successful. Got {len(chunks_data)} chunks, HTML text length: {len(html_text)}"
+            )
 
             # Update document content
             db_document = session.get(Document, document_id)
@@ -247,7 +247,7 @@ async def process_document_upload(
             print(
                 f"Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
             )
-            
+
         except httpx.ConnectError as e:
             print(f"Cannot connect to Docling service at {DOCLING_SERVE_API_URL}: {e}")
             raise RuntimeError(f"Cannot connect to document processing service: {e}")

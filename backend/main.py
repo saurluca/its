@@ -87,9 +87,8 @@ except ValueError as e:
         raise
 
 # Include all routers with a common prefix
-app.include_router(router)  # health check and root endpoints
 app.include_router(auth_router, prefix="/api")
-app.include_router(repositories_router)
+app.include_router(repositories_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")

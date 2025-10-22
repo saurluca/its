@@ -29,7 +29,7 @@ export const useAuthStore = defineStore("auth", {
         formData.append("username", email);
         formData.append("password", password);
 
-        await $fetch<{ message: string }>(`${apiUrl}/api/token`, {
+        await $fetch<{ message: string }>(`${apiUrl}/token`, {
           method: "POST",
           body: formData,
           credentials: "include", // Include cookies in the request
@@ -69,7 +69,7 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        await $fetch(`${apiUrl}/api/users`, {
+        await $fetch(`${apiUrl}/users`, {
           method: "POST",
           body: userData,
         });
@@ -97,7 +97,7 @@ export const useAuthStore = defineStore("auth", {
       const apiUrl = config.public.apiBase;
 
       try {
-        const user = await $fetch<User>(`${apiUrl}/api/users/me`, {
+        const user = await $fetch<User>(`${apiUrl}/users/me`, {
           credentials: "include", // Include cookies in the request
           headers: {
             'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         // Call logout endpoint to clear cookie
-        await $fetch(`${apiUrl}/api/logout`, {
+        await $fetch(`${apiUrl}/logout`, {
           method: "POST",
           credentials: "include",
         });

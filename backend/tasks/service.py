@@ -318,7 +318,10 @@ def generate_tasks(
     print(f"Generated {len(tasks)} unique tasks in {end_time - start_time} seconds")
 
     if not tasks:
-        raise Exception("No tasks could be generated from the provided chunks")
+        print(
+            f"Warning: No tasks could be generated from the provided chunks for document {document_id}"
+        )
+        return []
 
     return tasks
 

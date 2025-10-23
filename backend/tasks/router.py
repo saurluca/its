@@ -482,6 +482,11 @@ async def generate_tasks_for_documents(
     Runs inline (awaited) and returns the created tasks. No polling or background jobs.
     Requires WRITE access to the repository that contains the unit.
     """
+    print(f"[api] Starting task generation for unit {request.unit_id}")
+    print(
+        f"[api] Request: {request.num_tasks} {request.task_type} tasks from {len(request.document_ids)} documents"
+    )
+
     # Validate max tasks limit
     if request.num_tasks > 50:
         raise HTTPException(
@@ -517,6 +522,8 @@ async def generate_tasks_for_documents(
         set(existing_question_rows) if existing_question_rows else set()
     )
 
+    print(f"[api] Found {len(forbidden_questions)} existing questions to avoid")
+
     created_tasks: list[Task] = []
 
     # Normalize task type to string for generator
@@ -528,34 +535,61 @@ async def generate_tasks_for_documents(
 
     # For each document, generate tasks and persist
     for document_id in request.document_ids:
+        print(f"[api] Processing document {document_id}")
+
         chunks_for_doc: list[Chunk] = session.exec(
             select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
         ).all()
 
-        if not chunks_for_doc:
-            continue
-
-        lm = get_large_llm_no_cache()
-        generated: list[Task] = await asyncio.to_thread(
-            generate_tasks,
-            document_id,
-            chunks_for_doc,
-            lm,
-            request.num_tasks,
-            task_type_value,
-            forbidden_questions,
+        print(
+            f"[api] Found {len(chunks_for_doc)} important chunks for document {document_id}"
         )
 
-        for task in generated:
-            session.add(task)
-            session.flush()
-            session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
-            if task.question:
-                forbidden_questions.add(task.question)
-            created_tasks.append(task)
+        if not chunks_for_doc:
+            print(
+                f"[api] No important chunks found for document {document_id}, skipping"
+            )
+            continue
+
+        try:
+            lm = get_large_llm_no_cache()
+            print(
+                f"[api] Generating {request.num_tasks} tasks for document {document_id}"
+            )
+
+            generated: list[Task] = await asyncio.to_thread(
+                generate_tasks,
+                document_id,
+                chunks_for_doc,
+                lm,
+                request.num_tasks,
+                task_type_value,
+                forbidden_questions,
+            )
+
+            print(f"[api] Generated {len(generated)} tasks for document {document_id}")
+
+            for task in generated:
+                session.add(task)
+                session.flush()
+                session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
+                if task.question:
+                    forbidden_questions.add(task.question)
+                created_tasks.append(task)
+
+        except Exception as e:
+            print(f"[api] Error generating tasks for document {document_id}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            # Continue with other documents even if one fails
+            continue
 
     if created_tasks:
         session.commit()
+        print(f"[api] Successfully created and committed {len(created_tasks)} tasks")
+    else:
+        print(f"[api] No tasks were created")
 
     return created_tasks
 

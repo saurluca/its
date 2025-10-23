@@ -15,44 +15,10 @@ const notifications = useNotificationsStore();
 
 type AccessLevel = 'read' | 'write' | 'owner';
 
-// Utility functions
-const getTaskTypeLabel = (type: string): string => 
-  type === "multiple_choice" ? "multiple choice" : "free text";
-
 function hasWriteAccess(repo: Repository & { access_level?: AccessLevel }) {
   const level = repo.access_level as AccessLevel | undefined;
   return level === 'write' || level === 'owner';
 }
-
-// Helper function for development logging
-const devLog = (message: string, ...args: any[]) => {
-  if (import.meta.env.DEV) {
-    console.log(message, ...args);
-  }
-};
-
-
-// Helper function to normalize task data
-const normalizeTask = (task: Task): Task => ({
-  ...task,
-  id: task.id,
-  type: task.type,
-  question: task.question,
-  answer_options: task.answer_options || [],
-  repository_id: task.repository_id || "",
-  document_id: task.document_id || "",
-  chunk_id: task.chunk_id || "",
-  created_at: new Date(task.created_at),
-  updated_at: new Date(task.updated_at),
-});
-
-
-// Helper function to merge tasks without duplicates
-const mergeTasksWithoutDuplicates = (existingTasks: Task[], newTasks: Task[]): Task[] => {
-  const existingIds = new Set(existingTasks.map(t => t.id));
-  const uniqueNewTasks = newTasks.filter(t => !existingIds.has(t.id));
-  return [...uniqueNewTasks, ...existingTasks];
-};
 
 // Keep repo list for generation modal context; compute when needed to avoid unused var
 const _writableRepositories = computed<Repository[]>(() =>
@@ -88,92 +54,53 @@ async function onGenerateTasksConfirm(params: {
   numTasks: number;
   taskType: "multiple_choice" | "free_text";
 }) {
-  devLog("Starting task generation in background");
+  console.log("Starting task generation in background");
 
   // Close modal immediately
   showGenerateTasksModal.value = false;
 
   const repository = selectedRepositoryForTasks.value;
-  if (!repository || !selectedUnitId.value) {
-    notifications.error("No repository or unit selected.")
-    return;
-  }
+  if (!repository || !selectedUnitId.value) return;
 
   const repositoryName = repository.name;
-  const taskTypeText = getTaskTypeLabel(params.taskType);
+  const taskTypeText = params.taskType === "multiple_choice" ? "multiple choice" : "free text";
   const processingId = notifications.loading(
     `Generating ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}" from ${params.documentIds.length} document${params.documentIds.length === 1 ? "" : "s"}. This may take a while.`
   );
 
   try {
-    // Store initial state for polling comparison
-    const initialTaskCount = tasks.value.length;
-    const generationStartTime = new Date();
+    const createdTasks = await $authFetch("/tasks/generate_for_documents", {
+      method: "POST",
+      body: {
+        unit_id: selectedUnitId.value,
+        document_ids: params.documentIds,
+        num_tasks: params.numTasks,
+        task_type: params.taskType,
+      },
+    }) as Task[];
 
-    //Retry logic for network issues
-    const maxRetries = 2;
-    let response;
-
-    for (let retry = 0; retry <= maxRetries; retry++) {
-      try {
-        response = await $authFetch("/tasks/generate_for_documents", {
-          method: "POST",
-          body: {
-            unit_id: selectedUnitId.value,
-            document_ids: params.documentIds,
-            num_tasks: params.numTasks,
-            task_type: params.taskType,
-          },
-        });
-        break; // Success, exit retry loop
-      } catch (error) {
-        if (retry === maxRetries) throw error;
-        await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
-        devLog(`Retry ${retry + 1} for task generation`);
-      }
-    }
     notifications.remove(processingId);
+    notifications.success(`Successfully generated ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}"!`);
 
-    // Handle different response structures
-    let createdTasks = await handleTaskGenerationResponse(
-      response,
-      selectedUnitId.value,
-      initialTaskCount,
-      generationStartTime
-    );
-
-    // Update UI with new tasks
-    if (createdTasks.length > 0) {
-      const normalized = createdTasks.map(normalizeTask);
-      tasks.value = mergeTasksWithoutDuplicates(tasks.value, normalized);
-      notifications.success(`Successfully generated ${createdTasks.length} ${taskTypeText} tasks for "${repositoryName}"!`);
-      devLog("Added tasks:", normalized.length, "Total tasks:", tasks.value.length);
+    // Add the created tasks to the list
+    if (Array.isArray(createdTasks) && createdTasks.length > 0) {
+      const normalized = createdTasks.map((task: Task) => ({
+        ...task,
+        created_at: new Date(task.created_at),
+        updated_at: new Date(task.updated_at),
+        answer_options: task.answer_options || [],
+      })) as Task[];
+      tasks.value = [...normalized, ...tasks.value];
+      console.log("tasks", tasks.value);
     } else {
-      // If no tasks returned, refetch from server
-      await fetchTasksByUnit(selectedUnitId.value);
-      const newTaskCount = tasks.value.length - initialTaskCount;
-      if (newTaskCount > 0) {
-        notifications.success(`Task generation completed. Found ${newTaskCount} new tasks for this unit.`);
-      } else {
-        notifications.warning("Task generation completed but no new tasks were found.");
-      }
+      // Fallback: refetch tasks if no tasks returned
+      if (selectedUnitId.value) await fetchTasksByUnit(selectedUnitId.value);
+      else await fetchAllTasks();
     }
-
   } catch (error) {
     console.error("Error generating tasks:", error);
     notifications.remove(processingId);
-    
-    // Always try to refetch to show current state
-    try {
-      await fetchTasksByUnit(selectedUnitId.value);
-      notifications.warning(
-        `Task generation encountered an issue, but ${tasks.value.length} tasks are available.`
-      );
-    } catch (refetchError) {
-      notifications.error(
-        `Failed to generate tasks for "${repositoryName}". Please refresh the page.`
-      );
-    }
+    notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
   }
 }
 
@@ -214,7 +141,18 @@ const filteredTasks = computed(() => tasks.value);
 async function fetchAllTasks() {
   try {
     const response = await $authFetch("/tasks") as Task[];
-    tasks.value = response.map(normalizeTask);
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching all tasks:", error);
   }
@@ -233,7 +171,18 @@ onMounted(async () => {
       ]) as [Task[], { repositories?: Repository[] } | Repository[], Unit[], ApiDocument[]];
 
     // Default to all tasks; may be overridden by route-based filtering below
-    tasks.value = (tasksResponse || []).map(normalizeTask);
+    tasks.value = (tasksResponse || []).map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
 
     repositoriesList.value = ('repositories' in repositoriesResponse ? repositoriesResponse.repositories : repositoriesResponse) as Repository[];
     unitsList.value = (unitsResponse || []) as Unit[];
@@ -281,160 +230,41 @@ onUnmounted(() => {
 async function fetchTasksByDocument(documentId: string) {
   try {
     const response = await $authFetch(`/tasks/document/${documentId}`) as Task[];
-    tasks.value = response.map(normalizeTask);
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching tasks by document:", error);
   }
 }
 
-// Main response handler for different backend patterns
-async function handleTaskGenerationResponse(
-  response: any,
-  unitId: string,
-  initialTaskCount: number,
-  generationStartTime: Date
-): Promise<Task[]> {
-  devLog("Raw response from task generation:", response);
-  devLog("Response type:", typeof response);
-  
-  if (response && typeof response === 'object') {
-    devLog("Response keys:", Object.keys(response));
-  }
-
-  // Case 1: Direct array of tasks (local dev behavior)
-  if (Array.isArray(response)) {
-    devLog("Case 1: Direct array of tasks");
-    return response;
-  }
-
-  // Case 2: Wrapped in { tasks: [...] } object
-  if (response?.tasks && Array.isArray(response.tasks)) {
-    devLog("Case 2: Wrapped tasks array");
-    return response.tasks;
-  }
-
-  // Case 3: Only task IDs returned - fetch the actual tasks
-  if (response?.task_ids && Array.isArray(response.task_ids)) {
-    devLog("Case 3: Task IDs array", response.task_ids);
-    return await fetchTasksByIds(response.task_ids);
-  }
-
-  // Case 4: Background job started - poll for completion
-  if (response?.status === 202 || response?.message) {
-    devLog("Case 4: Background job started");
-    return await pollForGeneratedTasks(unitId, initialTaskCount, generationStartTime);
-  }
-
-  // Case 5: Unexpected response format
-  devLog("Case 5: Unexpected response format, falling back to refetch");
-  console.warn("Unexpected response format:", response);
-  return await fetchTasksByUnit(unitId, true); // Force refetch
-}
-
-// Polling with timeout and exponential backoff
-async function pollForGeneratedTasks(
-  unitId: string,
-  initialTaskCount: number,
-  generationStartTime: Date,
-  maxAttempts = 20, // Increased for production
-  initialIntervalMs = 2000
-): Promise<Task[]> {
-  const startTime = Date.now();
-  const maxDuration = 120000; // 2 minute hard limit
-  
-  devLog(`Starting polling for unit ${unitId}, initial tasks: ${initialTaskCount}`);
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Check timeout
-    if (Date.now() - startTime > maxDuration) {
-      console.warn("Polling timeout reached after 2 minutes");
-      break;
-    }
-
-    // Exponential backoff with jitter
-    const delay = Math.min(initialIntervalMs * Math.pow(1.5, attempt), 10000);
-    const jitter = Math.random() * 1000; // Add jitter to avoid thundering herd
-    await new Promise(resolve => setTimeout(resolve, delay + jitter));
-
-    try {
-      const currentTasks = await fetchTasksByUnit(unitId, true);
-      
-      // Look for tasks created AFTER generation started
-      const newTasks = currentTasks.filter(task => {
-        const taskCreatedAt = new Date(task.created_at);
-        return taskCreatedAt > generationStartTime;
-      });
-
-      devLog(`Polling attempt ${attempt + 1}: Found ${newTasks.length} new tasks`);
-
-      if (newTasks.length > 0) {
-        devLog(`Polling completed: Found ${newTasks.length} new tasks`);
-        return newTasks;
-      }
-
-      // Alternative check: if total count increased (with safety margin)
-      if (currentTasks.length > initialTaskCount) {
-        const likelyNewTasks = currentTasks.slice(0, currentTasks.length - initialTaskCount);
-        devLog(`Polling completed: Found ${likelyNewTasks.length} tasks by count comparison`);
-        return likelyNewTasks;
-      }
-
-    } catch (error) {
-      console.error(`Polling attempt ${attempt + 1} failed:`, error);
-      // Continue polling despite errors
-    }
-  }
-
-  devLog("No new tasks found after polling");
-  return [];
-}
-
-// Function to fetch tasks by Id
-async function fetchTasksByIds(taskIds: string[]): Promise<Task[]> {
-  if (!taskIds.length) return [];
-
-  devLog(`Fetching ${taskIds.length} tasks by IDs`);
-
-  try {
-    const tasksPromises = taskIds.map(async (id) => {
-      try {
-        const task = await $authFetch(`/tasks/${id}`);
-        return task ? normalizeTask(task as Task) : null;
-      } catch (error) {
-        console.error(`Failed to fetch task ${id}:`, error);
-        return null;
-      }
-    });
-
-    const tasksResults = await Promise.all(tasksPromises);
-    const validTasks = tasksResults.filter(Boolean) as Task[];
-    
-    devLog(`Successfully fetched ${validTasks.length}/${taskIds.length} tasks`);
-    return validTasks;
-
-  } catch (error) {
-    console.error("Error fetching tasks by IDs:", error);
-    return [];
-  }
-}
-
-
 // Function to fetch tasks by unit
-async function fetchTasksByUnit(unitId: string, forceRefetch = false): Promise<Task[]> {
-  if (!unitId) return [];
-
+async function fetchTasksByUnit(unitId: string) {
   try {
     const response = await $authFetch(`/tasks/unit/${unitId}`) as Task[];
-    const fetchedTasks = response.map(normalizeTask);
-    
-    if (forceRefetch) {
-      tasks.value = fetchedTasks;
-    }
-    
-    return fetchedTasks;
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching tasks by unit:", error);
-    return [];
   }
 }
 
@@ -475,6 +305,7 @@ async function deleteTask(id: string) {
   }
 }
 
+
 function handleUpdateTask(updatedTask: Task) {
   const index = tasks.value.findIndex((t) => t.id === updatedTask.id);
   if (index !== -1) {
@@ -501,6 +332,8 @@ function handleKeydown(event: KeyboardEvent) {
     closeTryTask();
   }
 }
+
+// Removed polling; tasks are returned by the backend and injected immediately
 
 async function evaluateAnswer() {
   if (!previewingTask.value || currentAnswer.value === null || currentAnswer.value === "") {

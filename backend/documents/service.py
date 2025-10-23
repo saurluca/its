@@ -181,7 +181,7 @@ async def process_document_upload(
                 message="Sending document to text extraction service",
                 payload={"step": "docling"},
             )
-            async with httpx.AsyncClient(timeout=None) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 resp = await client.post(
                     f"{DOCLING_SERVE_API_URL}/process",
                     files={

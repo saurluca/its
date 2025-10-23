@@ -24,7 +24,6 @@ export const useAuthenticatedFetch = () => {
 
   const $authFetch = $fetch.create({
     baseURL: baseURL,
-    timeout: 300000, // 5 minutes for document processing endpoints
     onRequest({ options }) {
       options.credentials = "include";
     },

@@ -2,6 +2,14 @@ from .models import Chunk, Document
 import dspy
 from constants import MAX_TITLE_LENGTH
 import os
+import asyncio
+import tempfile
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 import httpx
 from uuid import UUID
 from sqlmodel import Session
@@ -9,6 +17,55 @@ from starlette.concurrency import run_in_threadpool
 from dependencies import get_database_engine, get_large_llm, get_small_llm
 from sqlmodel import select as sql_select
 from .events import document_events_manager
+
+# Configure httpx timeout
+DOCLING_TIMEOUT = httpx.Timeout(
+    connect=10.0,
+    read=600.0,  # 10 minutes for large documents
+    write=30.0,
+    pool=10.0,
+)
+
+DOCLING_LIMITS = httpx.Limits(
+    max_keepalive_connections=5,
+    max_connections=10,
+    keepalive_expiry=30.0,
+)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=2, min=4, max=60),
+    retry=retry_if_exception_type(
+        (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError)
+    ),
+    reraise=True,
+)
+async def call_docling_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    file_data: tuple,
+    params: dict,
+) -> httpx.Response:
+    """Call Docling service with automatic retry on network errors."""
+    print(f"[bg] Calling Docling service at {url}")
+    return await client.post(url, files={"file": file_data}, params=params)
+
+
+async def send_progress_heartbeat(document_id: UUID, max_duration: int = 600):
+    """Send periodic status updates during long-running processing."""
+    elapsed = 0
+    interval = 30  # Send update every 30 seconds
+
+    while elapsed < max_duration:
+        await asyncio.sleep(interval)
+        elapsed += interval
+        await document_events_manager.broadcast_status(
+            document_id,
+            status="processing",
+            message=f"Processing document... ({elapsed}s elapsed)",
+            payload={"step": "docling", "elapsed_seconds": elapsed},
+        )
 
 
 # summarises a document
@@ -146,24 +203,20 @@ async def process_document_upload(
     content_type: str,
     flatten_pdf: bool,
 ):
-    """Background task to process an uploaded document.
-
-    - Calls Docling service
-    - Stores content and chunks
-    - Generates summary and title
-    - Marks important chunks
-    """
+    """Background task to process an uploaded document."""
     print(f"[bg] Start processing document {filename} ({document_id})...")
     print(f"Flatten pdf status: {flatten_pdf}")
+
     await document_events_manager.broadcast_status(
         document_id,
         status="processing",
         message="Starting document processing",
         payload={"step": "start"},
     )
+
     DOCLING_SERVE_API_URL = os.getenv("DOCLING_SERVE_API_URL")
     if not DOCLING_SERVE_API_URL:
-        print("[bg] DOCLING_SERVE_API_URL not configured; aborting document processing")
+        print("[bg] DOCLING_SERVE_API_URL not configured")
         await document_events_manager.broadcast_status(
             document_id,
             status="error",
@@ -173,6 +226,7 @@ async def process_document_upload(
         return
 
     engine = get_database_engine()
+
     with Session(engine) as session:
         try:
             await document_events_manager.broadcast_status(
@@ -181,34 +235,42 @@ async def process_document_upload(
                 message="Sending document to text extraction service",
                 payload={"step": "docling"},
             )
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                resp = await client.post(
-                    f"{DOCLING_SERVE_API_URL}/process",
-                    files={
-                        "file": (
-                            filename,
-                            file_bytes,
-                            content_type,
-                        )
-                    },
-                    params={
-                        "filename": filename,
-                        "flatten_pdf": str(bool(flatten_pdf)).lower(),
-                    },
-                )
+
+            # Create heartbeat task for progress updates
+            heartbeat_task = asyncio.create_task(
+                send_progress_heartbeat(document_id, max_duration=600)
+            )
+
+            try:
+                async with httpx.AsyncClient(
+                    timeout=DOCLING_TIMEOUT,
+                    limits=DOCLING_LIMITS,
+                ) as client:
+                    # Call with retry logic
+                    resp = await call_docling_with_retry(
+                        client,
+                        f"{DOCLING_SERVE_API_URL}/process",
+                        (filename, file_bytes, content_type),
+                        {
+                            "filename": filename,
+                            "flatten_pdf": str(bool(flatten_pdf)).lower(),
+                        },
+                    )
+            finally:
+                # Stop heartbeat
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
 
             if resp.status_code != 200:
-                print(
-                    f"[bg] Docling processing failed for {document_id}: {resp.status_code} {resp.text}"
-                )
+                print(f"[bg] Docling failed for {document_id}: {resp.status_code}")
                 await document_events_manager.broadcast_status(
                     document_id,
                     status="error",
-                    message="Document processing failed during text extraction.",
-                    payload={
-                        "step": "docling",
-                        "status_code": resp.status_code,
-                    },
+                    message=f"Document processing failed (status {resp.status_code})",
+                    payload={"step": "docling", "status_code": resp.status_code},
                 )
                 return
 
@@ -222,16 +284,16 @@ async def process_document_upload(
                 await document_events_manager.broadcast_status(
                     document_id,
                     status="error",
-                    message="Uploaded document reference was not found.",
+                    message="Document reference not found.",
                     payload={"step": "database"},
                 )
                 return
 
-            # Update content
+            # Store content
             await document_events_manager.broadcast_status(
                 document_id,
                 status="processing",
-                message="Storing extracted document content",
+                message="Storing extracted content",
                 payload={"step": "persist_content"},
             )
             db_document.content = html_text
@@ -246,7 +308,7 @@ async def process_document_upload(
                 session.add(db_chunk)
             session.commit()
 
-            # Summarize and title generation
+            # Generate summary
             print(f"[bg] Summarising document {document_id}...")
             await document_events_manager.broadcast_status(
                 document_id,
@@ -261,6 +323,7 @@ async def process_document_upload(
             )
             db_document.summary = summary_result.summary
 
+            # Generate title
             print(f"[bg] Generating title for document {document_id}...")
             await document_events_manager.broadcast_status(
                 document_id,
@@ -297,9 +360,7 @@ async def process_document_upload(
                 session.add(chunk)
             session.commit()
 
-            print(
-                f"[bg] Finished processing document {document_id}. Marked {len(result['unimportant_chunks_ids'])} chunks as unimportant"
-            )
+            print(f"[bg] Finished processing document {document_id}")
             await document_events_manager.broadcast_status(
                 document_id,
                 status="completed",
@@ -312,6 +373,27 @@ async def process_document_upload(
                     - result["num_of_unimportant_chunks"],
                 },
             )
+
+        except httpx.TimeoutException as e:
+            session.rollback()
+            print(f"[bg] Timeout processing document {document_id}: {e}")
+            await document_events_manager.broadcast_status(
+                document_id,
+                status="error",
+                message="Document processing timed out. The file may be too large or complex.",
+                payload={"step": "timeout", "detail": str(e)},
+            )
+
+        except (httpx.ConnectError, httpx.ReadError) as e:
+            session.rollback()
+            print(f"[bg] Connection error processing document {document_id}: {e}")
+            await document_events_manager.broadcast_status(
+                document_id,
+                status="error",
+                message="Failed to connect to document processing service.",
+                payload={"step": "connection_error", "detail": str(e)},
+            )
+
         except Exception as e:
             session.rollback()
             print(f"[bg] Error processing document {document_id}: {e}")

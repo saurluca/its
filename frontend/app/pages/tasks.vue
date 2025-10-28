@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
-import { PlusIcon } from "lucide-vue-next";
+import { PlusIcon, EyeIcon, EyeOffIcon} from "lucide-vue-next";
 import type { Task, Repository, Unit, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
+import {useLocalStorage} from "@vueuse/core";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -14,6 +15,53 @@ const documentsList = ref<{ value: string; label: string }[]>([]);
 const notifications = useNotificationsStore();
 
 type AccessLevel = 'read' | 'write' | 'owner';
+
+// ---------------------- Visibility -------------------------
+
+// Feature flag for unit visibility toggle
+const UNIT_VISIBILITY_FEATURE_ENABLED = false; // Set to false to disable the feature, true to enable
+
+// Add unit visibility state 
+const visibleUnits = useLocalStorage<Set<string>>("repository_visible_units", new Set());
+
+// Add a new ref to track tasks by unit for counting purposes
+const tasksByUnit = ref<Record<string, Task[]>>({});
+
+// Toggle individual unit visibility
+const toggleUnitVisibility = (unitId: string) => {
+  const newVisible = new Set(visibleUnits.value);
+  if (newVisible.has(unitId)) {
+    newVisible.delete(unitId);
+  } else {
+    newVisible.add(unitId);
+  }
+  visibleUnits.value = newVisible;
+};
+
+// Check if a specific unit is visible
+const isUnitVisible = (unitId: string) => {
+  return visibleUnits.value.has(unitId);
+};
+
+// Show/hide all units
+const showAllUnits = () => {
+  const allUnitIds = new Set(availableUnits.value.map(unit => unit.id));
+  visibleUnits.value = allUnitIds;
+};
+
+const hideAllUnits = () => {
+  visibleUnits.value = new Set();
+};
+
+// Filter available units based on visibility
+const visibleAvailableUnits = computed(() => {
+  if (!UNIT_VISIBILITY_FEATURE_ENABLED) {
+    return availableUnits.value; // Show all units when feature is disabled
+  }
+  return availableUnits.value.filter(unit => isUnitVisible(unit.id));
+});
+
+// ---------------------- Utility -------------------------
 
 // Utility functions
 const getTaskTypeLabel = (type: string): string => 
@@ -230,7 +278,36 @@ if (documentIdFromRoute) {
 }
 
 // tasks are already filtered by the backend
-const filteredTasks = computed(() => tasks.value);
+const filteredTasks = computed(() => {
+  // If feature is disabled, show all tasks for selected unit or all units if none selected
+  if (!UNIT_VISIBILITY_FEATURE_ENABLED) {
+    if (!selectedUnitId.value) {
+      // Show all tasks if no unit is selected
+      return tasks.value;
+    }
+    // Show tasks for selected unit
+    return tasks.value;
+  }
+  
+  // If no unit is selected, show tasks from all visible units
+  if (!selectedUnitId.value) {
+    const visibleUnitIds = new Set(visibleAvailableUnits.value.map(unit => unit.id));
+    let allTasks: Task[] = [];
+    
+    // Collect tasks from all visible units
+    for (const unitId of visibleUnitIds) {
+      if (tasksByUnit.value[unitId]) {
+        allTasks = [...allTasks, ...tasksByUnit.value[unitId]];
+      }
+    }
+    
+    return allTasks;
+  }
+  
+  // If a specific unit is selected, only show its tasks if the unit is visible
+  const isSelectedUnitVisible = isUnitVisible(selectedUnitId.value);
+  return isSelectedUnitVisible ? tasks.value : [];
+});
 
 
 // Function to fetch all tasks
@@ -243,7 +320,7 @@ async function fetchAllTasks() {
   }
 }
 
-// Fetch tasks on page load
+// Fetch tasks on page load, also function populates tasksByUnit for all units
 onMounted(async () => {
   loading.value = true;
   try {
@@ -281,6 +358,13 @@ onMounted(async () => {
         selectedUnitId.value = firstUnitId;
         await router.replace({ query: { ...route.query, unitId: firstUnitId } });
         await fetchTasksByUnit(firstUnitId);
+      }
+    }
+    
+    // Fetch tasks for all units to populate tasksByUnit
+    for (const unit of availableUnits.value) {
+      if (unit.id) {
+        await fetchTasksByUnit(unit.id);
       }
     }
   } catch (error) {
@@ -473,7 +557,7 @@ async function fetchTasksByIds(taskIds: string[]): Promise<Task[]> {
 }
 
 
-// Function to fetch tasks by unit
+// Function to fetch tasks by unit, also populates by tasksByUnit
 async function fetchTasksByUnit(unitId: string, forceRefetch = false): Promise<Task[]> {
   if (!unitId) return [];
 
@@ -484,6 +568,9 @@ async function fetchTasksByUnit(unitId: string, forceRefetch = false): Promise<T
     if (forceRefetch) {
       tasks.value = fetchedTasks;
     }
+    
+    // Update tasksByUnit for counting purposes
+    tasksByUnit.value[unitId] = fetchedTasks;
     
     return fetchedTasks;
   } catch (error) {
@@ -639,13 +726,79 @@ function closeTryTask() {
   <div class="h-full max-w-4xl mx-auto mt-8">
     <DPageHeader title="Tasks" />
     <div class="bg-white p-6 rounded-lg shadow mb-4">
-      <h2 class="text-xl font-bold mb-4">Unit Filter</h2>
+      <h2 class="text-xl font-bold ">Unit Filter</h2>
+      
+      <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED" class="flex gap-2">
+          <!-- Bulk visibility controls -->
+          <DHamburgerMenu>
+            <template #default="{ close }">
+              <button @click="() => { showAllUnits(); close(); }"
+                      class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <EyeIcon class="h-4 w-4" />
+                Show All Units
+              </button>
+              <button @click="() => { hideAllUnits(); close(); }"
+                      class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <EyeOffIcon class="h-4 w-4" />
+                Hide All Units
+              </button>
+            </template>
+          </DHamburgerMenu>
+      </div>
 
       <div v-if="filterType === 'unit'">
-        <DSearchableDropdown v-model="selectedUnitId"
-          :options="availableUnits.map((unit) => ({ value: unit.id, label: unit.title }))" placeholder="Select a unit"
-          search-placeholder="Search units..." class="mt-1 w-full" />
+        <!-- Unit Dropdown with Visibility Indicators -->
+        <div class="space-y-2">
+          <DSearchableDropdown 
+            v-model="selectedUnitId"
+            :options="visibleAvailableUnits.map((unit) => ({ 
+              value: unit.id, 
+              label: unit.title,
+              disabled: UNIT_VISIBILITY_FEATURE_ENABLED ? !isUnitVisible(unit.id) : false
+            }))" 
+            placeholder="Select a unit"
+            search-placeholder="Search units..." 
+            class="mt-1 w-full" 
+          />
+
+          <!-- Unit Visibility Toggle List -->
+          <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED" class="mt-4 space-y-2 max-h-60 overflow-y-auto">
+            <div v-for="unit in availableUnits" 
+                :key="unit.id"
+                class="flex items-center justify-between p-2 rounded border border-gray-200"
+                :class="{ 'opacity-60': !isUnitVisible(unit.id) }">
+                <div class="flex items-center gap-3 flex-1">
+                  <button @click="toggleUnitVisibility(unit.id)" 
+                          class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <component :is="isUnitVisible(unit.id) ? EyeIcon : EyeOffIcon" class="h-4 w-4" />
+                  </button>
+                  <span class="text-sm font-medium truncate" :class="{ 'text-gray-400': !isUnitVisible(unit.id) }">
+                    {{ unit.title }}
+                  </span>
+                </div>
+                <span class="text-xs text-gray-500 ml-2 flex-shrink-0">
+                  {{ tasksByUnit[unit.id]?.length || 0 }} tasks
+                </span>
+            </div>
+          </div>
+        </div>
+      </div>  
+    </div>
+
+    <!-- Empty state when selected unit is hidden -->
+    <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED && selectedUnitId && !isUnitVisible(selectedUnitId)" 
+         class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center mb-4">
+      <div class="flex items-center justify-center gap-2 mb-2">
+        <EyeOffIcon class="h-5 w-5 text-yellow-600" />
+        <h3 class="text-lg font-medium text-yellow-800">Unit Hidden</h3>
       </div>
+      <p class="text-yellow-700 mb-4">
+        The selected unit is currently hidden. Show it to view its tasks.
+      </p>
+      <DButton @click="toggleUnitVisibility(selectedUnitId)" variant="primary">
+        <EyeIcon class="h-4 w-4 mr-2" />
+        Show This Unit
+      </DButton>
     </div>
 
     <div v-if="filteredTasks.length > 0" class="flex justify-start mb-4">

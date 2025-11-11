@@ -21,6 +21,10 @@ type AccessLevel = 'read' | 'write' | 'owner';
 // Feature flag for unit visibility toggle
 const UNIT_VISIBILITY_FEATURE_ENABLED = false; // Set to false to disable the feature, true to enable
 
+
+// Store HIDDEN units instead of visible ones
+const hiddenUnits = useLocalStorage<Set<string>>("repository_hidden_units", new Set());
+
 // Add unit visibility state 
 const visibleUnits = useLocalStorage<Set<string>>("repository_visible_units", new Set());
 
@@ -29,28 +33,29 @@ const tasksByUnit = ref<Record<string, Task[]>>({});
 
 // Toggle individual unit visibility
 const toggleUnitVisibility = (unitId: string) => {
-  const newVisible = new Set(visibleUnits.value);
-  if (newVisible.has(unitId)) {
-    newVisible.delete(unitId);
+  const newHidden = new Set(hiddenUnits.value);
+  if (newHidden.has(unitId)) {
+    newHidden.delete(unitId); // Show the unit
   } else {
-    newVisible.add(unitId);
+    newHidden.add(unitId); // Hide the unit
   }
-  visibleUnits.value = newVisible;
+  hiddenUnits.value = newHidden;
 };
 
-// Check if a specific unit is visible
+
+// Check if a specific unit is visible (returns true if NOT in hidden set)
 const isUnitVisible = (unitId: string) => {
-  return visibleUnits.value.has(unitId);
+  return !hiddenUnits.value.has(unitId);
 };
 
 // Show/hide all units
 const showAllUnits = () => {
-  const allUnitIds = new Set(availableUnits.value.map(unit => unit.id));
-  visibleUnits.value = allUnitIds;
+  hiddenUnits.value = new Set<string>(); // Clear all hidden units
 };
 
 const hideAllUnits = () => {
-  visibleUnits.value = new Set();
+  const allUnitIds = new Set<string>(unitsList.value.map(unit => unit.id));
+  hiddenUnits.value = allUnitIds; // Hide all units
 };
 
 // Filter available units based on visibility

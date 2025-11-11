@@ -3,13 +3,6 @@ import dspy
 from constants import MAX_TITLE_LENGTH
 import os
 import asyncio
-import tempfile
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
 import httpx
 from uuid import UUID
 from sqlmodel import Session
@@ -33,23 +26,30 @@ DOCLING_LIMITS = httpx.Limits(
 )
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=2, min=4, max=60),
-    retry=retry_if_exception_type(
-        (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError)
-    ),
-    reraise=True,
-)
 async def call_docling_with_retry(
     client: httpx.AsyncClient,
     url: str,
     file_data: tuple,
     params: dict,
+    max_retries: int = 3,
 ) -> httpx.Response:
-    """Call Docling service with automatic retry on network errors."""
-    print(f"[bg] Calling Docling service at {url}")
-    return await client.post(url, files={"file": file_data}, params=params)
+    """Call Docling service with exponential backoff retry."""
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        try:
+            print(f"[bg] Calling Docling service at {url} (attempt {attempt + 1}/{max_retries})")
+            return await client.post(url, files={"file": file_data}, params=params)
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError) as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                wait_time = min(4 * (2 ** attempt), 60)
+                print(f"[bg] Retry after {wait_time}s due to: {e}")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"[bg] All retry attempts failed")
+    
+    raise last_exception
 
 
 async def send_progress_heartbeat(document_id: UUID, max_duration: int = 600):
@@ -141,39 +141,36 @@ def get_document_summary(document_content: str, lm: dspy.LM):
     return document_summary_model(document=document_content, lm=lm)
 
 
-def filter_important_chunks(
+async def filter_important_chunks_async(
     chunks: list[Chunk], document_summary: DocumentSummary, lm: dspy.LM
 ):
-    """
-    Filter chunks by evaluating each chunk individually for importance.
-
-    Args:
-        chunks: List of chunks to evaluate
-        document_summary: The document summary result containing summary
-
-    Returns:
-        Dictionary with filtering results and statistics
-    """
+    """Async version to evaluate chunks in parallel with controlled concurrency."""
     unimportant_chunks_ids = []
     chunk_evaluations = []
     chunk_importance_model = dspy.Predict(ChunkImportance)
+    
+    # Limit concurrency to avoid thread pool exhaustion
+    semaphore = asyncio.Semaphore(10)
+    
+    async def evaluate_chunk(chunk):
+        async with semaphore:
+            evaluation = await run_in_threadpool(
+                chunk_importance_model,
+                chunk_text=chunk.chunk_text,
+                summary_of_document=document_summary.summary,
+                lm=lm
+            )
+            return chunk, evaluation
 
-    for chunk in chunks:
-        # Evaluate each chunk individually
-        evaluation = chunk_importance_model(
-            chunk_text=chunk.chunk_text,
-            summary_of_document=document_summary.summary,
-            lm=lm,
-        )
-
-        chunk_evaluations.append(
-            {
-                "chunk_id": chunk.id,
-                "chunk_index": chunk.chunk_index,
-                "is_important": evaluation.is_important,
-            }
-        )
-
+    # Evaluate all chunks concurrently
+    results = await asyncio.gather(*[evaluate_chunk(chunk) for chunk in chunks])
+    
+    for chunk, evaluation in results:
+        chunk_evaluations.append({
+            "chunk_id": chunk.id,
+            "chunk_index": chunk.chunk_index,
+            "is_important": evaluation.is_important,
+        })
         if not evaluation.is_important:
             unimportant_chunks_ids.append(chunk.chunk_index)
 
@@ -301,11 +298,22 @@ async def process_document_upload(
             session.commit()
             session.refresh(db_document)
 
-            # Persist chunks
-            for chunk in chunks_data:
-                db_chunk = Chunk(**chunk)
-                db_chunk.document_id = document_id
-                session.add(db_chunk)
+            # Persist chunks: Use bulk insert with return_defaults for getting IDs
+            await document_events_manager.broadcast_status(
+                document_id,
+                status="processing",
+                message="Storing document sections",
+                payload={"step": "persist_chunks"},
+            )
+            
+            # Create chunk objects with document_id
+            chunk_objects = [
+                Chunk(**chunk, document_id=document_id) 
+                for chunk in chunks_data
+            ]
+            
+            # Bulk insert with return_defaults to get IDs back
+            session.bulk_save_objects(chunk_objects, return_defaults=True)
             session.commit()
 
             # Generate summary
@@ -347,17 +355,15 @@ async def process_document_upload(
                 payload={"step": "filter_chunks"},
             )
 
-            chunks = session.exec(
-                sql_select(Chunk).where(Chunk.document_id == document_id)
-            ).all()
-            result = await run_in_threadpool(
-                filter_important_chunks, chunks, summary_result, small_lm
-            )
-            for chunk in chunks:
-                chunk.important = (
-                    chunk.chunk_index not in result["unimportant_chunks_ids"]
-                )
-                session.add(chunk)
+            # Use chunk_objects directly, no re-querying
+            result = await filter_important_chunks_async(chunk_objects, summary_result, small_lm)
+            
+            # Bulk update chunks
+            unimportant_set = set(result["unimportant_chunks_ids"])
+            for chunk in chunk_objects:
+                chunk.important = chunk.chunk_index not in unimportant_set
+            
+            session.bulk_save_objects(chunk_objects)
             session.commit()
 
             print(f"[bg] Finished processing document {document_id}")

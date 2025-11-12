@@ -35,7 +35,9 @@ from documents.service import process_document_upload
 from documents.events import document_events_manager
 import os
 from dotenv import load_dotenv
-
+import logging
+# Set up logging
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -87,7 +89,6 @@ async def get_document(
     doc_response.repository_ids = [repo.id for repo in db_document.repositories]
     return doc_response
 
-
 @router.post("/upload", response_model=Document)
 async def upload_and_chunk_document(
     background_tasks: BackgroundTasks,
@@ -96,16 +97,14 @@ async def upload_and_chunk_document(
     session: Session = Depends(get_db_session),
     current_user: UserResponse = Depends(get_current_user_from_request),
 ):
-    print(
-        f"Uploading and scheduling background processing for document {file.filename}..."
-    )
+    logger.info(f"Uploading and scheduling background processing for document {file.filename}...")
 
     if not DOCLING_SERVE_API_URL:
         raise HTTPException(
             status_code=500, detail="DOCLING_SERVE_API_URL is not configured"
         )
 
-    # Create a placeholder document so we can return immediately with an ID
+    # Create a placeholder document
     document = Document(
         title=file.filename,
         content="",
@@ -115,12 +114,18 @@ async def upload_and_chunk_document(
     session.commit()
     session.refresh(document)
 
-    # Read file content to pass into background task
+    logger.info(f"[upload] Created document with ID: {document.id}")
+
+    # Read file content
     file_bytes = await file.read()
     filename = file.filename
     content_type = file.content_type or "application/octet-stream"
 
-    # Schedule background processing
+    logger.info(f"[upload] File size: {len(file_bytes)} bytes")
+    logger.info(f"[upload] Content type: {content_type}")
+    logger.info(f"[upload] Scheduling async background task for document {document.id}")
+
+    # Use FastAPI's background tasks with async function
     background_tasks.add_task(
         process_document_upload,
         document.id,
@@ -130,6 +135,8 @@ async def upload_and_chunk_document(
         flatten_pdf,
     )
 
+    logger.info(f"[upload] Background task scheduled successfully")
+
     await document_events_manager.broadcast_status(
         document.id,
         status="queued",
@@ -137,7 +144,6 @@ async def upload_and_chunk_document(
         payload={"uploader_id": str(current_user.id)},
     )
 
-    # Immediately return placeholder document (200 OK)
     return document
 
 
@@ -251,6 +257,42 @@ async def delete_document(
     session.delete(db_document)
     session.commit()
     return {"ok": True}
+
+
+
+@router.get("/{document_id}/status")
+async def get_document_status(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: UserResponse = Depends(
+        create_document_access_dependency(AccessLevel.READ)
+    ),
+):
+    """Get the processing status of a document."""
+    db_document = session.get(Document, document_id)
+    if not db_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    
+    # Count total and important chunks
+    total_chunks = session.exec(
+        select(Chunk).where(Chunk.document_id == document_id)
+    ).count()
+    
+    important_chunks = session.exec(
+        select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
+    ).count()
+    
+    return {
+        "id": str(document_id),
+        "title": db_document.title,
+        "has_content": bool(db_document.content),
+        "has_summary": bool(db_document.summary),
+        "total_chunks": total_chunks,
+        "important_chunks": important_chunks,
+        "is_processed": bool(db_document.summary and db_document.title)
+    }
 
 
 @router.get("/{document_id}/chunks", response_model=list[Chunk])

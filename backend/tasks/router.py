@@ -6,7 +6,7 @@ from dependencies import (
     get_large_llm,
     get_large_llm_no_cache,
 )
-from documents.models import Chunk
+from documents.models import Chunk, Document
 from tasks.models import (
     Task,
     TaskCreate,
@@ -114,6 +114,11 @@ async def get_tasks_by_document(
     Requires read access to the document via repository links.
     """
     # Get all chunks for the document
+    document = session.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {document_id} not found",
+        )
     chunks = session.exec(select(Chunk).where(Chunk.document_id == document_id)).all()
     if not chunks:
         raise HTTPException(
@@ -528,6 +533,11 @@ async def generate_tasks_for_documents(
 
     # For each document, generate tasks and persist
     for document_id in request.document_ids:
+        document = session.get(Document, document_id)
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {document_id} not found",
+            )
         chunks_for_doc: list[Chunk] = session.exec(
             select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
         ).all()

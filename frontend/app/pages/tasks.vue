@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
-import { PlusIcon, EyeIcon, EyeOffIcon} from "lucide-vue-next";
+import { PlusIcon } from "lucide-vue-next";
 import type { Task, Repository, Unit, Document as ApiDocument } from "~/types/models";
 import { useNotificationsStore } from "~/stores/notifications";
-import {useLocalStorage} from "@vueuse/core";
 
 const { $authFetch } = useAuthenticatedFetch();
 
@@ -16,99 +15,10 @@ const notifications = useNotificationsStore();
 
 type AccessLevel = 'read' | 'write' | 'owner';
 
-// ---------------------- Visibility -------------------------
-
-// Feature flag for unit visibility toggle
-const UNIT_VISIBILITY_FEATURE_ENABLED = false; // Set to false to disable the feature, true to enable
-
-
-// Store HIDDEN units instead of visible ones
-const hiddenUnits = useLocalStorage<Set<string>>("repository_hidden_units", new Set());
-
-// Add unit visibility state 
-const visibleUnits = useLocalStorage<Set<string>>("repository_visible_units", new Set());
-
-// Add a new ref to track tasks by unit for counting purposes
-const tasksByUnit = ref<Record<string, Task[]>>({});
-
-// Toggle individual unit visibility
-const toggleUnitVisibility = (unitId: string) => {
-  const newHidden = new Set(hiddenUnits.value);
-  if (newHidden.has(unitId)) {
-    newHidden.delete(unitId); // Show the unit
-  } else {
-    newHidden.add(unitId); // Hide the unit
-  }
-  hiddenUnits.value = newHidden;
-};
-
-
-// Check if a specific unit is visible (returns true if NOT in hidden set)
-const isUnitVisible = (unitId: string) => {
-  return !hiddenUnits.value.has(unitId);
-};
-
-// Show/hide all units
-const showAllUnits = () => {
-  hiddenUnits.value = new Set<string>(); // Clear all hidden units
-};
-
-const hideAllUnits = () => {
-  const allUnitIds = new Set<string>(unitsList.value.map(unit => unit.id));
-  hiddenUnits.value = allUnitIds; // Hide all units
-};
-
-// Filter available units based on visibility
-const visibleAvailableUnits = computed(() => {
-  if (!UNIT_VISIBILITY_FEATURE_ENABLED) {
-    return availableUnits.value; // Show all units when feature is disabled
-  }
-  return availableUnits.value.filter(unit => isUnitVisible(unit.id));
-});
-
-// ---------------------- Utility -------------------------
-
-// Utility functions
-const getTaskTypeLabel = (type: string): string => 
-  type === "multiple_choice" ? "multiple choice" : "free text";
-
 function hasWriteAccess(repo: Repository & { access_level?: AccessLevel }) {
   const level = repo.access_level as AccessLevel | undefined;
   return level === 'write' || level === 'owner';
 }
-
-// Helper function for development logging
-const devLog = (message: string, ...args: any[]) => {
-  if (import.meta.env.DEV) {
-    console.log(message, ...args);
-  }
-};
-
-// Helper: Track tasks by ID to avoid race conditions
-function getTaskIds(taskList: Task[]): Set<string> {
-  return new Set(taskList.map(t => t.id));
-}
-
-// Helper function to normalize task data
-const normalizeTask = (task: Task): Task => ({
-  ...task,
-  id: task.id,
-  type: task.type,
-  question: task.question,
-  answer_options: task.answer_options || [],
-  repository_id: task.repository_id || "",
-  document_id: task.document_id || "",
-  chunk_id: task.chunk_id || "",
-  created_at: new Date(task.created_at),
-  updated_at: new Date(task.updated_at),
-});
-
-// Helper function to merge tasks without duplicates
-const mergeTasksWithoutDuplicates = (existingTasks: Task[], newTasks: Task[]): Task[] => {
-  const existingIds = new Set(existingTasks.map(t => t.id));
-  const uniqueNewTasks = newTasks.filter(t => !existingIds.has(t.id));
-  return [...uniqueNewTasks, ...existingTasks];
-};
 
 // Keep repo list for generation modal context; compute when needed to avoid unused var
 const _writableRepositories = computed<Repository[]>(() =>
@@ -144,112 +54,53 @@ async function onGenerateTasksConfirm(params: {
   numTasks: number;
   taskType: "multiple_choice" | "free_text";
 }) {
-  devLog("Starting task generation in background");
+  console.log("Starting task generation in background");
 
   // Close modal immediately
   showGenerateTasksModal.value = false;
 
   const repository = selectedRepositoryForTasks.value;
-  if (!repository || !selectedUnitId.value) {
-    notifications.error("No repository or unit selected.")
-    return;
-  }
+  if (!repository || !selectedUnitId.value) return;
 
   const repositoryName = repository.name;
-  const taskTypeText = getTaskTypeLabel(params.taskType);
+  const taskTypeText = params.taskType === "multiple_choice" ? "multiple choice" : "free text";
   const processingId = notifications.loading(
     `Generating ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}" from ${params.documentIds.length} document${params.documentIds.length === 1 ? "" : "s"}. This may take a while.`
   );
 
   try {
-    // Capture initial state BEFORE API call
-    const initialTaskIds = getTaskIds(tasks.value);
-    const generationStartTime = new Date();
-    
-    devLog("Generation started", {
-      initialTaskCount: initialTaskIds.size,
-      timestamp: generationStartTime.toISOString(),
-      params
-    });
+    const createdTasks = await $authFetch("/tasks/generate_for_documents", {
+      method: "POST",
+      body: {
+        unit_id: selectedUnitId.value,
+        document_ids: params.documentIds,
+        num_tasks: params.numTasks,
+        task_type: params.taskType,
+      },
+    }) as Task[];
 
-    //Retry logic for network issues
-    const maxRetries = 2;
-    let response;
-
-    for (let retry = 0; retry <= maxRetries; retry++) {
-      try {
-        response = await $authFetch("/tasks/generate_for_documents", {
-          method: "POST",
-          body: {
-            unit_id: selectedUnitId.value,
-            document_ids: params.documentIds,
-            num_tasks: params.numTasks,
-            task_type: params.taskType,
-          },
-        });
-        break; // Success, exit retry loop
-      } catch (error) {
-        if (retry === maxRetries) throw error;
-        await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
-        devLog(`Retry ${retry + 1} for task generation`);
-      }
-    }
-    
     notifications.remove(processingId);
+    notifications.success(`Successfully generated ${params.numTasks} ${taskTypeText} tasks for "${repositoryName}"!`);
 
-    const createdTasks = await handleTaskGenerationResponse(
-      response,
-      selectedUnitId.value,
-      initialTaskIds,
-      generationStartTime
-    );
-
-    if (createdTasks.length > 0) {
-      // Prevent duplicates
-      const existingIds = getTaskIds(tasks.value);
-      const uniqueNewTasks = createdTasks.filter(t => !existingIds.has(t.id));
-      
-      if (uniqueNewTasks.length > 0) {
-        const normalized = uniqueNewTasks.map(normalizeTask);
-        tasks.value = mergeTasksWithoutDuplicates(tasks.value, normalized);
-        
-        notifications.success(
-          `Successfully generated ${uniqueNewTasks.length} ${taskTypeText} tasks for "${repositoryName}"!`
-        );
-        
-        devLog(`Added ${uniqueNewTasks.length} unique tasks. Total: ${tasks.value.length}`);
-      } else {
-        devLog("All tasks were duplicates, skipped adding");
-        notifications.warning("Tasks already exist in list");
-      }
+    // Add the created tasks to the list
+    if (Array.isArray(createdTasks) && createdTasks.length > 0) {
+      const normalized = createdTasks.map((task: Task) => ({
+        ...task,
+        created_at: new Date(task.created_at),
+        updated_at: new Date(task.updated_at),
+        answer_options: task.answer_options || [],
+      })) as Task[];
+      tasks.value = [...normalized, ...tasks.value];
+      console.log("tasks", tasks.value);
     } else {
-      // If no tasks returned, refetch from server
-      await fetchTasksByUnit(selectedUnitId.value);
-      const newTaskIds = getTaskIds(tasks.value);
-      const newTasksCount = [...newTaskIds].filter(id => !initialTaskIds.has(id)).length;
-      
-      if (newTasksCount > 0) {
-        notifications.success(`Task generation completed. Found ${newTasksCount} new tasks for this unit.`);
-      } else {
-        notifications.warning("Task generation completed but no new tasks were found.");
-      }
+      // Fallback: refetch tasks if no tasks returned
+      if (selectedUnitId.value) await fetchTasksByUnit(selectedUnitId.value);
+      else await fetchAllTasks();
     }
-
   } catch (error) {
     console.error("Error generating tasks:", error);
     notifications.remove(processingId);
-    
-    // Always try to refetch to show current state
-    try {
-      await fetchTasksByUnit(selectedUnitId.value);
-      notifications.warning(
-        `Task generation encountered an issue, but ${tasks.value.length} tasks are available.`
-      );
-    } catch (refetchError) {
-      notifications.error(
-        `Failed to generate tasks for "${repositoryName}". Please refresh the page.`
-      );
-    }
+    notifications.error(`Failed to generate tasks for "${repositoryName}". Please try again. ${error}`);
   }
 }
 
@@ -283,49 +134,31 @@ if (documentIdFromRoute) {
 }
 
 // tasks are already filtered by the backend
-const filteredTasks = computed(() => {
-  // If feature is disabled, show all tasks for selected unit or all units if none selected
-  if (!UNIT_VISIBILITY_FEATURE_ENABLED) {
-    if (!selectedUnitId.value) {
-      // Show all tasks if no unit is selected
-      return tasks.value;
-    }
-    // Show tasks for selected unit
-    return tasks.value;
-  }
-  
-  // If no unit is selected, show tasks from all visible units
-  if (!selectedUnitId.value) {
-    const visibleUnitIds = new Set(visibleAvailableUnits.value.map(unit => unit.id));
-    let allTasks: Task[] = [];
-    
-    // Collect tasks from all visible units
-    for (const unitId of visibleUnitIds) {
-      if (tasksByUnit.value[unitId]) {
-        allTasks = [...allTasks, ...tasksByUnit.value[unitId]];
-      }
-    }
-    
-    return allTasks;
-  }
-  
-  // If a specific unit is selected, only show its tasks if the unit is visible
-  const isSelectedUnitVisible = isUnitVisible(selectedUnitId.value);
-  return isSelectedUnitVisible ? tasks.value : [];
-});
+const filteredTasks = computed(() => tasks.value);
 
 
 // Function to fetch all tasks
 async function fetchAllTasks() {
   try {
     const response = await $authFetch("/tasks") as Task[];
-    tasks.value = response.map(normalizeTask);
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching all tasks:", error);
   }
 }
 
-// Fetch tasks on page load, also function populates tasksByUnit for all units
+// Fetch tasks on page load
 onMounted(async () => {
   loading.value = true;
   try {
@@ -338,7 +171,18 @@ onMounted(async () => {
       ]) as [Task[], { repositories?: Repository[] } | Repository[], Unit[], ApiDocument[]];
 
     // Default to all tasks; may be overridden by route-based filtering below
-    tasks.value = (tasksResponse || []).map(normalizeTask);
+    tasks.value = (tasksResponse || []).map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
 
     repositoriesList.value = ('repositories' in repositoriesResponse ? repositoriesResponse.repositories : repositoriesResponse) as Repository[];
     unitsList.value = (unitsResponse || []) as Unit[];
@@ -365,13 +209,6 @@ onMounted(async () => {
         await fetchTasksByUnit(firstUnitId);
       }
     }
-    
-    // Fetch tasks for all units to populate tasksByUnit
-    for (const unit of availableUnits.value) {
-      if (unit.id) {
-        await fetchTasksByUnit(unit.id);
-      }
-    }
   } catch (error) {
     console.error("Error fetching data:", error);
   } finally {
@@ -393,194 +230,41 @@ onUnmounted(() => {
 async function fetchTasksByDocument(documentId: string) {
   try {
     const response = await $authFetch(`/tasks/document/${documentId}`) as Task[];
-    tasks.value = response.map(normalizeTask);
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching tasks by document:", error);
   }
 }
-// Main response handler for different backend patterns
-async function handleTaskGenerationResponse(
-  response: any,
-  unitId: string,
-  initialTaskIds: Set<string>,
-  generationStartTime: Date
-): Promise<Task[]> {
-  devLog("=== TASK GENERATION RESPONSE ===");
-  devLog("Type:", typeof response);
-  devLog("Is Array:", Array.isArray(response));
-  
-  if (response && typeof response === 'object') {
-    devLog("Keys:", Object.keys(response));
-    devLog("Full response:", JSON.stringify(response, null, 2));
-  }
-  devLog("================================");
 
-  // Case 1: Direct array of tasks
-  if (Array.isArray(response)) {
-    if (response.length > 0) {
-      devLog("Case 1: Direct array of tasks");
-      return response;
-    } else {
-      // Empty array - this indicates an issue with task generation
-      devLog("Case 1: Empty array returned, checking if tasks were created");
-      
-      // Wait a bit and then poll to see if tasks appear
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const currentTasks = await fetchTasksByUnit(unitId, true);
-      const newTasks = currentTasks.filter(task => !initialTaskIds.has(task.id));
-      
-      if (newTasks.length > 0) {
-        devLog(`Found ${newTasks.length} tasks after delay`);
-        return newTasks;
-      } else {
-        devLog("No tasks found after delay, backend likely failed to generate tasks");
-        return [];
-      }
-    }
-  }
-
-  // Case 2: Wrapped in { tasks: [...] }
-  if (response?.tasks && Array.isArray(response.tasks)) {
-    devLog("Case 2: Wrapped tasks array");
-    return response.tasks;
-  }
-
-  // Case 3: Task IDs returned
-  if (response?.task_ids && Array.isArray(response.task_ids)) {
-    devLog("Case 3: Task IDs array", response.task_ids);
-    return await fetchTasksByIds(response.task_ids);
-  }
-
-  // Case 4: Background job indicators
-  const asyncIndicators = [
-    response?.status === 202,
-    response?.status === "processing",
-    response?.status === "queued",
-    response?.status === "accepted",
-    response?.message?.toLowerCase().includes("background"),
-    response?.message?.toLowerCase().includes("queued"),
-    response?.job_id !== undefined,
-    response?.task_id !== undefined
-  ];
-
-  if (asyncIndicators.some(Boolean)) {
-    devLog("Case 4: Background job detected");
-    return await pollForGeneratedTasks(unitId, initialTaskIds, generationStartTime);
-  }
-
-  // Case 5: Unknown format - poll anyway
-  devLog("Case 5: Unknown response format, defaulting to poll");
-  console.warn("Unexpected response format:", response);
-  return await pollForGeneratedTasks(unitId, initialTaskIds, generationStartTime);
-}
-
-// Polling with timeout and exponential backoff
-async function pollForGeneratedTasks(
-  unitId: string,
-  initialTaskIds: Set<string>, // Changed from count to IDs
-  generationStartTime: Date,
-  maxAttempts = 30,
-  initialIntervalMs = 2000
-): Promise<Task[]> {
-  const startTime = Date.now();
-  const maxDuration = 300000; // 5 minutes
-  
-  devLog(`Starting polling for unit ${unitId}, tracking ${initialTaskIds.size} initial tasks`);
-
-  // Small initial delay to allow DB commit
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (Date.now() - startTime > maxDuration) {
-      console.warn("Polling timeout reached after 5 minutes");
-      break;
-    }
-
-    // Exponential backoff WITH jitter
-    const delay = Math.min(initialIntervalMs * Math.pow(1.5, attempt), 10000);
-    const jitter = Math.random() * 1000;
-    await new Promise(resolve => setTimeout(resolve, delay + jitter));
-
-    try {
-      const currentTasks = await fetchTasksByUnit(unitId, true);
-      
-      // Find tasks that weren't in the initial set (most reliable)
-      const newTasks = currentTasks.filter(task => !initialTaskIds.has(task.id));
-
-      if (newTasks.length > 0) {
-        // Verify timestamps as sanity check
-        const recentNewTasks = newTasks.filter(task => {
-          const taskCreatedAt = new Date(task.created_at);
-          return taskCreatedAt >= generationStartTime; // Use >= not >
-        });
-
-        if (recentNewTasks.length > 0) {
-          devLog(`Polling completed: Found ${recentNewTasks.length} new tasks`);
-          return recentNewTasks;
-        } else {
-          devLog(`Found ${newTasks.length} new tasks but timestamps predate generation. Continuing poll...`);
-        }
-      }
-
-    } catch (error) {
-      console.error(`Polling attempt ${attempt + 1} failed:`, error);
-      // Continue polling despite errors
-    }
-  }
-
-  devLog("No new tasks found after polling");
-  return [];
-}
-
-// Function to fetch tasks by Id
-async function fetchTasksByIds(taskIds: string[]): Promise<Task[]> {
-  if (!taskIds.length) return [];
-
-  devLog(`Fetching ${taskIds.length} tasks by IDs`);
-
-  try {
-    const tasksPromises = taskIds.map(async (id) => {
-      try {
-        const task = await $authFetch(`/tasks/${id}`);
-        return task ? normalizeTask(task as Task) : null;
-      } catch (error) {
-        console.error(`Failed to fetch task ${id}:`, error);
-        return null;
-      }
-    });
-
-    const tasksResults = await Promise.all(tasksPromises);
-    const validTasks = tasksResults.filter(Boolean) as Task[];
-    
-    devLog(`Successfully fetched ${validTasks.length}/${taskIds.length} tasks`);
-    return validTasks;
-
-  } catch (error) {
-    console.error("Error fetching tasks by IDs:", error);
-    return [];
-  }
-}
-
-
-// Function to fetch tasks by unit, also populates by tasksByUnit
-async function fetchTasksByUnit(unitId: string, forceRefetch = false): Promise<Task[]> {
-  if (!unitId) return [];
-
+// Function to fetch tasks by unit
+async function fetchTasksByUnit(unitId: string) {
   try {
     const response = await $authFetch(`/tasks/unit/${unitId}`) as Task[];
-    const fetchedTasks = response.map(normalizeTask);
-    
-    if (forceRefetch) {
-      tasks.value = fetchedTasks;
-    }
-    
-    // Update tasksByUnit for counting purposes
-    tasksByUnit.value[unitId] = fetchedTasks;
-    
-    return fetchedTasks;
+    tasks.value = response.map((task: Task) => ({
+      ...task,
+      id: task.id,
+      type: task.type,
+      question: task.question,
+      answer_options: task.answer_options || [],
+      repository_id: task.repository_id || "",
+      document_id: task.document_id || "",
+      chunk_id: task.chunk_id || "",
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at),
+    })) as Task[];
   } catch (error) {
     console.error("Error fetching tasks by unit:", error);
-    return [];
   }
 }
 
@@ -621,6 +305,7 @@ async function deleteTask(id: string) {
   }
 }
 
+
 function handleUpdateTask(updatedTask: Task) {
   const index = tasks.value.findIndex((t) => t.id === updatedTask.id);
   if (index !== -1) {
@@ -647,6 +332,8 @@ function handleKeydown(event: KeyboardEvent) {
     closeTryTask();
   }
 }
+
+// Removed polling; tasks are returned by the backend and injected immediately
 
 async function evaluateAnswer() {
   if (!previewingTask.value || currentAnswer.value === null || currentAnswer.value === "") {
@@ -731,79 +418,13 @@ function closeTryTask() {
   <div class="h-full max-w-4xl mx-auto mt-8">
     <DPageHeader title="Tasks" />
     <div class="bg-white p-6 rounded-lg shadow mb-4">
-      <h2 class="text-xl font-bold ">Unit Filter</h2>
-      
-      <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED" class="flex gap-2">
-          <!-- Bulk visibility controls -->
-          <DHamburgerMenu>
-            <template #default="{ close }">
-              <button @click="() => { showAllUnits(); close(); }"
-                      class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                <EyeIcon class="h-4 w-4" />
-                Show All Units
-              </button>
-              <button @click="() => { hideAllUnits(); close(); }"
-                      class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                <EyeOffIcon class="h-4 w-4" />
-                Hide All Units
-              </button>
-            </template>
-          </DHamburgerMenu>
-      </div>
+      <h2 class="text-xl font-bold mb-4">Unit Filter</h2>
 
       <div v-if="filterType === 'unit'">
-        <!-- Unit Dropdown with Visibility Indicators -->
-        <div class="space-y-2">
-          <DSearchableDropdown 
-            v-model="selectedUnitId"
-            :options="visibleAvailableUnits.map((unit) => ({ 
-              value: unit.id, 
-              label: unit.title,
-              disabled: UNIT_VISIBILITY_FEATURE_ENABLED ? !isUnitVisible(unit.id) : false
-            }))" 
-            placeholder="Select a unit"
-            search-placeholder="Search units..." 
-            class="mt-1 w-full" 
-          />
-
-          <!-- Unit Visibility Toggle List -->
-          <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED" class="mt-4 space-y-2 max-h-60 overflow-y-auto">
-            <div v-for="unit in availableUnits" 
-                :key="unit.id"
-                class="flex items-center justify-between p-2 rounded border border-gray-200"
-                :class="{ 'opacity-60': !isUnitVisible(unit.id) }">
-                <div class="flex items-center gap-3 flex-1">
-                  <button @click="toggleUnitVisibility(unit.id)" 
-                          class="text-gray-500 hover:text-gray-700 transition-colors">
-                    <component :is="isUnitVisible(unit.id) ? EyeIcon : EyeOffIcon" class="h-4 w-4" />
-                  </button>
-                  <span class="text-sm font-medium truncate" :class="{ 'text-gray-400': !isUnitVisible(unit.id) }">
-                    {{ unit.title }}
-                  </span>
-                </div>
-                <span class="text-xs text-gray-500 ml-2 flex-shrink-0">
-                  {{ tasksByUnit[unit.id]?.length || 0 }} tasks
-                </span>
-            </div>
-          </div>
-        </div>
-      </div>  
-    </div>
-
-    <!-- Empty state when selected unit is hidden -->
-    <div v-if="UNIT_VISIBILITY_FEATURE_ENABLED && selectedUnitId && !isUnitVisible(selectedUnitId)" 
-         class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center mb-4">
-      <div class="flex items-center justify-center gap-2 mb-2">
-        <EyeOffIcon class="h-5 w-5 text-yellow-600" />
-        <h3 class="text-lg font-medium text-yellow-800">Unit Hidden</h3>
+        <DSearchableDropdown v-model="selectedUnitId"
+          :options="availableUnits.map((unit) => ({ value: unit.id, label: unit.title }))" placeholder="Select a unit"
+          search-placeholder="Search units..." class="mt-1 w-full" />
       </div>
-      <p class="text-yellow-700 mb-4">
-        The selected unit is currently hidden. Show it to view its tasks.
-      </p>
-      <DButton @click="toggleUnitVisibility(selectedUnitId)" variant="primary">
-        <EyeIcon class="h-4 w-4 mr-2" />
-        Show This Unit
-      </DButton>
     </div>
 
     <div v-if="filteredTasks.length > 0" class="flex justify-start mb-4">

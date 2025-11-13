@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon, EyeIcon, EyeOffIcon } from "lucide-vue-next";
+import { ClipboardList, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, UploadIcon } from "lucide-vue-next";
 import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES } from "~/constans/constants";
 import { useNotificationsStore } from "~/stores/notifications";
 import { useSessionStorage, useLocalStorage } from "@vueuse/core";
@@ -10,36 +10,6 @@ const { $authFetch } = useAuthenticatedFetch();
 const notifications = useNotificationsStore();
 const collapsed = useSessionStorage("collapsed", false);
 const repositoryAccessLevels = useLocalStorage<Record<string, AccessLevel>>("repository_access_levels", {});
-
-// Each units visibility state
-const visibleUnits = useLocalStorage<Set<string>>("repository_visible_units", new Set());
-
-// Toggle individual unit visibility
-const toggleUnitVisibility = (unitId: string) => {
-  const newVisible = new Set(visibleUnits.value);
-  if (newVisible.has(unitId)) {
-    newVisible.delete(unitId);
-  } else {
-    newVisible.add(unitId);
-  }
-  visibleUnits.value = newVisible;
-};
-
-// Check if a specific unit is visible
-const isUnitVisible = (unitId: string) => {
-  // By default, all units are visible unless explicitly hidden
-  return visibleUnits.value.has(unitId);
-};
-
-// Show/hide all units
-const showAllUnits = () => {
-  const allUnitIds = new Set(units.value.map(unit => unit.id));
-  visibleUnits.value = allUnitIds;
-};
-
-const hideAllUnits = () => {
-  visibleUnits.value = new Set();
-};
 
 type UUID = string;
 
@@ -660,81 +630,51 @@ async function confirmRemoveSkill() {
                 </div>
 
                 <div v-else class="space-y-12">
-                    <!-- Units Section with v-if -->
+                    <!-- Units Section -->
                     <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Units</h2>
-                            <div class="flex gap-2">
-                                <!-- Bulk visibility controls -->
-                                <DHamburgerMenu>
-                                    <template #default="{ close }">
-                                        <button @click="() => { showAllUnits(); close(); }"
-                                            class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                            <EyeIcon class="h-4 w-4" />
-                                            Show All Units
-                                        </button>
-                                        <button @click="() => { hideAllUnits(); close(); }"
-                                            class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                            <EyeOffIcon class="h-4 w-4" />
-                                            Hide All Units
-                                        </button>
-                                    </template>
-                                </DHamburgerMenu>
-                                <div class="flex" v-if="hasWriteAccess">
-                                    <DButton variant="primary" :icon-left="PlusIcon" @click="openCreateUnitModal">
-                                        Create Unit
-                                    </DButton>
-                                </div>
+                            <div class="flex" v-if="hasWriteAccess">
+                                <DButton variant="primary" :icon-left="PlusIcon" @click="openCreateUnitModal">
+                                    Create Unit
+                                </DButton>
                             </div>
                         </div>
                         <div class="border-t border-gray-200 my-3"></div>
 
                         <div v-if="units.length > 0" class="space-y-3">
-                            <!-- Individual Unit Cards with Visibility Toggle -->
-                            <div v-for="unit in units" :key="unit.id" 
-                                class="bg-white p-3 rounded-lg shadow border border-gray-200"
-                                :class="{ 'opacity-60': !isUnitVisible(unit.id) }">
+                            <div v-for="unit in units" :key="unit.id"
+                                class="bg-white p-3 rounded-lg shadow border border-gray-200">
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center">
-                                        <button @click="toggleUnitVisibility(unit.id)" 
-                                                class="mr-3 text-gray-500 hover:text-gray-700 transition-colors">
-                                            <component :is="isUnitVisible(unit.id) ? EyeIcon : EyeOffIcon" class="h-4 w-4" />
-                                        </button>
                                         <div class="flex flex-col">
                                             <h3 class="text-lg font-medium">
                                                 {{ unit.title }}
                                             </h3>
                                             <span class="text-xs font-medium text-gray-500">
-                                                {{ unit.task_count || 0 }} {{ (unit.task_count || 0) === 1 ? 'task' : 'tasks' }}
+                                                {{ unit.task_count || 0 }} {{ (unit.task_count || 0) === 1 ? 'task' :
+                                                    'tasks' }}
                                             </span>
                                         </div>
                                     </div>
                                     <div class="flex gap-2 items-center">
-                                        <DButton v-if="hasWriteAccess && isUnitVisible(unit.id)" 
-                                                @click="navigateToTasksForUnit(unit.id)"
-                                                variant="primary" :icon-left="ClipboardList">
+                                        <DButton v-if="hasWriteAccess" @click="navigateToTasksForUnit(unit.id)"
+                                            variant="primary" :icon-left="ClipboardList">
                                             Tasks
                                         </DButton>
 
                                         <!-- Study button or message based on task count and access level -->
-                                        <DButton v-if="(unit.task_count || 0) > 0 && isUnitVisible(unit.id)"
-                                                @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
-                                                :icon-left="BookOpenIcon">
+                                        <DButton v-if="(unit.task_count || 0) > 0"
+                                            @click="navigateToStudyForUnit(unit.id)" variant="tertiary"
+                                            :icon-left="BookOpenIcon">
                                             Study
                                         </DButton>
-                                        <span v-else-if="!hasWriteAccess && isUnitVisible(unit.id)" 
-                                              class="text-xs text-gray-500 italic">
+                                        <span v-else-if="!hasWriteAccess" class="text-xs text-gray-500 italic">
                                             No tasks created yet
                                         </span>
 
                                         <DHamburgerMenu v-if="hasWriteAccess">
                                             <template #default="{ close }">
-                                                <button @click="toggleUnitVisibility(unit.id)"
-                                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                    <component :is="isUnitVisible(unit.id) ? EyeOffIcon : EyeIcon" class="h-4 w-4" />
-                                                    {{ isUnitVisible(unit.id) ? 'Hide' : 'Show' }} Unit
-                                                </button>
-                                                <div class="border-t border-gray-200 my-1"></div>
                                                 <button @click="() => { openRenameUnitModal(unit); close(); }"
                                                     class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                     <PencilIcon class="h-4 w-4" />
@@ -791,7 +731,7 @@ async function confirmRemoveSkill() {
                         </div>
                     </section>
 
-                    <!-- Skills Section  // this has been commented out--> 
+                    <!-- Skills Section -->
                     <!-- <section>
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold">Skills</h2>

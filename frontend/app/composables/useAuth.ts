@@ -20,11 +20,14 @@ export const useAuth = () => {
 export const useAuthenticatedFetch = () => {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
+
+  // Use the API base URL as configured (don't force HTTPS for localhost)
   const baseURL = config.public.apiBase;
 
   const $authFetch = $fetch.create({
     baseURL: baseURL,
     onRequest({ options }) {
+      // Include credentials (cookies) in all requests
       options.credentials = "include";
     },
     onResponseError({ response }) {
@@ -35,6 +38,6 @@ export const useAuthenticatedFetch = () => {
   });
 
   return {
-    $authFetch: $authFetch as any,
+    $authFetch: $authFetch as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   };
 };

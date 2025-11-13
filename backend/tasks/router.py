@@ -117,6 +117,11 @@ async def get_tasks_by_document(
     Requires read access to the document via repository links.
     """
     # Get all chunks for the document
+    document = session.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {document_id} not found",
+        )
     chunks = session.exec(select(Chunk).where(Chunk.document_id == document_id)).all()
     if not chunks:
         raise HTTPException(

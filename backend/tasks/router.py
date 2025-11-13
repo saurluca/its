@@ -38,6 +38,7 @@ from repositories.models import (
     RepositoryAccess,
     RepositoryDocumentLink,
 )
+from sqlalchemy import func
 from units.models import Unit, UnitTaskLink
 from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse
@@ -50,8 +51,10 @@ from tasks.service import (
     get_study_tasks_for_unit,
 )
 import dspy
+import logging
 from repositories.access_control import get_repository_access
-
+# Set up logging
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
@@ -484,9 +487,14 @@ async def generate_tasks_for_documents(
 ):
     """
     Generate tasks for the provided documents and link them to the given unit.
-    Runs inline (awaited) and returns the created tasks. No polling or background jobs.
+    Waits for documents to be fully processed (including summarization) before generating tasks.
     Requires WRITE access to the repository that contains the unit.
     """
+    logger.info(f"[api] Starting task generation for unit {request.unit_id}")
+    logger.info(
+        f"[api] Request: {request.num_tasks} {request.task_type} tasks from {len(request.document_ids)} documents"
+    )
+
     # Validate max tasks limit
     if request.num_tasks > 50:
         raise HTTPException(
@@ -494,14 +502,14 @@ async def generate_tasks_for_documents(
             detail="Maximum 50 tasks per request allowed",
         )
 
-    # Check unit access (which checks repository access under the hood)
+    # Check unit access
     unit = session.get(Unit, request.unit_id)
     if not unit:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    # Check write access to the repository containing this unit
+    # Check write access
     try:
         await get_repository_access(
             unit.repository_id, AccessLevel.WRITE, session, current_user
@@ -512,7 +520,7 @@ async def generate_tasks_for_documents(
             detail="Write access required to repository containing this unit",
         )
 
-    # Collect forbidden questions already linked to the unit to avoid duplicates
+    # Collect forbidden questions
     existing_question_rows = session.exec(
         select(Task.question)
         .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
@@ -522,53 +530,124 @@ async def generate_tasks_for_documents(
         set(existing_question_rows) if existing_question_rows else set()
     )
 
+    logger.info(f"[api] Found {len(forbidden_questions)} existing questions to avoid")
+
     created_tasks: list[Task] = []
 
-    # Normalize task type to string for generator
+    # Normalize task type
     task_type_value = (
         request.task_type
         if isinstance(request.task_type, str)
-        else request.task_type.value  # type: ignore[attr-defined]
+        else request.task_type.value
     )
 
-    # For each document, generate tasks and persist
+    # Wait for documents to be FULLY processed (including summarization)
+    max_wait_time = 600  # 10 minutes max wait (summarization can take time)
+    check_interval = 5    # Check every 5 seconds
+    
     for document_id in request.document_ids:
+        logger.info(f"[api] Waiting for document {document_id} to be fully processed...")
+        
+        # Get initial document state
         document = session.get(Document, document_id)
         if not document:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {document_id} not found",
+            logger.error(f"[api] Document {document_id} not found in database!")
+            continue
+            
+        elapsed = 0
+        while elapsed < max_wait_time:
+            # Refresh document from database
+            document = session.get(Document, document_id)
+            
+            if not document:
+                logger.error(f"[api] Document {document_id} not found!")
+                break
+            
+            # Check if ALL important chunks exist (meaning summarization completed)
+            important_chunks_count = session.exec(
+                select(func.count(Chunk.id))
+                .where(Chunk.document_id == document_id, Chunk.important == True)
+            ).first()
+            
+            total_chunks_count = session.exec(
+                select(func.count(Chunk.id))
+                .where(Chunk.document_id == document_id)
+            ).first()
+            
+            logger.info(
+                f"[api] Check at {elapsed}s - "
+                f"Total chunks: {total_chunks_count}, "
+                f"Important chunks: {important_chunks_count}, "
+                f"Has summary: {bool(document.summary)}"
             )
-        chunks_for_doc: list[Chunk] = session.exec(
-            select(Chunk).where(Chunk.document_id == document_id, Chunk.important)
+            
+            # Document is ready when it has chunks marked as important
+            # (This means summarization has completed)
+            if important_chunks_count > 0:
+                logger.info(
+                    f"[api] Document {document_id} is ready! "
+                    f"{important_chunks_count} important chunks found"
+                )
+                break
+            
+            # If we have chunks but none are important yet, summarization is still running
+            if total_chunks_count > 0:
+                logger.info(
+                    f"[api] Document has {total_chunks_count} chunks, "
+                    "waiting for importance classification..."
+                )
+            
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+        
+        # Final check
+        document = session.get(Document, document_id)
+        chunks_for_doc = session.exec(
+            select(Chunk).where(Chunk.document_id == document_id, Chunk.important == True)
         ).all()
-
+        
         if not chunks_for_doc:
+            logger.error(
+                f"[api] Document {document_id} not ready after {elapsed}s - "
+                f"No important chunks available"
+            )
             continue
 
-        lm = get_large_llm_no_cache()
-        generated: list[Task] = await asyncio.to_thread(
-            generate_tasks,
-            document_id,
-            chunks_for_doc,
-            lm,
-            request.num_tasks,
-            task_type_value,
-            forbidden_questions,
-        )
+        logger.info(f"[api] Found {len(chunks_for_doc)} important chunks for document {document_id}")
 
-        for task in generated:
-            session.add(task)
-            session.flush()
-            session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
-            if task.question:
-                forbidden_questions.add(task.question)
-            created_tasks.append(task)
+        try:
+            lm = get_large_llm_no_cache()
+            logger.info(f"[api] Generating {request.num_tasks} tasks for document {document_id}")
+
+            generated: list[Task] = await generate_tasks(
+                document_id,
+                chunks_for_doc,
+                request.num_tasks,
+                task_type_value,
+                forbidden_questions,
+            )
+
+            logger.info(f"[api] Generated {len(generated)} tasks for document {document_id}")
+
+            for task in generated:
+                session.add(task)
+                session.flush()
+                session.add(UnitTaskLink(unit_id=request.unit_id, task_id=task.id))
+                if task.question:
+                    forbidden_questions.add(task.question)
+                created_tasks.append(task)
+
+        except Exception as e:
+            logger.exception(f"[api] Error generating tasks for document {document_id}: {e}")
+            continue
 
     if created_tasks:
         session.commit()
+        logger.info(f"[api] Successfully created and committed {len(created_tasks)} tasks")
+    else:
+        logger.error(f"[api] No tasks were created")
 
     return created_tasks
-
 
 @router.post(
     "/evaluate_answer/{task_id}",

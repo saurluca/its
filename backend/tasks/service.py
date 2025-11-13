@@ -1,5 +1,5 @@
-from typing import List, Any, cast
-from uuid import UUID
+from typing import List, Any, cast, Dict, Tuple
+from uuid import UUID, uuid4
 import asyncio
 import dspy
 import time
@@ -28,6 +28,263 @@ from tasks.models import (
     TaskUserLink,
 )
 from units.models import UnitTaskLink
+import logging
+# Set up logging
+logger = logging.getLogger(__name__)
+
+class BatchedLM:
+    """A wrapper for DSPy LM that batches inference requests for better throughput."""
+    
+    def __init__(self, lm: dspy.LM, batch_size: int = 8, timeout: float = 30.0):
+        self.lm = lm
+        self.batch_size = batch_size
+        self.timeout = timeout
+        self._request_queue = asyncio.Queue()
+        self._response_futures = {}
+        self._batch_task = None
+        self._running = False
+    
+    async def start(self):
+        """Start the batch processing task."""
+        if not self._running:
+            self._running = True
+            self._batch_task = asyncio.create_task(self._process_batches())
+    
+    async def stop(self):
+        """Stop the batch processing task."""
+        self._running = False
+        if self._batch_task:
+            self._batch_task.cancel()
+            try:
+                await self._batch_task
+            except asyncio.CancelledError:
+                pass
+    
+    async def _process_batches(self):
+        """Process requests in batches."""
+        while self._running:
+            try:
+                # Collect a batch of requests
+                batch = []
+                futures = []
+                
+                # Wait for the first request
+                request_id, (signature, kwargs) = await asyncio.wait_for(
+                    self._request_queue.get(), timeout=self.timeout
+                )
+                batch.append((request_id, signature, kwargs))
+                futures.append(self._response_futures[request_id])
+                
+                # Try to collect more requests without waiting too long
+                try:
+                    while len(batch) < self.batch_size:
+                        request_id, (signature, kwargs) = await asyncio.wait_for(
+                            self._request_queue.get(), timeout=0.1
+                        )
+                        batch.append((request_id, signature, kwargs))
+                        futures.append(self._response_futures[request_id])
+                except asyncio.TimeoutError:
+                    pass
+                
+                # Process the batch
+                try:
+                    # Group by signature type for more efficient batching
+                    signature_groups = {}
+                    for request_id, signature, kwargs in batch:
+                        # FIXED: signature IS the class, not an instance
+                        signature_type = signature
+                        if signature_type not in signature_groups:
+                            signature_groups[signature_type] = []
+                        signature_groups[signature_type].append((request_id, kwargs))
+                    
+                    # Process each signature group
+                    for signature_type, requests in signature_groups.items():
+                        # Create a list of kwargs for this signature type
+                        kwargs_list = [kwargs for _, kwargs in requests]
+                        
+                        # Process in a thread pool to avoid blocking the event loop
+                        results = await asyncio.to_thread(
+                            self._process_batch_for_signature, signature_type, kwargs_list
+                        )
+                        
+                        # Set the results for each request
+                        for (request_id, _), result in zip(requests, results):
+                            if request_id in self._response_futures:
+                                self._response_futures[request_id].set_result(result)
+                                del self._response_futures[request_id]
+                
+                except Exception as e:
+                    # If any error occurs, set it for all futures in the batch
+                    for request_id, _, _ in batch:
+                        if request_id in self._response_futures:
+                            self._response_futures[request_id].set_exception(e)
+                            del self._response_futures[request_id]
+            
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.exception(f"Error in batch processing: {e}")
+    
+    def _process_batch_for_signature(self, signature_type, kwargs_list):
+        """Process a batch of requests for a specific signature type."""
+        results = []
+        
+        # FIXED: signature_type IS the class, compare directly
+        # Create a ChainOfThought instance for this signature type
+        if signature_type == TaskMultipleChoice:
+            model = dspy.ChainOfThought(TaskMultipleChoice)
+        elif signature_type == TaskFreeText:
+            model = dspy.ChainOfThought(TaskFreeText)
+        elif signature_type == TeacherMultipleChoice:
+            model = dspy.ChainOfThought(TeacherMultipleChoice)
+        elif signature_type == TeacherFreeText4Way:
+            model = dspy.ChainOfThought(TeacherFreeText4Way)
+        else:
+            raise ValueError(f"Unknown signature type: {signature_type}")
+        
+        # Process each request in the batch
+        for kwargs in kwargs_list:
+            try:
+                result = model(lm=self.lm, **kwargs)
+                results.append(result)
+            except Exception as e:
+                results.append(e)
+        
+        return results
+    
+    async def infer(self, signature, **kwargs):
+        """Submit an inference request and return the result."""
+        if not self._running:
+            await self.start()
+        
+        request_id = str(uuid4())
+        future = asyncio.Future()
+        self._response_futures[request_id] = future
+        
+        # Add the request to the queue
+        await self._request_queue.put((request_id, (signature, kwargs)))
+        
+        # Wait for the result
+        return await future
+
+# Global batched LM instance
+_batched_lm = None
+
+def get_batched_lm():
+    """Get or create the global batched LM instance."""
+    global _batched_lm
+    if _batched_lm is None:
+        lm = get_large_llm_no_cache()
+        _batched_lm = BatchedLM(lm, batch_size=8)
+        # Note: In a real implementation, you'd want to start this at application startup
+        # and stop it at shutdown
+        asyncio.create_task(_batched_lm.start())
+    return _batched_lm
+
+
+# Task generation with batched LM
+async def generate_tasks(
+    document_id: UUID,
+    chunks: List[Chunk],
+    num_tasks: int = 3,
+    task_type: str = "multiple_choice",
+    forbidden_questions: set[str] | None = None,
+) -> List[Task]:
+    """
+    Generate tasks from document chunks using batched LM inference
+    
+    Args:
+        document_id: Document ID
+        chunks: List of document chunks
+        num_tasks: Number of tasks to generate
+        task_type: Type of task to generate
+        forbidden_questions: Set of questions to avoid
+
+    Returns:
+        List of Task objects
+    """
+    batched_lm = get_batched_lm()
+    
+    logger.info(
+        f"Generating {num_tasks} tasks for document {document_id} with {len(chunks)} chunks using batched LM"
+    )
+
+    tasks: List[Task] = []
+    start_time = time.time()
+
+    # Track questions to avoid duplicates against provided forbidden set and within this batch
+    seen_questions: set[str] = (
+        set(forbidden_questions) if forbidden_questions else set()
+    )
+
+    max_attempts = 4
+    attempts = 0
+    while len(tasks) < num_tasks and attempts < max_attempts:
+        remaining = num_tasks - len(tasks)
+
+        # Select up to len(chunks) chunks without replacement, then the rest with replacement
+        if remaining <= len(chunks):
+            selected_chunks = random.sample(chunks, remaining)
+        else:
+            selected_chunks = list(chunks)
+            selected_chunks += [
+                random.choice(chunks) for _ in range(remaining - len(chunks))
+            ]
+
+        # Create inference tasks for all chunks - FIXED SECTION
+        inference_tasks = []
+        for chunk in selected_chunks:
+            if task_type == "multiple_choice":
+                inference_tasks.append(
+                    batched_lm.infer(TaskMultipleChoice, text=chunk.chunk_text)
+                )
+            elif task_type == "free_text":
+                inference_tasks.append(
+                    batched_lm.infer(TaskFreeText, text=chunk.chunk_text)
+                )
+            else:
+                raise ValueError(f"Invalid task type: {task_type}")
+        
+        # Wait for all inferences to complete
+        results = await asyncio.gather(*inference_tasks, return_exceptions=True)
+        
+        # Process results
+        for chunk, result in zip(selected_chunks, results):
+            if len(tasks) >= num_tasks:
+                break
+                
+            if isinstance(result, Exception):
+                logger.error(f"Error generating task for chunk {chunk.id}: {result}")
+                continue
+            
+            # Validate multiple choice tasks have the correct number of answer options
+            if (
+                task_type == "multiple_choice"
+                and len(result.answer) != REQUIRED_ANSWER_OPTIONS
+            ):
+                continue
+            
+            question_text = result.question
+            if question_text in seen_questions:
+                # Duplicate question, skip
+                continue
+            
+            task = _create_task_from_response(result, task_type, chunk.id)
+            tasks.append(task)
+            seen_questions.add(question_text)
+
+        attempts += 1
+
+    end_time = time.time()
+    logger.info(f"Generated {len(tasks)} unique tasks in {end_time - start_time} seconds")
+
+    if not tasks:
+        logger.warning(
+            f"Warning: No tasks could be generated from the provided chunks for document {document_id}"
+        )
+        return []
+
+    return tasks
 
 
 class TaskMultipleChoice(dspy.Signature):
@@ -211,7 +468,7 @@ def _generate_single_task(chunk: Chunk, task_generator, task_type: str, lm: dspy
 
         return qg_response
     except Exception as e:
-        print(f"Error generating task for chunk {chunk.id}: {e}")
+        logger.exception(f"Error generating task for chunk {chunk.id}: {e}")
         return None
 
 
@@ -246,83 +503,7 @@ def _create_task_from_response(qg_response, task_type: str, chunk_id: UUID) -> T
     return task
 
 
-def generate_tasks(
-    document_id: UUID,
-    chunks: List[Chunk],
-    lm: dspy.LM,
-    num_tasks: int = 3,
-    task_type: str = "multiple_choice",
-    forbidden_questions: set[str] | None = None,
-) -> List[Task]:
-    """
-    Generate tasks from document chunks
-
-    Args:
-        document_id: Document ID
-        chunks: List of document chunks
-        num_tasks: Number of tasks to generate
-        task_type: Type of task to generate
-
-    Returns:
-        List of Task objects
-    """
-    task_generator = _get_task_generator(task_type)
-
-    print(
-        f"Generating {num_tasks} tasks for document {document_id} with {len(chunks)} chunks"
-    )
-
-    tasks: List[Task] = []
-    start_time = time.time()
-
-    # Track questions to avoid duplicates against provided forbidden set and within this batch
-    seen_questions: set[str] = (
-        set(forbidden_questions) if forbidden_questions else set()
-    )
-
-    max_attempts = 4
-    attempts = 0
-    while len(tasks) < num_tasks and attempts < max_attempts:
-        remaining = num_tasks - len(tasks)
-
-        # Select up to len(chunks) chunks without replacement, then the rest with replacement
-        if remaining <= len(chunks):
-            selected_chunks = random.sample(chunks, remaining)
-        else:
-            selected_chunks = list(chunks)
-            selected_chunks += [
-                random.choice(chunks) for _ in range(remaining - len(chunks))
-            ]
-
-        for chunk in tqdm(selected_chunks):
-            if len(tasks) >= num_tasks:
-                break
-
-            qg_response = _generate_single_task(chunk, task_generator, task_type, lm)
-
-            if qg_response is None:
-                continue
-
-            question_text = qg_response.question
-            if question_text in seen_questions:
-                # Duplicate question, skip
-                continue
-
-            task = _create_task_from_response(qg_response, task_type, chunk.id)
-            tasks.append(task)
-            seen_questions.add(question_text)
-
-        attempts += 1
-
-    end_time = time.time()
-    print(f"Generated {len(tasks)} unique tasks in {end_time - start_time} seconds")
-
-    if not tasks:
-        raise Exception("No tasks could be generated from the provided chunks")
-
-    return tasks
-
-
+# Use batch LM
 async def process_generate_tasks_for_documents(
     unit_id: UUID,
     document_ids: List[UUID],
@@ -330,12 +511,15 @@ async def process_generate_tasks_for_documents(
     task_type: TaskType,
     forbidden_questions: set[str],
 ):
-    """Background task that generates tasks for given documents and links them to a unit."""
-    print(f"[bg] Start generating tasks for unit {unit_id}...")
+    """Background task that generates tasks for given documents and links them to a unit using batched LM."""
+    logger.info(f"[bg] Start generating tasks for unit {unit_id}...")
     engine = get_database_engine()
     with Session(engine) as session:
         try:
             all_generated_tasks: list[Task] = []
+
+            # Get the batched LM instance
+            batched_lm = get_batched_lm()
 
             for document_id in document_ids:
                 chunks_for_doc: list[Chunk] = session.exec(
@@ -345,17 +529,16 @@ async def process_generate_tasks_for_documents(
                 ).all()
 
                 if not chunks_for_doc:
-                    print("[bg] no chunks for document", document_id)
+                    logger.error("[bg] no chunks for document", document_id)
                     continue
 
-                lm = get_large_llm_no_cache()
-                generated: list[Task] = await asyncio.to_thread(
-                    generate_tasks,
+                # Use the batched task generation
+                task_type_str = "multiple_choice" if task_type == TaskType.MULTIPLE_CHOICE else "free_text"
+                generated: list[Task] = await generate_tasks(
                     document_id,
                     chunks_for_doc,
-                    lm,
                     num_tasks,
-                    task_type,
+                    task_type_str,
                     forbidden_questions,
                 )
 
@@ -370,50 +553,64 @@ async def process_generate_tasks_for_documents(
 
             if all_generated_tasks:
                 session.commit()
-                print(
+                logger.info(
                     f"[bg] Finished generating {len(all_generated_tasks)} tasks for unit {unit_id}"
                 )
             else:
-                print(
+                logger.error(
                     f"[bg] No tasks generated for unit {unit_id} (no important chunks or other constraints)"
                 )
         except Exception as e:
             session.rollback()
-            print(f"[bg] Error generating tasks for unit {unit_id}: {e}")
+            logger.exception(f"[bg] Error generating tasks for unit {unit_id}: {e}")
 
 
+async def evaluate_student_answer_async(
+    task_teacher: TaskReadTeacher,
+    student_answer: str,
+    task_type: TaskType,
+) -> TeacherResponseMultipleChoice | TeacherResponseFreeText:
+    """Evaluate student answer using batched LM."""
+    batched_lm = get_batched_lm()
+    
+    try:
+        if task_type == TaskType.MULTIPLE_CHOICE:
+            logger.info("Evaluating multiple choice task")
+            response = await batched_lm.infer(
+                TeacherMultipleChoice,
+                chunk=task_teacher.chunk,
+                question=task_teacher.question,
+                correct_answer=task_teacher.answer_options[0].answer,
+                student_answer=student_answer,
+            )
+        elif task_type == TaskType.FREE_TEXT:
+            logger.info("Evaluating free text task")
+            response = await batched_lm.infer(
+                TeacherFreeText4Way,
+                chunk=task_teacher.chunk,
+                question=task_teacher.question,
+                correct_answer=task_teacher.answer_options[0].answer,
+                student_answer=student_answer,
+            )
+
+        logger.info("response", response)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error evaluating answer: {e}")
+    
+# Wrapper to maintain compatibility with existing synchronous interface
 def evaluate_student_answer(
     task_teacher: TaskReadTeacher,
     student_answer: str,
     task_type: TaskType,
-    lm: dspy.LM,
+    lm: dspy.LM,  # This parameter is kept for compatibility but not used
 ) -> TeacherResponseMultipleChoice | TeacherResponseFreeText:
-    if task_type == TaskType.MULTIPLE_CHOICE:
-        print("Evaluating multiple choice task")
-        teacher = dspy.ChainOfThought(TeacherMultipleChoice)
-    elif task_type == TaskType.FREE_TEXT:
-        print("Evaluating free text task")
-        teacher = dspy.ChainOfThought(TeacherFreeText4Way)
-
-    try:
-        # print("task_teacher", task_teacher)
-        # print("student_answer", student_answer)
-        response = teacher(
-            chunk=task_teacher.chunk,
-            question=task_teacher.question,
-            correct_answer=task_teacher.answer_options[0].answer,
-            student_answer=student_answer,
-            lm=lm,
-        )
-
-        # inspect history and print the last 3 messages
-        # print(teacher.history[-1:])
-
-        print("response", response)
-
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error evaluating answer: {e}")
+    """Synchronous wrapper for evaluate_student_answer_async."""
+    # Run the async function in the event loop
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(
+        evaluate_student_answer_async(task_teacher, student_answer, task_type)
+    )
 
 
 def _compute_task_priority(

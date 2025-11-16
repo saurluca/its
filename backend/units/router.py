@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Query
 from dependencies import get_db_session
 from units.models import (
     Unit,
@@ -19,11 +19,25 @@ from repositories.access_control import (
     create_repository_access_dependency,
 )
 from auth.dependencies import get_current_user_from_request
-from auth.models import UserResponse
+from auth.models import UserResponse, User
 from uuid import UUID
 from sqlmodel import select, Session
+from analytics.queries import get_unit_task_audit
 
 router = APIRouter(prefix="/units", tags=["units"])
+
+# ==========================UNIT AUDIT ENDPOINTS==============================
+
+@router.get("/unit/{unit_id}/audit")
+def unit_task_audit(
+    unit_id: UUID, 
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get audit trail for unit-task assignments"""
+    return get_unit_task_audit(session, unit_id, limit, offset)
 
 
 @router.get("", response_model=list[UnitListResponse])

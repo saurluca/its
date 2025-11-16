@@ -6,7 +6,8 @@ from uuid import UUID, uuid4
 
 # Import link models to avoid string reference issues
 from skills.models import UserSkillLink
-from tasks.models import TaskUserLink
+from tasks.models import TaskChangeEvent, TaskAnswerEvent, TaskUserLink
+from analytics.models import UserPageSession
 
 if TYPE_CHECKING:
     from repositories.models import RepositoryAccess
@@ -38,6 +39,10 @@ class User(UserBase, table=True):
         back_populates="users",
         link_model=TaskUserLink,
     )
+    
+    task_answer_events: list["TaskAnswerEvent"] = Relationship(back_populates="user")
+    task_change_events: list["TaskChangeEvent"] = Relationship(back_populates="user")
+    page_sessions: list["UserPageSession"] = Relationship(back_populates="user")
 
 
 class UserCreate(SQLModel):

@@ -1,19 +1,22 @@
 from typing import TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
 
 from units.models import UnitTaskLink
-from documents.models import Chunk
 
 from constants import DEFAULT_NUM_TASKS
 
 
 if TYPE_CHECKING:
+    from tasks.versions import TaskVersion, AnswerOptionVersion
+    from units.models import Unit
     from skills.models import Skill
     from auth.models import User
-    from units.models import Unit
+    from documents.models import Chunk
 
 
 class TaskType(str, Enum):
@@ -32,12 +35,99 @@ class AnswerOptionBase(SQLModel):
     is_correct: bool
 
 
+class ChangeType(str, Enum):
+    QUESTION_UPDATE = "question_update"
+    OPTION_ADDED = "option_added"
+    OPTION_UPDATED = "option_updated"
+    OPTION_DELETED = "option_deleted"
+    CORRECTNESS_CHANGED = "correctness_changed"
+    OTHER = "other"
+
+
+class TaskChangeEvent(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    task_id: UUID = Field(
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("task.id", ondelete="RESTRICT"),
+            index=True
+        )
+    )
+
+    answer_option_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("answeroption.id", ondelete="RESTRICT"),
+            nullable=True
+        )
+    )
+
+    user_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("user.id", ondelete="RESTRICT"),
+            nullable=True
+        )
+    )
+
+    change_type: ChangeType
+    old_value: str | None = None
+    new_value: str | None = None
+    change_metadata: str | None = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    task: "Task" = Relationship(back_populates="change_events")
+    user: "User" = Relationship(back_populates="task_change_events")
+
+
+class TaskAnswerEvent(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    user_id: UUID = Field(
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("user.id", ondelete="RESTRICT"),
+            index=True
+        )
+    )
+
+    task_id: UUID = Field(
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("task.id", ondelete="RESTRICT"),
+            index=True
+        )
+    )
+
+    answer_option_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            PG_UUID(as_uuid=True),
+            ForeignKey("answeroption.id", ondelete="RESTRICT"),
+            nullable=True
+        )
+    )
+
+    user_answer_text: str | None = None
+    result: ResultType
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    task: "Task" = Relationship(back_populates="answer_events")
+    user: "User" = Relationship(back_populates="task_answer_events")
+
+
 class AnswerOption(AnswerOptionBase, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     task_id: UUID = Field(foreign_key="task.id", nullable=False)
 
     # Relationships
     task: "Task" = Relationship(back_populates="answer_options")
+    versions: list["AnswerOptionVersion"] = Relationship(back_populates="answer_option")
 
 
 class AnswerOptionCreate(AnswerOptionBase):
@@ -102,6 +192,11 @@ class Task(TaskBase, table=True):
         back_populates="tasks",
         link_model=TaskUserLink,
     )
+    has_been_modified: bool = Field(default=False)
+    versions: list["TaskVersion"] = Relationship(back_populates="task")
+    answer_events: list["TaskAnswerEvent"] = Relationship(back_populates="task")
+    change_events: list["TaskChangeEvent"] = Relationship(back_populates="task")
+    unit_links: list["UnitTaskLink"] = Relationship(back_populates="task")
 
 
 class TaskCreate(TaskBase):
@@ -175,5 +270,5 @@ class GenerateTasksForDocumentsRequest(SQLModel):
     task_type: str = "multiple_choice"
 
 
-# Rebuild models to resolve forward references
-TaskReadTeacher.model_rebuild()
+# Rebuild models to resolve forward references - all rebuilds are handled (now) at the entry point (main.py)
+# TaskReadTeacher.model_rebuild()

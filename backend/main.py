@@ -8,6 +8,7 @@ from auth.router import router as auth_router
 from skills.router import router as skills_router
 from reports.router import router as reports_router
 from reports.models import Report  # noqa: F401 - ensure model is registered
+from analytics.routes import router as analytics_router
 from units.router import router as units_router
 from config import LLMConfig, AppConfig
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ from documents.models import Document, Chunk  # noqa
 from tasks.models import Task, AnswerOption  # noqa
 from repositories.models import Repository  # noqa
 from skills.models import Skill, UserSkillLink, RepositorySkillLink  # noqa
+from analytics.models import PageType, UserPageSession
 
 load_dotenv()
 
@@ -66,5 +68,22 @@ app.include_router(repositories_router)
 app.include_router(tasks_router)
 app.include_router(documents_router)
 app.include_router(skills_router)
+app.include_router(analytics_router)
 app.include_router(units_router)
 app.include_router(reports_router)
+
+
+@app.on_event("startup")
+def rebuild_models():
+    from tasks.models import Task, AnswerOption, TaskReadTeacher
+    from documents.models import Chunk
+    from skills.models import Skill
+    from repositories.models import Repository
+    from auth.models import User
+    User.model_rebuild()
+    Repository.model_rebuild()
+    Task.model_rebuild()
+    AnswerOption.model_rebuild()
+    TaskReadTeacher.model_rebuild()
+    Chunk.model_rebuild()
+    Skill.model_rebuild()

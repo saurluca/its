@@ -21,15 +21,29 @@ from repositories.access_control import (
     get_repository_access,
 )
 from auth.dependencies import get_current_user_from_request
-from auth.models import UserResponse
+from auth.models import UserResponse, User
 from documents.models import Document, DocumentResponse
 from uuid import UUID
 from sqlmodel import select, Session
 from auth.service import get_user_by_email
 from units.models import UnitListResponse
 
+from analytics.queries import get_page_usage_stats, get_repository_task_statistics
+
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
+# ===================REPOSITORY STATISTICS ENDPOINTS============================
+
+@router.get("/{repository_id}/statistics")
+def repository_statistics(
+    repository_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get task statistics for a repository"""
+    return get_repository_task_statistics(session, repository_id)
+
+# ----
 
 @router.get("", response_model=list[RepositoryResponse])
 async def get_repositories(

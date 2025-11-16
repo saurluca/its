@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 from enum import Enum
 
 # Import link models to avoid string reference issues
-from skills.models import RepositorySkillLink
+from tasks.stats import TaskStatistics
 
 if TYPE_CHECKING:
     from documents.models import Document
     from units.models import Unit
     from auth.models import User
-    from skills.models import Skill
+    from skills.models import Skill, RepositorySkillLink
 
 
 class AccessLevel(str, Enum):
@@ -74,7 +74,7 @@ class Repository(RepositoryBase, table=True):
     # Relationships
     documents: list["Document"] = Relationship(
         back_populates="repositories",
-        link_model=RepositoryDocumentLink,
+        sa_relationship_kwargs={"secondary": "repositorydocumentlink"}
     )
     units: list["Unit"] = Relationship(
         back_populates="repository",
@@ -82,9 +82,10 @@ class Repository(RepositoryBase, table=True):
     )
     skills: list["Skill"] = Relationship(
         back_populates="repositories",
-        link_model=RepositorySkillLink,
+        sa_relationship_kwargs={"secondary": "repositoryskilllink"}
     )
     user_access: list["RepositoryAccess"] = Relationship(back_populates="repository")
+    task_statistics: list["TaskStatistics"] = Relationship(back_populates="repository")
 
 
 class RepositoryCreate(RepositoryBase):

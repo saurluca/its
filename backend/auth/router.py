@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status, Response
+from fastapi import Depends, HTTPException, status, Response, Query
 from auth.service import (
     authenticate_user,
     create_access_token,
@@ -8,8 +8,9 @@ from auth.service import (
 from auth.models import (
     UserResponse,
     UserCreate,
+    User
 )
-from typing import Annotated
+from typing import Annotated, Optional
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import APIRouter
@@ -17,7 +18,10 @@ from constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session
+from analytics.models import PageType
+from analytics.queries import get_user_page_time, get_user_answer_history
 
+from uuid import UUID
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -89,6 +93,34 @@ async def create_user_endpoint(
 ):
     """Create a new user"""
     return await create_user(user_data, db)
+
+
+# ==============================================================================
+# USER ANALYTICS ENDPOINTS
+# ==============================================================================
+
+@router.get("/users/{user_id}/time-spent")
+def user_time(
+    user_id: UUID,
+    page: Optional[PageType] = Query(None, description="Filter by specific page"),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get time spent by user on pages"""
+    return get_user_page_time(session, user_id, page)
+
+
+@router.get("/users/{user_id}/answer-history")
+def user_answer_history(
+    user_id: UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get answer history for a user"""
+    return get_user_answer_history(session, user_id, limit, offset)
+
 
 
 # @router.get("/users", response_model=UserListResponse)

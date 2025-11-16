@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Query
 import asyncio
 from datetime import datetime
 from dependencies import (
@@ -32,6 +32,12 @@ from repositories.access_control import (
     create_chunk_access_dependency,
     create_unit_access_dependency,
 )
+from analytics.queries import (
+    get_task_snapshot, get_task_answer_history, 
+    get_latest_task_snapshot, get_task_version_history, 
+    compare_task_versions, get_task_completion_stats, 
+    get_task_user_attempts, get_task_change_history
+    )
 from repositories.models import (
     Repository,
     AccessLevel,
@@ -40,7 +46,7 @@ from repositories.models import (
 )
 from units.models import Unit, UnitTaskLink
 from auth.dependencies import get_current_user_from_request
-from auth.models import UserResponse
+from auth.models import UserResponse, User
 from uuid import UUID
 from typing import Any, cast
 from sqlmodel import select, Session
@@ -54,6 +60,127 @@ from repositories.access_control import get_repository_access
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
+@router.get("/{task_id}/snapshot/{version}")
+def task_snapshot(
+    task_id: UUID, 
+    version: int, 
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get a specific version snapshot of a task"""
+    snapshot = get_task_snapshot(session, task_id, version)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return snapshot
+
+
+@router.get("/{task_id}/snapshot/latest")
+def latest_task_snapshot(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get the latest version snapshot of a task"""
+    snapshot = get_latest_task_snapshot(session, task_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return snapshot
+
+
+@router.get("/{task_id}/versions")
+def get_versions(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get all version numbers and timestamps for a task"""
+    versions = get_task_version_history(session, task_id)
+    
+    return {
+        "task_id": task_id,
+        "total_versions": len(versions),
+        "versions": versions
+    }
+
+
+@router.get("/{task_id}/compare")
+def compare_versions(
+    task_id: UUID,
+    version1: int = Query(..., description="First version to compare"),
+    version2: int = Query(..., description="Second version to compare"),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Compare two versions of a task"""
+    comparison = compare_task_versions(session, task_id, version1, version2)
+    
+    if not comparison:
+        raise HTTPException(status_code=404, detail="One or both versions not found")
+    
+    return comparison
+
+# =========================TASK STATISTICS ENDPOINTS======================
+
+@router.get("/{task_id}/stats")
+def task_stats(
+    task_id: UUID, 
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get completion statistics for a task"""
+    return get_task_completion_stats(session, task_id)
+
+
+@router.get("/{task_id}/user-attempts")
+def task_user_attempts(
+    task_id: UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get individual user attempts for a task (paginated)"""
+    attempts = get_task_user_attempts(session, task_id, limit, offset)
+    
+    return {
+        "task_id": task_id,
+        "attempts": [{
+            "user_id": a.user_id,
+            "times_correct": a.times_correct,
+            "times_incorrect": a.times_incorrect,
+            "times_partial": a.times_partial,
+            "last_answered_at": a.updated_at
+        } for a in attempts],
+        "limit": limit,
+        "offset": offset
+    }
+
+# ===========================TASK HISTORY ENDPOINTS===========================
+
+@router.get("/{task_id}/answer-history")
+def task_answer_history(
+    task_id: UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get answer history for a task"""
+    return get_task_answer_history(session, task_id, limit, offset)
+
+
+@router.get("/{task_id}/change-history")
+def task_change_history(
+    task_id: UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request)
+):
+    """Get change history for a task"""
+    return get_task_change_history(session, task_id, limit, offset)
+
+# ----
 
 # TODO is this even needed?
 @router.get("", response_model=list[TaskRead])

@@ -1,13 +1,12 @@
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Index
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
-from repositories.models import RepositoryDocumentLink
-
 
 if TYPE_CHECKING:
-    from repositories.models import Repository
+    from repositories.models import Repository, RepositoryDocumentLink
     from tasks.models import Task
+    from tasks.versions import TaskVersion
 
 
 class DocumentBase(SQLModel):
@@ -30,7 +29,7 @@ class Document(DocumentBase, table=True):
 
     repositories: list["Repository"] = Relationship(
         back_populates="documents",
-        link_model=RepositoryDocumentLink,
+        sa_relationship_kwargs={"secondary": "repositorydocumentlink"}
     )
 
 
@@ -84,6 +83,7 @@ class Chunk(ChunkBase, table=True):
         back_populates="chunk",
         cascade_delete=True,
     )
+    task_versions: list["TaskVersion"] = Relationship(back_populates="chunk")
 
 
 class ChunkCreate(ChunkBase):

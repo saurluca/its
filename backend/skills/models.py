@@ -3,6 +3,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
 
+from tasks.versions import TaskVersion
 if TYPE_CHECKING:
     from tasks.models import Task
     from repositories.models import Repository
@@ -51,6 +52,7 @@ class Skill(SkillBase, table=True):
     tasks: list["Task"] = Relationship(
         back_populates="skill",
     )
+    task_versions: list["TaskVersion"] = Relationship(back_populates="skill")
 
 
 # Pydantic models for API operations

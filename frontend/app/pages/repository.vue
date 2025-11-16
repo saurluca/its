@@ -116,6 +116,22 @@ onMounted(async () => {
     await fetchAll();
 });
 
+
+// Track page analytics
+onMounted(() => {
+  $authFetch("/analytics/pages/repositories/enter", {
+    method: "POST",
+    credentials: "include",
+  });
+});
+
+onBeforeUnmount(() => {
+  $authFetch("/analytics/pages/repositories/leave", {
+    method: "POST",
+    credentials: "include",
+  });
+});
+
 // React to repositoryId changes when staying on the same route
 watch(repositoryId, async (newId, oldId) => {
     if (!newId || newId === oldId) return;

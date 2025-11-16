@@ -1,4 +1,4 @@
-from typing import List, Any, cast
+from typing import List, Any, cast, Optional
 from uuid import UUID
 import asyncio
 import dspy
@@ -17,18 +17,345 @@ from constants import (
     SM2_NEW_TASK_BOOST,
     SM2_RECENCY_WEIGHT,
 )
-from documents.models import Chunk
+from documents.models import Chunk, Document
 from tasks.models import (
     Task,
     TaskType,
+    TaskCreate,
+    TaskAnswerEvent,
     AnswerOption,
     TaskReadTeacher,
     TeacherResponseMultipleChoice,
     TeacherResponseFreeText,
     TaskUserLink,
+    ResultType
 )
 from units.models import UnitTaskLink
 
+
+
+from sqlalchemy.orm import selectinload
+from tasks.models import ChangeType
+from tasks.events_service import (
+    create_task_answer_event,
+    create_task_change_event,
+)
+from tasks.versions_service import (
+    create_task_version,
+    get_next_version_number,
+    create_answer_option_version,
+)
+from tasks.stats_service import increment_task_created, increment_task_deleted, increment_task_modified_once
+
+# helper function to get repository IDs efficiently
+def get_repository_ids_for_task(
+    session: Session, 
+    chunk_id: UUID
+) -> List[UUID]:
+    """Get all repository IDs associated with a task's chunk (single query)"""
+    stmt = (
+        select(Chunk)
+        .where(Chunk.id == chunk_id)
+        .options(
+            selectinload(Chunk.document).selectinload(Document.repositories)
+        )
+    )
+    
+    chunk = session.exec(stmt).first()
+    if not chunk or not chunk.document:
+        return []
+    
+    return [repo.id for repo in chunk.document.repositories]
+
+# function to create task with proper answer_options handling
+def create_task_with_versioning(
+    session: Session,
+    task_create: TaskCreate,
+    user_id: Optional[UUID] = None,
+) -> Task:
+    """Create a new task with versioning and statistics tracking"""
+    try:
+        # Create task
+        task = Task(
+            type=task_create.type,
+            question=task_create.question,
+            chunk_id=task_create.chunk_id,
+            skill_id=task_create.skill_id,
+        )
+        session.add(task)
+        session.flush()
+        
+        # Create answer options
+        answer_options = []
+        if task_create.answer_options:
+            for opt_data in task_create.answer_options:
+                answer_option = AnswerOption(
+                    task_id=task.id,
+                    answer=opt_data.answer,
+                    is_correct=opt_data.is_correct,
+                )
+                session.add(answer_option)
+                answer_options.append(answer_option)
+            
+            session.flush()
+        
+        # Create version
+        version = create_task_version(
+            session=session,
+            task_id=task.id,
+            version=1,
+            question=task.question,
+            task_type=task.type,
+            chunk_id=task.chunk_id,
+            skill_id=task.skill_id,
+            auto_commit=False,
+        )
+        
+        # Create option versions
+        for answer_option in answer_options:
+            create_answer_option_version(
+                session=session,
+                answer_option_id=answer_option.id,
+                task_version_id=version.id,
+                answer=answer_option.answer,
+                is_correct=answer_option.is_correct,
+                auto_commit=False,
+            )
+        
+        # Update statistics
+        repo_ids = get_repository_ids_for_task(session, task.chunk_id)
+        for repo_id in repo_ids:
+            increment_task_created(session, repo_id)
+        
+        # Log creation
+        create_task_change_event(
+            session=session,
+            task_id=task.id,
+            change_type=ChangeType.OTHER,
+            user_id=user_id,
+            metadata="Task created",
+            auto_commit=False,
+        )
+        
+        # Single commit
+        session.commit()
+        session.refresh(task)
+        
+        return task
+        
+    except Exception as e:
+        session.rollback()
+        raise
+
+
+def update_task_with_versioning(
+    session: Session,
+    task_id: UUID,
+    task_data: dict,
+    user_id: Optional[UUID] = None,
+) -> Task:
+    """Update a task with versioning and statistics tracking"""
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+        
+        # Track if this is the first modification
+        is_first_modification = not task.has_been_modified
+        
+        # Update fields
+        old_values = {}
+        for field, value in task_data.items():
+            if hasattr(task, field) and getattr(task, field) != value:
+                old_values[field] = getattr(task, field)
+                setattr(task, field, value)
+        
+        # Mark as modified
+        task.has_been_modified = True
+        
+        session.add(task)
+        session.flush()
+        
+        # Create new version
+        version_number = get_next_version_number(session, task_id)
+        version = create_task_version(
+            session=session,
+            task_id=task.id,
+            version=version_number,
+            question=task.question,
+            task_type=task.type,
+            chunk_id=task.chunk_id,
+            skill_id=task.skill_id,
+            auto_commit=False,
+        )
+        
+        # Create versions for answer options
+        for answer_option in task.answer_options:
+            create_answer_option_version(
+                session=session,
+                answer_option_id=answer_option.id,
+                task_version_id=version.id,
+                answer=answer_option.answer,
+                is_correct=answer_option.is_correct,
+                auto_commit=False,
+            )
+        
+        # Update statistics if this is the first modification
+        if is_first_modification:
+            repo_ids = get_repository_ids_for_task(session, task.chunk_id)
+            for repo_id in repo_ids:
+                increment_task_modified_once(session, repo_id, task.id)
+        
+        # Log change events
+        for field, old_value in old_values.items():
+            if field == "question":
+                create_task_change_event(
+                    session=session,
+                    task_id=task.id,
+                    change_type=ChangeType.QUESTION_UPDATE,
+                    user_id=user_id,
+                    old_value=old_value,
+                    new_value=task_data[field],
+                    auto_commit=False,
+                )
+        
+        # Single commit
+        session.commit()
+        session.refresh(task)
+        
+        return task
+        
+    except Exception as e:
+        session.rollback()
+        raise
+
+
+def delete_task_with_tracking(
+    session: Session,
+    task_id: UUID,
+    user_id: Optional[UUID] = None,
+) -> bool:
+    """Soft delete a task with statistics tracking"""
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return False
+        
+        # Soft delete
+        task.deleted_at = datetime.utcnow()
+        session.add(task)
+        
+        # Update statistics
+        repo_ids = get_repository_ids_for_task(session, task.chunk_id)
+        for repo_id in repo_ids:
+            increment_task_deleted(session, repo_id)
+        
+        # Log deletion event
+        create_task_change_event(
+            session=session,
+            task_id=task.id,
+            change_type=ChangeType.OTHER,
+            user_id=user_id,
+            metadata="Task deleted",
+            auto_commit=False,
+        )
+        
+        # Single commit
+        session.commit()
+        
+        return True
+        
+    except Exception as e:
+        session.rollback()
+        raise
+
+
+def record_task_answer(
+    session: Session,
+    user_id: UUID,
+    task_id: UUID,
+    result: ResultType,
+    answer_option_id: Optional[UUID] = None,
+    user_answer_text: Optional[str] = None,
+) -> TaskAnswerEvent:
+    """Record a user's answer to a task"""
+    try:
+        # Validate task exists
+        task = session.get(Task, task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+        
+        if task.deleted_at is not None:
+            raise ValueError(f"Cannot answer deleted task {task_id}")
+        
+        # Validate answer type matches task type
+        if task.type == TaskType.MULTIPLE_CHOICE:
+            if not answer_option_id:
+                raise ValueError("Multiple choice tasks require answer_option_id")
+            
+            # Validate answer option belongs to this task
+            answer_option = session.get(AnswerOption, answer_option_id)
+            if not answer_option or answer_option.task_id != task_id:
+                raise ValueError(f"Answer option {answer_option_id} not valid for task {task_id}")
+        
+        elif task.type == TaskType.FREE_TEXT:
+            if not user_answer_text:
+                raise ValueError("Free text tasks require user_answer_text")
+        
+        # Validate user exists
+        from auth.models import User
+        user = session.get(User, user_id)
+        if not user:
+            raise ValueError(f"User {user_id} not found")
+        
+        # Create answer event
+        event = create_task_answer_event(
+            session=session,
+            user_id=user_id,
+            task_id=task_id,
+            result=result,
+            answer_option_id=answer_option_id,
+            user_answer_text=user_answer_text,
+            auto_commit=False,
+        )
+        
+        # Update TaskUserLink
+        link = session.exec(
+            select(TaskUserLink).where(
+                TaskUserLink.user_id == user_id,
+                TaskUserLink.task_id == task_id,
+            )
+        ).first()
+        
+        if not link:
+            link = TaskUserLink(
+                user_id=user_id, 
+                task_id=task_id,
+                times_correct=0,
+                times_incorrect=0,
+                times_partial=0,
+            )
+        
+        # Update counters based on result
+        if result == ResultType.CORRECT:
+            link.times_correct += 1
+        elif result == ResultType.INCORRECT:
+            link.times_incorrect += 1
+        elif result == ResultType.PARTIAL:
+            link.times_partial += 1
+        
+        link.updated_at = datetime.utcnow()
+        session.add(link)
+        
+        # Commit everything
+        session.commit()
+        session.refresh(event)
+        
+        return event
+        
+    except Exception as e:
+        session.rollback()
+        raise
 
 class TaskMultipleChoice(dspy.Signature):
     """Generate a single multiple choice question, with 4 answer options, and exactly one correct answer which is in the first position.

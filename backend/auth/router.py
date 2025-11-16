@@ -10,6 +10,7 @@ from auth.models import (
     UserCreate,
     User
 )
+from analytics.models import PageType
 from typing import Annotated, Optional
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
@@ -18,7 +19,6 @@ from constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from dependencies import get_db_session
 from auth.dependencies import get_current_user_from_request
 from sqlmodel import Session
-from analytics.models import PageType
 from analytics.queries import get_user_page_time, get_user_answer_history
 
 from uuid import UUID
@@ -94,10 +94,7 @@ async def create_user_endpoint(
     """Create a new user"""
     return await create_user(user_data, db)
 
-
-# ==============================================================================
-# USER ANALYTICS ENDPOINTS
-# ==============================================================================
+# ========================USER ANALYTICS ENDPOINTS==============================
 
 @router.get("/users/{user_id}/time-spent")
 def user_time(
@@ -120,7 +117,6 @@ def user_answer_history(
 ):
     """Get answer history for a user"""
     return get_user_answer_history(session, user_id, limit, offset)
-
 
 
 # @router.get("/users", response_model=UserListResponse)

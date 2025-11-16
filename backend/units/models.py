@@ -17,6 +17,7 @@ class UnitTaskLink(SQLModel, table=True):
     task_id: UUID | None = Field(default=None, foreign_key="task.id", primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
     deleted_at: datetime | None = None
+    task: "Task" = Relationship(back_populates="unit_links")
 
 class UnitTaskEvent(SQLModel, table=True):
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)

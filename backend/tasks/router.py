@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends, HTTPException, Query
+from fastapi import APIRouter, status, Depends, HTTPException, Query, Body
 import asyncio
 from datetime import datetime
 from dependencies import (
@@ -6,7 +6,7 @@ from dependencies import (
     get_large_llm,
     get_large_llm_no_cache,
 )
-from documents.models import Chunk
+from documents.models import Chunk, Document
 from tasks.models import (
     Task,
     TaskCreate,
@@ -24,6 +24,8 @@ from tasks.models import (
     TeacherResponseFreeText,
     GenerateTasksForDocumentsRequest,
     TaskUserLink,
+    ResultType,
+    TaskAnswerEvent
 )
 from repositories.access_control import (
     create_task_access_dependency,
@@ -48,7 +50,7 @@ from units.models import Unit, UnitTaskLink
 from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse, User
 from uuid import UUID
-from typing import Any, cast
+from typing import Any, cast, Optional
 from sqlmodel import select, Session
 from tasks.service import (
     generate_tasks,
@@ -59,6 +61,127 @@ import dspy
 from repositories.access_control import get_repository_access
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+@router.post("/{task_id}/answer")
+def submit_answer(
+    task_id: UUID,
+    *,
+    option_id: Optional[UUID] = Body(None, embed=True),
+    text: Optional[str] = Body(None, embed=True),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user_from_request),
+    lm: dspy.LM = Depends(get_large_llm),
+):
+    """
+    Submit a student answer.
+    - MULTIPLE_CHOICE: send `option_id`
+    - FREE_TEXT:       send `text`
+    """
+    # 1. Load task
+    task = session.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    # 2. Prepare teacher model (only for FREE_TEXT)
+    task_teacher: Optional[TaskReadTeacher] = None
+    if task.type == TaskType.FREE_TEXT:
+        correct_opt = session.exec(
+            select(AnswerOption)
+            .where(AnswerOption.task_id == task_id)
+            .where(AnswerOption.is_correct)
+        ).first()
+        if not correct_opt:
+            raise HTTPException(500, "No correct answer defined for free-text task")
+
+        task_teacher = TaskReadTeacher(
+            chunk=task.chunk,
+            question=task.question,
+            answer_options=[correct_opt],
+        )
+
+    # 3. Determine result
+    result: ResultType
+    answer_option_id: Optional[UUID] = None
+    user_answer_text: Optional[str] = None
+    score: Optional[int] = None
+    feedback: Optional[str] = None
+
+    if task.type == TaskType.MULTIPLE_CHOICE:
+        # ────── MULTIPLE CHOICE ──────
+        if not option_id:
+            raise HTTPException(400, "option_id required")
+        opt = session.get(AnswerOption, option_id)
+        if not opt or opt.task_id != task_id:
+            raise HTTPException(400, "Invalid option")
+        answer_option_id = option_id
+        result = ResultType.CORRECT if opt.is_correct else ResultType.INCORRECT
+
+    else:
+        # ────── FREE TEXT ──────
+        if text is None:
+            raise HTTPException(400, "text required")
+        user_answer_text = text
+
+        if not task_teacher:
+            raise HTTPException(500, "Teacher model not prepared")
+        
+        teacher_response = evaluate_student_answer(
+            task_teacher=task_teacher,
+            student_answer=text,
+            task_type=task.type,
+            lm=lm,
+        )
+
+        if isinstance(teacher_response, TeacherResponseFreeText):
+            score = teacher_response.score
+            feedback = teacher_response.feedback
+            if score >= 90:
+                result = ResultType.CORRECT
+            elif score >= 50:
+                result = ResultType.PARTIAL
+            else:
+                result = ResultType.INCORRECT
+        else:
+            result = ResultType.PARTIAL  # fallback
+
+    answer_event = TaskAnswerEvent(
+        task_id=task_id,
+        user_id=current_user.id,
+        answer_option_id=answer_option_id,
+        user_answer_text=user_answer_text,
+        result=result,
+    )
+    session.add(answer_event)
+
+    link = session.exec(
+        select(TaskUserLink)
+        .where(TaskUserLink.task_id == task_id)
+        .where(TaskUserLink.user_id == current_user.id)
+    ).first()
+
+    if not link:
+        link = TaskUserLink(task_id=task_id, user_id=current_user.id)
+        session.add(link)
+
+    if result == ResultType.CORRECT:
+        link.times_correct += 1
+    elif result == ResultType.INCORRECT:
+        link.times_incorrect += 1
+    else:
+        link.times_partial += 1
+
+    link.updated_at = datetime.utcnow()
+    session.commit()
+
+    return {
+        "task_id": str(task_id),
+        "result": result.value,
+        "answer_option_id": str(answer_option_id) if answer_option_id else None,
+        "user_answer_text": user_answer_text,
+        "score": score,
+        "feedback": feedback,
+    }
 
 @router.get("/{task_id}/snapshot/{version}")
 def task_snapshot(

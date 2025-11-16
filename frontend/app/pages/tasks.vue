@@ -216,24 +216,25 @@ onMounted(async () => {
   }
 });
 
+// Add keyboard event listener when component is mounted
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+
 onMounted(() => {
   $authFetch('/analytics/pages/tasks/enter', {
     method: 'POST',
     credentials: 'include',
-  })
+  }).catch(() => {})
 })
 
 onBeforeUnmount(() => {
   $authFetch('/analytics/pages/tasks/leave', {
     method: 'POST',
     credentials: 'include',
-  })
+  }).catch(() => {})
 })
-
-// Add keyboard event listener when component is mounted
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
 
 // Remove keyboard event listener when component is unmounted
 onUnmounted(() => {
@@ -350,71 +351,60 @@ function handleKeydown(event: KeyboardEvent) {
 // Removed polling; tasks are returned by the backend and injected immediately
 
 async function evaluateAnswer() {
-  if (!previewingTask.value || currentAnswer.value === null || currentAnswer.value === "") {
+  if (!previewingTask.value || !currentAnswer.value?.trim()) {
     notifications.error("Please enter an answer.");
     return;
   }
 
   feedback.value = "Evaluating...";
   evaluating.value = true;
+  showEvaluation.value = false;
 
-  if (previewingTask.value.type === 'multiple_choice') {
-    const correct = currentAnswer.value === previewingTask.value.answer_options.find(option => option.is_correct)?.answer;
-    isCorrect.value = correct;
-    evaluationStatus.value = correct ? 'correct' : 'incorrect';
-    showEvaluation.value = true;
-    if (correct) {
-      evaluating.value = false;
-      return;
-    }
-    // Incorrect multiple choice: request backend feedback
-    try {
-      const responseData = await $authFetch(`/tasks/evaluate_answer/${previewingTask.value.id}`, {
-        method: "POST",
-        body: { student_answer: currentAnswer.value },
-      }) as { feedback: string; };
-      feedback.value = responseData.feedback || null;
-    } catch (e: unknown) {
-      notifications.error(e instanceof Error ? e.message : "Failed to evaluate answer.");
-      return;
-    } finally {
-      evaluating.value = false;
-    }
-  } else {
-    // Free text: wait for backend response, use new 4-way scoring system
-    try {
-      const responseData = await $authFetch(`/tasks/evaluate_answer/${previewingTask.value.id}`, {
-        method: "POST",
-        body: { student_answer: currentAnswer.value },
-      }) as { feedback: string; score: number; };
-      feedback.value = responseData.feedback || null;
-      const scoreNum = responseData.score;
+  try {
+    let payload: any = {};
 
-      // Handle new 4-way scoring system (0-3)
-      if (scoreNum === 0) {
-        // Correct: 1 point
-        evaluationStatus.value = 'correct';
-        isCorrect.value = true;
-      } else if (scoreNum === 1) {
-        // Partially correct but incomplete: 0.5 points
-        evaluationStatus.value = 'partial';
-        isCorrect.value = false;
-      } else if (scoreNum === 2) {
-        // Contradictory: 0 points
-        evaluationStatus.value = 'contradictory';
-        isCorrect.value = false;
-      } else if (scoreNum === 3) {
-        // Irrelevant: 0 points
-        evaluationStatus.value = 'irrelevant';
-        isCorrect.value = false;
+    if (previewingTask.value.type === 'multiple_choice') {
+      // Find selected option by answer text
+      const selectedOption = previewingTask.value.answer_options.find(
+        opt => opt.answer === currentAnswer.value
+      );
+      if (!selectedOption) {
+        notifications.error("Invalid answer selected.");
+        return;
       }
-      showEvaluation.value = true;
-    } catch (e: unknown) {
-      notifications.error(e instanceof Error ? e.message : "Failed to evaluate answer.");
-      return;
-    } finally {
-      evaluating.value = false;
+      payload.option_id = selectedOption.id;
+    } else {
+      // Free text
+      payload.text = currentAnswer.value;
     }
+
+    // CALL NEW ENDPOINT
+    const response = await $authFetch(`/tasks/${previewingTask.value.id}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }) as {
+      result: "CORRECT" | "INCORRECT" | "PARTIAL";
+      score: number | null;
+      feedback: string | null;
+    };
+
+    // Map result
+    const result = response.result;
+    isCorrect.value = result === "CORRECT";
+    evaluationStatus.value = result === "CORRECT" ? "correct" :
+                             result === "PARTIAL" ? "partial" :
+                             "incorrect";
+
+    feedback.value = response.feedback || "No feedback provided.";
+    showEvaluation.value = true;
+
+  } catch (e: any) {
+    console.error("Evaluation failed:", e);
+    notifications.error(e.message || "Failed to evaluate answer.");
+    feedback.value = "Error during evaluation.";
+  } finally {
+    evaluating.value = false;
   }
 }
 
@@ -425,6 +415,7 @@ function closeTryTask() {
   isCorrect.value = null;
   evaluationStatus.value = "incorrect";
   feedback.value = null;
+  evaluating.value = false;
 }
 </script>
 

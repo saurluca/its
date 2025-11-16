@@ -56,6 +56,20 @@ onMounted(async () => {
     window.addEventListener("keydown", handleKeyDown);
 });
 
+onMounted(() => {
+  $authFetch('/analytics/pages/home/enter', {
+    method: 'POST',
+    credentials: 'include',
+  })
+})
+
+onBeforeUnmount(() => {
+  $authFetch('/analytics/pages/home/leave', {
+    method: 'POST',
+    credentials: 'include',
+  })
+})
+
 onBeforeUnmount(() => {
     window.removeEventListener("keydown", handleKeyDown);
 });

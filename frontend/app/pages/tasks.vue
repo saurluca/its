@@ -216,6 +216,20 @@ onMounted(async () => {
   }
 });
 
+onMounted(() => {
+  $authFetch('/analytics/pages/tasks/enter', {
+    method: 'POST',
+    credentials: 'include',
+  })
+})
+
+onBeforeUnmount(() => {
+  $authFetch('/analytics/pages/tasks/leave', {
+    method: 'POST',
+    credentials: 'include',
+  })
+})
+
 // Add keyboard event listener when component is mounted
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);

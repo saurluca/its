@@ -364,7 +364,6 @@ async function evaluateAnswer() {
     let payload: any = {};
 
     if (previewingTask.value.type === 'multiple_choice') {
-      // Find selected option by answer text
       const selectedOption = previewingTask.value.answer_options.find(
         opt => opt.answer === currentAnswer.value
       );
@@ -374,35 +373,32 @@ async function evaluateAnswer() {
       }
       payload.option_id = selectedOption.id;
     } else {
-      // Free text
       payload.text = currentAnswer.value;
     }
 
-    // CALL NEW ENDPOINT
     const response = await $authFetch(`/tasks/${previewingTask.value.id}/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }) as {
       result: "CORRECT" | "INCORRECT" | "PARTIAL";
-      score: number | null;
-      feedback: string | null;
+      score?: number;
+      feedback?: string;
     };
 
     // Map result
-    const result = response.result;
-    isCorrect.value = result === "CORRECT";
-    evaluationStatus.value = result === "CORRECT" ? "correct" :
-                             result === "PARTIAL" ? "partial" :
+    isCorrect.value = response.result === "CORRECT";
+    evaluationStatus.value = response.result === "CORRECT" ? "correct" :
+                             response.result === "PARTIAL" ? "partial" :
                              "incorrect";
 
-    feedback.value = response.feedback || "No feedback provided.";
+    feedback.value = response.feedback || "No feedback.";
     showEvaluation.value = true;
 
   } catch (e: any) {
-    console.error("Evaluation failed:", e);
-    notifications.error(e.message || "Failed to evaluate answer.");
-    feedback.value = "Error during evaluation.";
+    console.error("Answer submission failed:", e);
+    notifications.error(e.message || "Failed to submit answer.");
+    feedback.value = "Error.";
   } finally {
     evaluating.value = false;
   }

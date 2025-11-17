@@ -182,9 +182,12 @@ async function evaluateAnswer() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }) as {
-    result: "CORRECT" | "INCORRECT" | "PARTIAL";
-    feedback: string | null;
+    task_id: string;
+    result: string;
+    answer_option_id: string | null;
+    user_answer_text: string | null;
     score: number | null;
+    feedback: string | null;
   };
 
   const result = response.result;

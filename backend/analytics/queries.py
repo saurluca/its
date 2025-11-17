@@ -383,3 +383,77 @@ def compare_task_versions(
         "changes": changes,
         "has_changes": any(changes.values())
     }
+
+
+def get_repository_answer_stats(
+    session: Session,
+    repository_id: UUID
+) -> Dict[str, Any]:
+    """Get answer statistics for all tasks in a repository"""
+    from units.models import Unit, UnitTaskLink
+    
+    # Get all task IDs in this repository
+    task_ids_stmt = (
+        select(UnitTaskLink.task_id)
+        .join(Unit)
+        .where(Unit.repository_id == repository_id)
+        .distinct()
+    )
+    task_ids = [tid for tid in session.exec(task_ids_stmt).all()]
+    
+    if not task_ids:
+        return {
+            "repository_id": repository_id,
+            "total_answers": 0,
+            "total_correct": 0,
+            "total_incorrect": 0,
+            "total_partial": 0,
+            "unique_users": 0,
+            "success_rate": 0
+        }
+    
+    # Get answer statistics
+    answer_stats = session.exec(
+        select(
+            func.count(TaskAnswerEvent.id).label('total_answers'),
+            func.count(func.distinct(TaskAnswerEvent.user_id)).label('unique_users'),
+            func.sum(func.case((TaskAnswerEvent.result == ResultType.CORRECT, 1), else_=0)).label('total_correct'),
+            func.sum(func.case((TaskAnswerEvent.result == ResultType.INCORRECT, 1), else_=0)).label('total_incorrect'),
+            func.sum(func.case((TaskAnswerEvent.result == ResultType.PARTIAL, 1), else_=0)).label('total_partial')
+        )
+        .where(TaskAnswerEvent.task_id.in_(task_ids))
+    ).first()
+    
+    total_answers = answer_stats.total_answers or 0
+    total_correct = answer_stats.total_correct or 0
+    success_rate = (total_correct / total_answers * 100) if total_answers > 0 else 0
+    
+    return {
+        "repository_id": repository_id,
+        "total_answers": total_answers,
+        "total_correct": total_correct,
+        "total_incorrect": answer_stats.total_incorrect or 0,
+        "total_partial": answer_stats.total_partial or 0,
+        "unique_users": answer_stats.unique_users or 0,
+        "success_rate": round(success_rate, 2)
+    }
+
+
+def get_repository_comprehensive_stats(
+    session: Session,
+    repository_id: UUID
+) -> Dict[str, Any]:
+    """Get all statistics for a repository"""
+    
+    # Task lifecycle (created/deleted/modified)
+    task_lifecycle = get_repository_task_statistics(session, repository_id)
+    
+    # Answer analytics
+    answer_stats = get_repository_answer_stats(session, repository_id)
+    
+    return {
+        "repository_id": repository_id,
+        "task_lifecycle": task_lifecycle,
+        "answer_analytics": answer_stats,
+        "generated_at": datetime.utcnow()
+    }

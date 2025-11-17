@@ -28,7 +28,12 @@ from sqlmodel import select, Session
 from auth.service import get_user_by_email
 from units.models import UnitListResponse
 
-from analytics.queries import get_page_usage_stats, get_repository_task_statistics
+from analytics.queries import (
+    get_page_usage_stats, 
+    get_repository_task_statistics, 
+    get_repository_comprehensive_stats, 
+    get_repository_answer_stats,
+    )
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
@@ -40,8 +45,9 @@ def repository_statistics(
     session: Session = Depends(get_db_session),
     current_user: User = Depends(get_current_user_from_request)
 ):
-    """Get task statistics for a repository"""
-    return get_repository_task_statistics(session, repository_id)
+    """Get comprehensive statistics for a repository"""
+    from analytics.queries import get_repository_comprehensive_stats
+    return get_repository_comprehensive_stats(session, repository_id)
 
 # ----
 

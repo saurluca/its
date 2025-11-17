@@ -102,6 +102,21 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeyPress);
 });
 
+onMounted(() => {
+  $authFetch('/analytics/pages/study/enter', {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {})
+})
+
+onBeforeUnmount(() => {
+  $authFetch('/analytics/pages/study/leave', {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {})
+})
+
+
 onUnmounted(() => {
   // Clean up keyboard event listener
   document.removeEventListener('keydown', handleKeyPress);

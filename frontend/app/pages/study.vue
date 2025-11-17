@@ -36,15 +36,19 @@ const reportText = ref("");
 const reportSubmitting = ref(false);
 
 const currentTask = computed(() => tasks.value[currentTaskIndex.value]);
-const tasksDone = computed(() => showEvaluation.value ? currentTaskIndex.value + 1 : currentTaskIndex.value);
 
+// Progress: tasks completed out of total
+const tasksDone = computed(() => {
+  const total = tasks.value.length;
+  const idx = currentTaskIndex.value;
+  return showEvaluation.value ? Math.min(idx + 1, total) : idx;
+});
 
 // Text viewer state
 const showTextViewer = ref(false);
 const htmlContent = ref("");
 const loadingText = ref(false);
 const textError = ref("");
-
 
 // Sidebar state
 const collapsed = useSessionStorage("collapsed", false);
@@ -55,7 +59,10 @@ const isMobile = useMediaQuery('(hover: none) and (pointer: coarse)');
 // Keyboard handler for Enter key
 function handleKeyPress(event: KeyboardEvent) {
   // Block navigation while evaluating
-  if (evaluating.value) return;
+  if (evaluating.value) {
+    event.preventDefault();
+    return;
+  }
   // Handle Enter key when study session is finished (takes precedence)
   if (event.key === 'Enter' && pageState.value === 'finished') {
     event.preventDefault();
@@ -67,7 +74,7 @@ function handleKeyPress(event: KeyboardEvent) {
     nextQuestion();
   }
   // Hotkey: 'S' to show source when available (after evaluation)
-  else if (event.key.toLowerCase() === 's' && showEvaluation.value && currentTask.value?.chunk_id) {
+  else if (event.key.toLowerCase() === 's' && showEvaluation.value && !evaluating.value) {
     event.preventDefault();
     showSource();
   }
@@ -84,28 +91,30 @@ onMounted(() => {
     router.push("/units");
     return;
   }
-  currentTask.value?.chunk_id
-  startStudy();
 
+  if (unitIdParam) {
+    unitId.value = unitIdParam;
+    startStudy();
+  }
   // Note: documentId handling would need to be implemented separately if needed
 
   // Add keyboard event listener
   document.addEventListener('keydown', handleKeyPress);
-
-  // Analytics: enter study page
-  $authFetch('/analytics/pages/study/enter', { 
-    method: 'POST', 
-    credentials: 'include' 
-  }).catch(() => {});
 });
+
+onMounted(() => {
+  $authFetch('/analytics/pages/study/enter', {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {})
+})
 
 onBeforeUnmount(() => {
-  // Analytics: leave study page
-  $authFetch('/analytics/pages/study/leave', { 
-    method: 'POST', 
-    credentials: 'include'
-  }).catch(() => {});
-});
+  $authFetch('/analytics/pages/study/leave', {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {})
+})
 
 
 onUnmounted(() => {
@@ -114,6 +123,10 @@ onUnmounted(() => {
 });
 
 async function startStudy() {
+  if (!unitId.value) {
+    error.value = "Please enter a Unit ID.";
+    return;
+  }
   loading.value = true;
   error.value = null;
 
@@ -124,38 +137,45 @@ async function startStudy() {
     repositoryId.value = unitResponse.repository_id;
 
     const responseData = await $authFetch(`/tasks/unit/${unitId.value}/study`) as Task[];
-    tasks.value = responseData.length > 0 ? responseData : [];
-    pageState.value = tasks.value.length > 0 ? "studying" : "no-tasks";
 
-  } catch (e: any) {
-    error.value = e instanceof Error ? e.message : 'Failed to load study session';
+    if (responseData && responseData.length > 0) {
+      // Keep backend-provided order for this study session
+      tasks.value = responseData;
+      currentTaskIndex.value = 0;
+      pageState.value = "studying";
+    } else {
+      pageState.value = "no-tasks";
+    }
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'An error occurred';
   } finally {
     loading.value = false;
   }
 }
 
 async function evaluateAnswer() {
-  if (!currentAnswer.value?.trim()) {
+  if (currentAnswer.value === null || currentAnswer.value === "") {
     error.value = "Please enter an answer.";
     return;
   }
 
-  evaluating.value = true;
   feedback.value = "Evaluating...";
-  showEvaluation.value = false;
+  evaluating.value = true
 
   try {
   let payload: any = {};
 
   if (currentTask.value?.type === 'multiple_choice') {
-    const selected = currentTask.value.answer_options.find(opt =>
-        opt.answer.trim().toLowerCase() === currentAnswer.value.trim().toLowerCase()
-      );
-    if (!selected) throw new Error("Answer not found in options");
-      payload.option_id = selected.id;
-    } else {
-      payload.text = currentAnswer.value;
+    const selectedOption = currentTask.value.answer_options.find(
+      opt => opt.answer.trim().toLowerCase() === currentAnswer.value.trim().toLowerCase()
+    );
+    if (!selectedOption) {
+      throw new Error("Selected answer not found in options");
     }
+    payload.option_id = selectedOption.id;
+  } else {
+    payload.text = currentAnswer.value;
+  }
 
   const response = await $authFetch(`/tasks/${currentTask.value?.id}/answer`, {
     method: "POST",
@@ -167,8 +187,9 @@ async function evaluateAnswer() {
     score: number | null;
   };
 
-  const { result, feedback: apiFeedback, score: aiScore } = response;
-  feedback.value = apiFeedback || "No feedback provided.";
+  const result = response.result;
+
+  feedback.value = response.feedback || "No feedback provided.";
 
   if (currentTask.value?.type === 'multiple_choice') {
     const correct = result === "CORRECT";
@@ -200,9 +221,9 @@ async function evaluateAnswer() {
 
   showEvaluation.value = true;
 
-} catch (e: any) {
-  console.error("Evaluation failed:",e);
-  error.value = e.message || "Failed to evaluate answer";
+} catch (e: unknown) {
+  console.error(e);
+  error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
 } finally {
   evaluating.value = false;
 }
@@ -214,7 +235,6 @@ function nextQuestion() {
     currentAnswer.value = "";
     isCorrect.value = null;
     showEvaluation.value = false;
-    feedback.value = null;
     // Hide text viewer when moving to next question
     closeTextViewer();
   } else {
@@ -241,9 +261,16 @@ async function showSource() {
 
   try {
     // First, fetch the specific chunk data
-    const chunk = await $authFetch(`/documents/chunks/${currentTask.value.chunk_id}`) as { chunk_text: string }
+    const chunkUrl = `/documents/chunks/${currentTask.value.chunk_id}`;
+
+    const chunkData = await $authFetch(chunkUrl) as { chunk_text: string };
+
+    if (!chunkData.chunk_text) {
+      throw new Error("Chunk data not found");
+    }
+
     // Convert plain text to HTML (escape HTML and preserve whitespace)
-    const escapedText = chunk.chunk_text
+    const escapedText = chunkData.chunk_text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')

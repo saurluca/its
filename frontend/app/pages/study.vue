@@ -163,51 +163,70 @@ async function evaluateAnswer() {
   evaluating.value = true
 
   try {
-    // Always call backend; it will short-circuit MC-correct and LLM others
-    const responseData = await $authFetch(`/tasks/evaluate_answer/${currentTask.value?.id}`, {
-      method: "POST",
-      body: { student_answer: currentAnswer.value },
-    }) as { feedback: string; score?: number };
+  let payload: any = {};
 
-    if (currentTask.value?.type === 'multiple_choice') {
-      const correctAnswer = currentTask.value.answer_options.find(option => option.is_correct)?.answer;
-      const correct = currentAnswer.value === correctAnswer;
-      isCorrect.value = correct;
-      evaluationStatus.value = correct ? 'correct' : 'incorrect';
-      if (!correct) {
-        feedback.value = responseData.feedback || null;
-      } else {
-        // Count correct MC
-        score.value++;
-      }
-      showEvaluation.value = true;
-    } else {
-      // Free text uses score mapping from backend
-      feedback.value = responseData.feedback || null;
-      const scoreNum = responseData.score ?? 3;
-      if (scoreNum === 0) {
-        evaluationStatus.value = 'correct';
-        isCorrect.value = true;
-        score.value += 1;
-      } else if (scoreNum === 1) {
-        evaluationStatus.value = 'partial';
-        isCorrect.value = false;
-        score.value += 0.5;
-      } else if (scoreNum === 2) {
-        evaluationStatus.value = 'contradictory';
-        isCorrect.value = false;
-      } else {
-        evaluationStatus.value = 'irrelevant';
-        isCorrect.value = false;
-      }
-      showEvaluation.value = true;
+  if (currentTask.value?.type === 'multiple_choice') {
+    const selectedOption = currentTask.value.answer_options.find(
+      opt => opt.answer.trim().toLowerCase() === currentAnswer.value.trim().toLowerCase()
+    );
+    if (!selectedOption) {
+      throw new Error("Selected answer not found in options");
     }
-  } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
-    return;
-  } finally {
-    evaluating.value = false;
+    payload.option_id = selectedOption.id;
+  } else {
+    payload.text = currentAnswer.value;
   }
+
+  const response = await $authFetch(`/tasks/${currentTask.value?.id}/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }) as {
+    result: "CORRECT" | "INCORRECT" | "PARTIAL";
+    feedback: string | null;
+    score: number | null;
+  };
+
+  const result = response.result;
+
+  feedback.value = response.feedback || "No feedback provided.";
+
+  if (currentTask.value?.type === 'multiple_choice') {
+    const correct = result === "CORRECT";
+    isCorrect.value = correct;
+    evaluationStatus.value = correct ? "correct" : "incorrect";
+
+    if (correct) {
+      score.value += 1;
+    }
+  } else {
+    const aiScore = response.score ?? 50;
+
+    if (aiScore >= 90) {
+      evaluationStatus.value = "correct";
+      isCorrect.value = true;
+      score.value += 1;
+    } else if (aiScore >= 50) {
+      evaluationStatus.value = "partial";
+      isCorrect.value = false;
+      score.value += 0.5;
+    } else if (aiScore >= 20) {
+      evaluationStatus.value = "contradictory";
+      isCorrect.value = false;
+    } else {
+      evaluationStatus.value = "irrelevant";
+      isCorrect.value = false;
+    }
+  }
+
+  showEvaluation.value = true;
+
+} catch (e: unknown) {
+  console.error(e);
+  error.value = e instanceof Error ? e.message : "Failed to evaluate answer.";
+} finally {
+  evaluating.value = false;
+}
 }
 
 function nextQuestion() {

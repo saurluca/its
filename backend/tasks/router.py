@@ -306,7 +306,7 @@ def task_change_history(
 
 # ----
 
-# TODO is this even needed?
+# Updated to Filter out soft-deleted tasks
 @router.get("", response_model=list[TaskRead])
 async def get_tasks(
     session: Session = Depends(get_db_session),
@@ -324,6 +324,7 @@ async def get_tasks(
             (Repository.owner_id == current_user.id)
             | (RepositoryAccess.user_id == current_user.id)
         )
+        .where(Task.deleted_at.is_(None))
         .distinct()
     ).all()
 
@@ -675,7 +676,7 @@ async def delete_task(
         task_id=task_id,
         change_type=ChangeType.DELETED,
         user_id=current_user.id,
-        metadata={"deleted_at": db_task.deleted_at.isoformat()}
+        change_metadata={"deleted_at": db_task.deleted_at.isoformat()}
     )
     session.add(change_event)
     
@@ -692,7 +693,6 @@ async def delete_task(
     
     session.commit()
     return {"ok": True, "message": "Task soft-deleted", "deleted_at": db_task.deleted_at}
-
 
 # Answer Option specific endpoints
 @router.post("/{task_id}/answer-options", response_model=AnswerOptionRead)

@@ -169,9 +169,14 @@ async def update_unit(
     session.commit()
     session.refresh(db_unit)
 
-    # Count tasks linked to this unit
+    # Count tasks linked to this unit, filter out soft-deleted tasks
     task_count = len(
-        session.exec(select(UnitTaskLink).where(UnitTaskLink.unit_id == unit_id)).all()
+        session.exec(
+            select(Task)
+            .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+            .where(UnitTaskLink.unit_id == unit_id)
+            .where(Task.deleted_at.is_(None))
+        ).all()
     )
 
     # Create response object with task count
@@ -232,10 +237,13 @@ async def get_units_by_repository(
     # Create response objects with task counts
     units_with_counts = []
     for unit in db_units:
-        # Count tasks linked to this unit
+        # Count tasks linked to this unit, excluding soft-deleted ones
         task_count = len(
             session.exec(
-                select(UnitTaskLink).where(UnitTaskLink.unit_id == unit.id)
+                select(Task)
+                .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+                .where(UnitTaskLink.unit_id == unit.id)
+                .where(Task.deleted_at.is_(None))
             ).all()
         )
 

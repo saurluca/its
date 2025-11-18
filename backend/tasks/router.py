@@ -433,12 +433,13 @@ async def get_tasks_by_repository(
             detail="Repository not found",
         )
 
-    # Get all tasks linked to this repository through units
+    # Get all tasks linked to this repository through units, Filter out soft-deleted tasks
     db_tasks = session.exec(
         select(Task)
         .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
         .join(Unit, UnitTaskLink.unit_id == Unit.id)
         .where(Unit.repository_id == repository_id)
+        .where(Task.deleted_at.is_(None))
     ).all()
 
     return db_tasks

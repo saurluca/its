@@ -59,7 +59,7 @@ from tasks.service import (
 )
 import dspy
 from repositories.access_control import get_repository_access
-
+from tasks.versions import create_task_snapshot
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
@@ -565,13 +565,16 @@ async def update_task(
         create_task_access_dependency(AccessLevel.WRITE)
     ),
 ):
+    """Update a task and create a version snapshot"""
+    from tasks.models import ChangeType, TaskChangeEvent
+    from tasks.versions import create_task_snapshot
+    
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
 
-    # Verify chunk exists if chunk_id is being updated
     if task.chunk_id is not None:
         db_chunk = session.get(Chunk, task.chunk_id)
         if not db_chunk:
@@ -579,25 +582,60 @@ async def update_task(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
             )
 
-    # Update task fields
+    # Track changes
+    changes = {}
+    if task.question and task.question != db_task.question:
+        changes["question"] = {"old": db_task.question, "new": task.question}
+    if task.type and task.type != db_task.type:
+        changes["type"] = {"old": db_task.type.value, "new": task.type.value}
+    if task.chunk_id and task.chunk_id != db_task.chunk_id:
+        changes["chunk_id"] = {"old": str(db_task.chunk_id), "new": str(task.chunk_id)}
+
+    # Create snapshot if anything changed
+    if changes or task.answer_options is not None:
+        new_version = create_task_snapshot(session, db_task)
+
+    # Update task
     task_data = task.model_dump(exclude_unset=True, exclude={"answer_options"})
     db_task.sqlmodel_update(task_data)
 
-    # Handle answer options update
+    # Handle answer options
     if task.answer_options is not None:
-        # Delete existing answer options
+        changes["answer_options"] = "modified"
+        
         existing_options = session.exec(
             select(AnswerOption).where(AnswerOption.task_id == task_id)
         ).all()
         for option in existing_options:
             session.delete(option)
 
-        # Create new answer options
         for answer_option_data in task.answer_options:
             db_answer_option = AnswerOption(
                 task_id=task_id, **answer_option_data.model_dump()
             )
             session.add(db_answer_option)
+
+    # Log changes
+    if changes:
+        change_event = TaskChangeEvent(
+            task_id=task_id,
+            change_type=ChangeType.MODIFIED,
+            user_id=current_user.id,
+            old_value=str(changes),
+            new_value=task.question if task.question else None,
+            metadata={"version": new_version.version, "changes": changes}
+        )
+        session.add(change_event)
+        
+        unit_link = session.exec(
+            select(UnitTaskLink).where(UnitTaskLink.task_id == task_id)
+        ).first()
+        
+        if unit_link:
+            unit = session.get(Unit, unit_link.unit_id)
+            if unit:
+                from tasks.stats_service import increment_task_modified
+                increment_task_modified(session, unit.repository_id)
 
     session.add(db_task)
     session.commit()
@@ -613,23 +651,50 @@ async def delete_task(
         create_task_access_dependency(AccessLevel.WRITE)
     ),
 ):
+    """Soft delete a task (marks as deleted but preserves all data)"""
+    from tasks.models import ChangeType, TaskChangeEvent
+    
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
-
-    # Explicitly delete answer options first to ensure proper cleanup
-    answer_options = session.exec(
-        select(AnswerOption).where(AnswerOption.task_id == task_id)
-    ).all()
-    for answer_option in answer_options:
-        session.delete(answer_option)
-
-    # Then delete the task
-    session.delete(db_task)
+    
+    if db_task.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Task already deleted"
+        )
+    
+    # Create snapshot before soft-deleting
+    create_task_snapshot(session, db_task)
+    
+    # Soft delete
+    db_task.deleted_at = datetime.utcnow()
+    session.add(db_task)
+    
+    # Log deletion
+    change_event = TaskChangeEvent(
+        task_id=task_id,
+        change_type=ChangeType.DELETED,
+        user_id=current_user.id,
+        metadata={"deleted_at": db_task.deleted_at.isoformat()}
+    )
+    session.add(change_event)
+    
+    # Update stats
+    unit_link = session.exec(
+        select(UnitTaskLink).where(UnitTaskLink.task_id == task_id)
+    ).first()
+    
+    if unit_link:
+        unit = session.get(Unit, unit_link.unit_id)
+        if unit:
+            from tasks.stats_service import increment_task_deleted
+            increment_task_deleted(session, unit.repository_id)
+    
     session.commit()
-    return {"ok": True}
+    return {"ok": True, "message": "Task soft-deleted", "deleted_at": db_task.deleted_at}
 
 
 # Answer Option specific endpoints
@@ -687,12 +752,40 @@ async def update_answer_option(
         create_task_access_dependency(AccessLevel.WRITE)
     ),
 ):
+    """Update an answer option and log changes"""
+    from tasks.models import ChangeType, TaskChangeEvent
+    from tasks.versions import create_task_snapshot
+    
     db_answer_option = session.get(AnswerOption, option_id)
     if not db_answer_option or db_answer_option.task_id != task_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Answer option not found"
         )
-
+    
+    task = session.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    
+    # Track changes
+    changes = {}
+    if answer_option_update.answer and answer_option_update.answer != db_answer_option.answer:
+        changes["answer"] = {"old": db_answer_option.answer, "new": answer_option_update.answer}
+    if answer_option_update.is_correct is not None and answer_option_update.is_correct != db_answer_option.is_correct:
+        changes["is_correct"] = {"old": db_answer_option.is_correct, "new": answer_option_update.is_correct}
+    
+    if changes:
+        create_task_snapshot(session, task)
+        
+        change_event = TaskChangeEvent(
+            task_id=task.id,
+            change_type=ChangeType.MODIFIED,
+            user_id=current_user.id,
+            answer_option_id=option_id,
+            old_value=str(changes),
+            metadata={"field": "answer_option", "option_id": str(option_id), "changes": changes}
+        )
+        session.add(change_event)
+    
     update_data = answer_option_update.model_dump(exclude_unset=True)
     db_answer_option.sqlmodel_update(update_data)
     session.add(db_answer_option)

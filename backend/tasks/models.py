@@ -41,6 +41,8 @@ class ChangeType(str, Enum):
     OPTION_UPDATED = "option_updated"
     OPTION_DELETED = "option_deleted"
     CORRECTNESS_CHANGED = "correctness_changed"
+    MODIFIED = "modified"
+    DELETED = "deleted"
     OTHER = "other"
 
 

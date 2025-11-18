@@ -651,18 +651,16 @@ async def delete_task(
         create_task_access_dependency(AccessLevel.WRITE)
     ),
 ):
-    """Soft delete a task (marks as deleted but preserves all data)"""    
+    """Soft delete a task (marks as deleted but preserves all data)."""    
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
         )
     
+    # If the task is already deleted, just return success without doing anything else.
     if db_task.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Task already deleted"
-        )
+        return {"ok": True, "message": "Task was already deleted", "deleted_at": db_task.deleted_at}
     
     # Create snapshot before soft-deleting
     create_task_snapshot(session, db_task)

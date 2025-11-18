@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status, Depends, HTTPException, Query, Body
 import asyncio
+import json
 from datetime import datetime
 from dependencies import (
     get_db_session,
@@ -664,7 +665,10 @@ async def update_task(
             user_id=current_user.id,
             old_value=str(changes),
             new_value=task.question if task.question else None,
-            change_metadata={"version": new_version.version, "changes": changes}
+            change_metadata=json.dumps({
+                "version": new_version.version,
+                "changes": changes
+            })
         )
         session.add(change_event)
         

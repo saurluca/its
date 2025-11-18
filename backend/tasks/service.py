@@ -45,7 +45,7 @@ from tasks.versions_service import (
     get_next_version_number,
     create_answer_option_version,
 )
-from tasks.stats_service import increment_task_created, increment_task_deleted, increment_task_modified
+from tasks.stats_service import increment_task_created, increment_task_deleted, increment_task_modified_once 
 
 # helper function to get repository IDs efficiently
 def get_repository_ids_for_task(
@@ -204,7 +204,7 @@ def update_task_with_versioning(
         if is_first_modification:
             repo_ids = get_repository_ids_for_task(session, task.chunk_id)
             for repo_id in repo_ids:
-                increment_task_modified(session, repo_id, task.id)
+                increment_task_modified_once(session, repo_id, task.id)
         
         # Log change events
         for field, old_value in old_values.items():

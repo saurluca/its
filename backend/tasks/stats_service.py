@@ -61,30 +61,37 @@ def increment_task_deleted(
     return stats
 
 
-def increment_task_modified(
-    session: Session, repository_id: UUID, task_id: UUID
-) -> TaskStatistics:
-    """Increment the total_modified count only if this is the first modification"""
-    # Check if task has been modified before
+# 1. Counts EVERY edit → used by PUT /tasks/{id}, delete endpoint, etc.
+def increment_task_modified(session: Session, repository_id: UUID) -> TaskStatistics:
+    stats = get_or_create_task_statistics(session, repository_id)
+    stats.total_modified += 1
+    stats.updated_at = datetime.utcnow()
+    session.add(stats)
+    session.commit()
+    session.refresh(stats)
+    return stats
+
+
+# 2. Counts only the FIRST edit of a task → used only by the advanced versioning helper
+def increment_task_modified_once(session: Session, repository_id: UUID, task_id: UUID) -> TaskStatistics:
     from tasks.models import Task
     task = session.get(Task, task_id)
     if not task:
         raise ValueError(f"Task {task_id} not found")
-    
-    # Only increment if this is the first modification
-    if not task.has_been_modified:
-        stats = get_or_create_task_statistics(session, repository_id)
-        stats.total_modified += 1
-        stats.updated_at = datetime.utcnow()
-        
-        session.add(stats)
-        session.commit()
-        session.refresh(stats)
-        
-        return stats
-    
-    # Return stats without incrementing
-    return get_or_create_task_statistics(session, repository_id)
+
+    if task.has_been_modified:
+        return get_or_create_task_statistics(session, repository_id)
+
+    task.has_been_modified = True
+    stats = get_or_create_task_statistics(session, repository_id)
+    stats.total_modified += 1
+    stats.updated_at = datetime.utcnow()
+
+    session.add(task)
+    session.add(stats)
+    session.commit()
+    session.refresh(stats)
+    return stats
 
 
 def get_task_statistics(

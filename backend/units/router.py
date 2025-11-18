@@ -23,6 +23,7 @@ from auth.models import UserResponse, User
 from uuid import UUID
 from sqlmodel import select, Session
 from analytics.queries import get_unit_task_audit
+from tasks.models import Task
 
 router = APIRouter(prefix="/units", tags=["units"])
 
@@ -67,10 +68,13 @@ async def get_units(
     # Create response objects with task counts and repository info
     units_with_counts = []
     for unit in accessible_units:
-        # Count tasks linked to this unit
+        # Count tasks linked to this unit, excluding soft-deleted ones
         task_count = len(
             session.exec(
-                select(UnitTaskLink).where(UnitTaskLink.unit_id == unit.id)
+                select(Task)
+                .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+                .where(UnitTaskLink.unit_id == unit.id)
+                .where(Task.deleted_at.is_(None))  # Filter out soft-deleted tasks
             ).all()
         )
 
@@ -98,9 +102,14 @@ async def get_unit(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    # Count tasks linked to this unit
+    # Count tasks linked to this unit, excluding soft-deleted ones
     task_count = len(
-        session.exec(select(UnitTaskLink).where(UnitTaskLink.unit_id == unit_id)).all()
+        session.exec(
+            select(Task)
+            .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+            .where(UnitTaskLink.unit_id == unit_id)
+            .where(Task.deleted_at.is_(None))
+        ).all()
     )
 
     # Build detailed response explicitly to include repository_name and task info

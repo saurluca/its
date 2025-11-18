@@ -16,6 +16,7 @@ from repositories.models import (
     RepositoryAccessUpdate,
 )
 from units.models import UnitTaskLink
+from tasks.models import Task
 from repositories.access_control import (
     create_repository_access_dependency,
     get_repository_access,
@@ -33,8 +34,6 @@ from analytics.queries import get_page_usage_stats, get_repository_task_statisti
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 # ===================REPOSITORY STATISTICS ENDPOINTS============================
-
-# In repositories/routes.py or wherever your repository router is
 @router.get("/{repository_id}/statistics")
 def repository_statistics(
     repository_id: UUID,
@@ -181,10 +180,13 @@ async def get_repository_units(
     )
     unit_responses = []
     for unit in units:
-        # Count tasks for each unit
+        # Count tasks for each unit, exclude soft-deleted ones
         task_count = len(
             session.exec(
-                select(UnitTaskLink).where(UnitTaskLink.unit_id == unit.id)
+                select(Task)
+                .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
+                .where(UnitTaskLink.unit_id == unit.id)
+                .where(Task.deleted_at.is_(None))
             ).all()
         )
 

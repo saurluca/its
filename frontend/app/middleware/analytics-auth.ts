@@ -3,7 +3,7 @@ export default defineNuxtRouteMiddleware((_to) => {
   // List of emails that are allowed to access analytics dashboard
   const allowedEmails = [
     'daniel.odhiambo@gess.ethz.ch',
-    'daniel.odhiambo@gess.ethz.ch',
+    'adtoth@ethz.ch',
     'daniel.odhiambo@gess.ethz.ch'
   ];
 

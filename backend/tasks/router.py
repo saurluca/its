@@ -59,7 +59,8 @@ from tasks.service import (
 )
 import dspy
 from repositories.access_control import get_repository_access
-from tasks.versions import create_task_snapshot
+from tasks.versions_service import create_task_snapshot
+from tasks.models import ChangeType, TaskChangeEvent
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
@@ -566,8 +567,6 @@ async def update_task(
     ),
 ):
     """Update a task and create a version snapshot"""
-    from tasks.models import ChangeType, TaskChangeEvent
-    from tasks.versions import create_task_snapshot
     
     db_task = session.get(Task, task_id)
     if not db_task:
@@ -651,9 +650,7 @@ async def delete_task(
         create_task_access_dependency(AccessLevel.WRITE)
     ),
 ):
-    """Soft delete a task (marks as deleted but preserves all data)"""
-    from tasks.models import ChangeType, TaskChangeEvent
-    
+    """Soft delete a task (marks as deleted but preserves all data)"""    
     db_task = session.get(Task, task_id)
     if not db_task:
         raise HTTPException(
@@ -753,8 +750,7 @@ async def update_answer_option(
     ),
 ):
     """Update an answer option and log changes"""
-    from tasks.models import ChangeType, TaskChangeEvent
-    from tasks.versions import create_task_snapshot
+    
     
     db_answer_option = session.get(AnswerOption, option_id)
     if not db_answer_option or db_answer_option.task_id != task_id:

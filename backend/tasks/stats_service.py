@@ -61,7 +61,7 @@ def increment_task_deleted(
     return stats
 
 
-def increment_task_modified_once(
+def increment_task_modified(
     session: Session, repository_id: UUID, task_id: UUID
 ) -> TaskStatistics:
     """Increment the total_modified count only if this is the first modification"""

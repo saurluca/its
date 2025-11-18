@@ -63,6 +63,7 @@ import dspy
 from repositories.access_control import get_repository_access
 from tasks.versions_service import create_task_snapshot
 from tasks.models import ChangeType, TaskChangeEvent
+from tasks.stats_service import increment_task_deleted, increment_task_modified
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
@@ -679,7 +680,6 @@ async def update_task(
         if unit_link:
             unit = session.get(Unit, unit_link.unit_id)
             if unit:
-                from tasks.stats_service import increment_task_modified
                 increment_task_modified(session, unit.repository_id)
 
     session.add(db_task)
@@ -731,7 +731,6 @@ async def delete_task(
     if unit_link:
         unit = session.get(Unit, unit_link.unit_id)
         if unit:
-            from tasks.stats_service import increment_task_deleted
             increment_task_deleted(session, unit.repository_id)
     
     session.commit()

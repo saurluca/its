@@ -51,6 +51,7 @@ from auth.dependencies import get_current_user_from_request
 from auth.models import UserResponse, User
 from uuid import UUID
 from typing import Any, cast, Optional
+from sqlalchemy import update
 from sqlmodel import select, Session
 from tasks.service import (
     generate_tasks,
@@ -606,10 +607,48 @@ async def update_task(
         existing_options = session.exec(
             select(AnswerOption).where(AnswerOption.task_id == task_id)
         ).all()
-        for option in existing_options:
+        
+        # Create a mapping of existing option IDs for later reference
+        existing_option_ids = {option.id for option in existing_options}
+        
+        # Find answer events that reference these options
+        answer_events = session.exec(
+            select(TaskAnswerEvent).where(
+                TaskAnswerEvent.answer_option_id.in_(list(existing_option_ids))
+            )
+        ).all()
+        
+        # Create a mapping of answer option data to identify matches
+        new_options_data = {
+            (opt.answer, opt.is_correct): opt for opt in task.answer_options
+        }
+        
+        # Track which options are kept, updated, or deleted
+        options_to_keep = []
+        options_to_delete = []
+        
+        for existing_option in existing_options:
+            # Check if this option matches any new option
+            if (existing_option.answer, existing_option.is_correct) in new_options_data:
+                # This option is kept
+                options_to_keep.append(existing_option)
+                # Remove from new options to avoid duplicates
+                del new_options_data[(existing_option.answer, existing_option.is_correct)]
+            else:
+                # This option will be deleted
+                options_to_delete.append(existing_option)
+        
+        # For options that will be deleted, nullify references in answer events
+        for option in options_to_delete:
+            session.exec(
+                update(TaskAnswerEvent)
+                .where(TaskAnswerEvent.answer_option_id == option.id)
+                .values(answer_option_id=None)
+            )
             session.delete(option)
-
-        for answer_option_data in task.answer_options:
+        
+        # Add the new options
+        for answer_option_data in new_options_data.values():
             db_answer_option = AnswerOption(
                 task_id=task_id, **answer_option_data.model_dump()
             )
@@ -623,7 +662,7 @@ async def update_task(
             user_id=current_user.id,
             old_value=str(changes),
             new_value=task.question if task.question else None,
-            metadata={"version": new_version.version, "changes": changes}
+            change_metadata={"version": new_version.version, "changes": changes}
         )
         session.add(change_event)
         

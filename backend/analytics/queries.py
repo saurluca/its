@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlmodel import Session, select, func
 from sqlalchemy.orm import selectinload
+from sqlalchemy import case
 from tasks.models import TaskAnswerEvent, TaskChangeEvent
 from tasks.models import (
     Task,
@@ -16,7 +17,7 @@ from tasks.models import (
 from tasks.versions import TaskVersion, AnswerOptionVersion
 from tasks.models import ChangeType
 from tasks.stats import TaskStatistics
-from units.models import UnitTaskEvent
+from units.models import UnitTaskEvent, Unit, UnitTaskLink
 from analytics.models import UserPageSession, PageType
 
 def get_task_completion_stats(session: Session, task_id: UUID) -> Dict[str, Any]:
@@ -389,9 +390,7 @@ def get_repository_answer_stats(
     session: Session,
     repository_id: UUID
 ) -> Dict[str, Any]:
-    """Get answer statistics for all tasks in a repository"""
-    from units.models import Unit, UnitTaskLink
-    
+    """Get answer statistics for all tasks in a repository"""    
     # Get all task IDs in this repository
     task_ids_stmt = (
         select(UnitTaskLink.task_id)
@@ -417,9 +416,9 @@ def get_repository_answer_stats(
         select(
             func.count(TaskAnswerEvent.id).label('total_answers'),
             func.count(func.distinct(TaskAnswerEvent.user_id)).label('unique_users'),
-            func.sum(func.case((TaskAnswerEvent.result == ResultType.CORRECT, 1), else_=0)).label('total_correct'),
-            func.sum(func.case((TaskAnswerEvent.result == ResultType.INCORRECT, 1), else_=0)).label('total_incorrect'),
-            func.sum(func.case((TaskAnswerEvent.result == ResultType.PARTIAL, 1), else_=0)).label('total_partial')
+            func.sum(case((TaskAnswerEvent.result == ResultType.CORRECT, 1), else_=0)).label('total_correct'),
+            func.sum(case((TaskAnswerEvent.result == ResultType.INCORRECT, 1), else_=0)).label('total_incorrect'),
+            func.sum(case((TaskAnswerEvent.result == ResultType.PARTIAL, 1), else_=0)).label('total_partial')
         )
         .where(TaskAnswerEvent.task_id.in_(task_ids))
     ).first()

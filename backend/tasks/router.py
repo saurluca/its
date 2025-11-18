@@ -408,6 +408,7 @@ async def get_tasks_by_unit(
         select(Task)
         .join(UnitTaskLink, Task.id == UnitTaskLink.task_id)
         .where(UnitTaskLink.unit_id == unit_id)
+        .where(Task.deleted_at.is_(None))
     ).all()
 
     return db_tasks

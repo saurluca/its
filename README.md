@@ -40,13 +40,13 @@ cd backend
 
 uv run uvicorn main:app --reload
 ```
-#### Detailed First Time Installation
+#### Detailed First Time Installation (uv)
 If you are using Windows:
 Open powershell and run the following:
 ```bash
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-env:Path = "C:\Users\noob\.local\bin;$env:Path"
+env:Path = "C:\Users\[replace_with_your_username]\.local\bin;$env:Path"
 ```
 
 If you are using Linux (Ubuntu):
@@ -66,6 +66,24 @@ uv sync
 Set environment variables for database and AI API keys in frontend/.env.example
 
 To instal bun: [installing bun](https://bun.com/docs/installation)
+
+#### Detailed First Time Installation (Bun)
+If you are using Windows:
+Open powershell and run the following:
+```bash
+powershell -c "irm bun.sh/install.ps1|iex"
+
+env:Path = "C:\Users\[replace_with_your_username]\.bun\bin;$env:Path"
+```
+
+If you are using Linux (Ubuntu):
+```bash
+curl -fsSL https://bun.com/install | bash
+
+```
+
+
+
 
 ```bash
 cd frontend

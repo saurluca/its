@@ -60,7 +60,23 @@ Sync the project's dependencies with the environment.
 
 ``` bash
 uv sync
+
 ```
+
+##### NB: Ensure the docker deamon is running
+
+You should see the following when you run docker compose command:
+
+``` bash
+docker-compose up -d  
+[+] up 26/26
+ ✔ Image ghcr.io/saurluca/its-docling-serve:main Pulled                                                           428.9s
+ ✔ Image postgres:17-alpine                      Pulled                                                           23.9ss
+ ✔ Network its_default                           Created                                                          0.1s
+ ✔ Container db                                  Created                                                          0.5s
+ ✔ Container docling-serve                       Created                                                          0.1s
+```
+
 ### Frontend Setup
 
 Set environment variables for database and AI API keys in frontend/.env.example

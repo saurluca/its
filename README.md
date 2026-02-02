@@ -44,22 +44,22 @@ uv run uvicorn main:app --reload
 If you are using Windows:
 Open powershell and run the following:
 ```bash
-$powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-$env:Path = "C:\Users\noob\.local\bin;$env:Path"
+env:Path = "C:\Users\noob\.local\bin;$env:Path"
 ```
 
 If you are using Linux (Ubuntu):
 ```bash
-$curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-$source $HOME/.local/bin/env
+source $HOME/.local/bin/env
 
 ```
 Sync the project's dependencies with the environment.
 
 ``` bash
-$uv sync
+uv sync
 ```
 ### Frontend Setup
 

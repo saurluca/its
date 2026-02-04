@@ -57,7 +57,7 @@ async def login_for_access_token(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,  # True in production
+        secure=True,  # False in development env
         samesite="lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",

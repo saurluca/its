@@ -10,7 +10,17 @@ class DatabaseConfig:
 
     @staticmethod
     def get_database_url():
-        return f"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+        user = os.getenv("DB_USER")
+        password = os.getenv("DB_PASSWORD")
+        host = os.getenv("DB_HOST")
+        port = os.getenv("DB_PORT")
+        name = os.getenv("DB_NAME")
+
+        # Check for missing variables
+        if not all([user, password, host, port, name]):
+            raise ValueError("Missing database environment variables. Please check your .env file.")
+
+        return f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
 
 class LLMConfig:

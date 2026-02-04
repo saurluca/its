@@ -106,15 +106,44 @@ cd frontend
 
 bun install
 
+bun add -g pnpm
+npx update-browserslist-db@latest
+
 bun run dev
 ```
 
-### Database and Docling Setup
+### Database and Docling Setup (Local development)
 
 ```bash
 docker-compose up -d
-```
 
+docker-compose exec db psql -U postgres -c "CREATE DATABASE its;"
+
+docker-compose exec db psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';" #you can replace the with the password set in the .env
+further troubleshooting :
+docker-compose exec db psql -h localhost -p 5432 -U postgres -d its -W #psql terminal and create database from their ( internal connections (from inside the Docker #container) are set to "Trust" mode, meaning they ignore passwords. )
+
+docker container ls
+docker container inspect [container_id]
+```
+-d dbname
+-U username
+-W
+--password
+
+    Force psql to prompt for a password before connecting to a database, even if the password will not be used.
+
+For further troubleshooting :
+```bash
+netstat -ano | findstr :5432 
+
+docker container ls
+
+docker container inspect [container_id] # obtained from the docker container ls command
+
+
+Run the relation_creation.py file to create all the tables afer you create the database
+```
 ### Pre commit hooks
 
 ```bash

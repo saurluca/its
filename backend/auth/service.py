@@ -14,7 +14,7 @@ from auth.dependencies import get_current_user_from_request
 from uuid import UUID
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+pwd_context = CryptContext(schemes=["argon2", "bcrypt_sha256","bcrypt", ], deprecated=["bcrypt", "bcrypt_sha256", ],)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
@@ -23,7 +23,7 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_password_hash(password):
+def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
@@ -33,13 +33,19 @@ def get_user_model_from_db(session: Session, email: str) -> User:
     return user
 
 
-def authenticate_user(session: Session, email: str, password: str) -> User | None:
-    """Authenticate user with database"""
+def authenticate_user(session, email: str, password: str):
     user = get_user_model_from_db(session, email)
     if not user:
         return None
-    if not verify_password(password, user.hashed_password):
+
+    if not pwd_context.verify(password, user.hashed_password):
         return None
+    # 🔄 Auto-upgrade hash if needed
+    if pwd_context.needs_update(user.hashed_password):
+        user.hashed_password = pwd_context.hash(password)
+        session.add(user)
+        session.commit()
+
     return user
 
 

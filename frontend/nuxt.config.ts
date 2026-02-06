@@ -11,7 +11,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   css: ["@/app.css"],
-  modules: ["@vueuse/nuxt", "@nuxt/fonts", "@pinia/nuxt", "@nuxt/eslint"],
+  modules: ["@pinia/nuxt", "@vueuse/nuxt", "@nuxt/fonts", "@nuxt/eslint"],
 
   fonts: { experimental: { processCSSVariables: true } },
 

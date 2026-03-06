@@ -2,6 +2,8 @@ services:
   db:
     image: postgres:17-alpine
     container_name: db
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     ports:
       - "5432:5432"
     volumes:
@@ -14,6 +16,8 @@ services:
 
   caddy:
     image: caddy:2.8-alpine
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     container_name: caddy
     ports:
       - "80:80"
@@ -31,6 +35,8 @@ services:
   backend:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-backend:${GITHUB_REF_NAME:-main}
     container_name: backend
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     env_file:
       - .env
     ports:
@@ -38,40 +44,40 @@ services:
     depends_on:
       - db
       - docling-serve
-    labels:
-      com.centurylinklabs.watchtower.enable: true
     restart: always
 
   frontend:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-frontend:${GITHUB_REF_NAME:-main}
     container_name: frontend
+    labels:
+      com.centurylinklabs.watchtower.enable: true
     environment:
       - NUXT_PUBLIC_API_BASE=https://tutor.ethz.ch/api
     ports:
       - "3000:80"
     depends_on:
       - backend
-    labels:
-      com.centurylinklabs.watchtower.enable: true
     restart: always
 
   docling-serve:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}-docling-serve:${GITHUB_REF_NAME:-main}
     container_name: docling-serve
-    env_file:
-      - .env
-    ports:
-      - "5001:5001"
-    depends_on:
-      - db
     labels:
       com.centurylinklabs.watchtower.enable: true
+    ports:
+      - "5001:5001"
+    env_file:
+      - .env
+    depends_on:
+      - db
     restart: always
 
+
   watchtower:
-    image: containrrr/watchtower:latest
+    image: nickfedor/watchtower
+    container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker/config.json:/config.json
-    command: --interval 30 --cleanup --label-enable
-    restart: always
+    command: --interval 30 --label-enable --cleanup
+    restart: unless-stopped
